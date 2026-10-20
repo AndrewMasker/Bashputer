@@ -36,9 +36,9 @@ parse_Reset_CLK() {
     esac
 }
 
-parse_Inst() {
-    case $OPCODE in
-
+parse_OPCODE() {
+    case $(mask_Lower_Byte $OPCODE) in
+        
     esac
 }
 
@@ -49,10 +49,10 @@ parse_Ready_CLK() {
             ;;
         load_opcode)
             echo load "$PC"
-            PROC_STATE=do_inst
+            PROC_STATE=parse_opcode
             ;;
-        do_inst)
-            parse_Inst
+        parse_opcode)
+            parse_OPCODE
             ;;
     esac
 }
