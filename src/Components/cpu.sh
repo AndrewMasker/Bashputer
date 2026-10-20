@@ -3,6 +3,7 @@
 
 MY_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source "$MY_DIR"/cpu.cfg
+source "$MY_DIR"/cpu_utils.sh
 
 # INITIALIZATION CODE
 CPU_STATE=reset
@@ -16,10 +17,15 @@ parse_Reset_CLK() {
             ;;
         load_pc)  
             PC="$RESET_PC"
-            PROC_STATE=clear_GPRs
+            PROC_STATE=clear_registers
             ;;
-        clear_GPRs)
+        clear_registers)
             GPRs=( $(for i in {1..16}; do echo 0; done) )
+            OPCODE=0x0
+            ARGA=0x0
+            ARGB=0x0
+            ARGC=0x0
+            ARGD=0x0
             PROC_STATE=done
             ;;
         done)
@@ -30,12 +36,18 @@ parse_Reset_CLK() {
     esac
 }
 
+parse_Inst() {
+    case $OPCODE in
+
+    esac
+}
+
 parse_Ready_CLK() {
     case $PROC_STATE in
         none) 
-            PROC_STATE=load_inst
+            PROC_STATE=load_opcode
             ;;
-        load_inst)
+        load_opcode)
             echo load "$PC"
             PROC_STATE=do_inst
             ;;
