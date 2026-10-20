@@ -3,14 +3,15 @@
 
 declare -A state
 
+parse_Data() {
+    local value = $1
+}
+
 parse_Input() {
     local type = $1
     local value = $2
     if [[ $type == "clock_pulse" ]]; then {
         return parse_Clock_Pulse
-    }
-    elif [[ $type == "instruction" ]]; then {
-        return parse_Instruction $value
     }
     elif [[ $type == "data" ]]; then {
         return parse_Data $value
