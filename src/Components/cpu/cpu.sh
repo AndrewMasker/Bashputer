@@ -10,6 +10,7 @@ source "$MY_DIR"/cu.sh
 CPU_STATE=reset
 PROC_STATE=none
 SUBPROC_STATE=none
+2SUBPROC_STATE=none
 DATA_STATE=none
 
 parse_Reset_CLK() {

@@ -2,5 +2,5 @@
 # alu.sh
 
 add() {
-    printf '%0x016X' $(( $1 + $2 ))
+    printf '0x%016X' $(( $1 + $2 ))
 }
