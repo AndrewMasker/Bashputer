@@ -10,12 +10,11 @@ parse_Data() {
 parse_Input() {
     local type=$1
     local value=$2
-    if [[ $type == "clock_pulse" ]]; then {
-        return parse_Clock_Pulse
-    }
-    elif [[ $type == "data" ]]; then {
-        return parse_Data "$value"
-    }
+    case $type in
+    clock_pulse) parse_Clock_Pulse ;;
+    data) parse_Data "$value" ;;
+    *) echo "cpu: unknown input '$type'" >&2 ;; 
+    esac
 }
 
 while read -r type value; do
