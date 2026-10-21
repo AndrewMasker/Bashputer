@@ -2,20 +2,22 @@
 # cu.sh
 
 source "$MY_DIR"/alu.sh
-source "$MY_DIR"/utils.h
+source "$MY_DIR"/utils.sh
 
 parse_NOP_OPCODE() {
+    local pidx=${1:-0}
     printf -v PC '0x%016X' $((PC + 1))
-    PROC_STATE=done
+    if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
 }
 
 parse_HLT_OPCODE() {
+    local pidx=${1:-0}
     CPU_STATE=halted
-    PROC_STATE=done
+    if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
 }
 
 parse_ADD_OPCODE() {
-    local pidx=${1-}
+    local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
             PROC_STATE[pidx]=load
@@ -33,7 +35,7 @@ parse_ADD_OPCODE() {
 }
 
 parse_SUB_OPCODE() {
-    local pidx=${1-}
+    local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
             PROC_STATE[pidx]=load
@@ -51,7 +53,7 @@ parse_SUB_OPCODE() {
 }
 
 parse_AND_OPCODE() {
-    local pidx=${1-}
+    local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
             PROC_STATE[pidx]=load
@@ -69,7 +71,7 @@ parse_AND_OPCODE() {
 }
 
 parse_OR_OPCODE() {
-    local pidx=${1-}
+    local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
             PROC_STATE[pidx]=load
@@ -87,7 +89,7 @@ parse_OR_OPCODE() {
 }
 
 parse_XOR_OPCODE() {
-    local pidx=${1-}
+    local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
             PROC_STATE[pidx]=load
@@ -105,7 +107,7 @@ parse_XOR_OPCODE() {
 }
 
 parse_NOT_OPCODE() {
-    local pidx=${1-}
+    local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
             PROC_STATE[pidx]=load
@@ -123,7 +125,7 @@ parse_NOT_OPCODE() {
 }
 
 parse_LSR_OPCODE() {
-    local pidx=${1-}
+    local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
             PROC_STATE[pidx]=load
@@ -141,7 +143,7 @@ parse_LSR_OPCODE() {
 }
 
 parse_ASR_OPCODE() {
-    local pidx=${1-}
+    local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
             PROC_STATE[pidx]=load
@@ -159,7 +161,7 @@ parse_ASR_OPCODE() {
 }
 
 parse_SHL_OPCODE() {
-    local pidx=${1-}
+    local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
             PROC_STATE[pidx]=load
@@ -177,7 +179,7 @@ parse_SHL_OPCODE() {
 }
 
 parse_OPCODE() {
-    local pidx=${1-}
+    local pidx=${1:-0}
     case $(get_Lower_Byte $OPCODE) in
         0x00) parse_NOP_OPCODE $pidx ;;
         0x01) parse_HLT_OPCODE $pidx ;;
@@ -224,5 +226,6 @@ parse_OPCODE() {
         0x2B) parse_CAL_OPCODE $pidx ;;
         0x2C) parse_RET_OPCODE $pidx ;;
         0x2D) parse_MOV_OPCODE $pidx ;;
+        *) echo "cpu: unknown OPCODE '$OPCODE'" >&2; CPU_STATE=halted ;;
     esac
 }

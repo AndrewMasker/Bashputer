@@ -6,7 +6,7 @@ get_Lower_Byte() {
 }
 
 load_2_ARGS() {
-    local pidx=${1-}
+    local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
             PROC_STATE[pidx]=RA
@@ -32,13 +32,14 @@ load_2_ARGS() {
         done)
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load_args"; fi
             PROC_STATE[pidx]=""
+            ;;
         *) 
             echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
     esac
 }
 
 load_3_ARGS() {
-    local pidx=${1-}
+    local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
             PROC_STATE[pidx]=RA
@@ -73,6 +74,7 @@ load_3_ARGS() {
         done)
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load_args"; fi
             PROC_STATE[pidx]=""
+            ;;
         *) 
             echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
     esac

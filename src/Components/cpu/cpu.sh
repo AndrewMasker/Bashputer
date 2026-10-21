@@ -13,7 +13,7 @@ DATA_STATE=none
 
 parse_Reset_CLK() {
     local i
-    local pidx=${1-}
+    local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "") 
             PROC_STATE[pidx]=load_cfgs
@@ -44,7 +44,7 @@ parse_Reset_CLK() {
 }
 
 parse_Ready_CLK() {
-    local pidx=${1-}
+    local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "") 
             PROC_STATE[pidx]=request_opcode
