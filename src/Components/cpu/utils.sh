@@ -14,9 +14,8 @@ store_Byte() {
     local to_address
     printf -v "to_address" '0x%016X' $(( ${!to} + addr_offset ))
     local byte
-    printf -v "byte" '0x%016X' $(( (${!from} >> data_offset) & 0xFF ))
+    printf -v "byte" '0x%02X' $(( (${!from} >> data_offset) & 0xFF ))
     echo store "$byte" "$to_address"
-    PROC_STATE[pidx]="load_byte"
     if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${addr_offset}"; fi
 }
 
@@ -52,15 +51,15 @@ store_Half() {
     local from=${3}
     local addr_offset=${4:-0}
     local data_offset=${5:-0}
-    local quarter_0_addr_offset=$offset
-    local quarter_1_addr_offset=$((offset + 2))
+    local quarter_0_addr_offset=$addr_offset
+    local quarter_1_addr_offset=$((addr_offset + 2))
     local quarter_0_data_offset=$data_offset
     local quarter_1_data_offset=$((data_offset + 16))
     case ${PROC_STATE[pidx]-} in
         "")
             store_Quarter $((pidx+1)) "$to" "$from" "$quarter_0_addr_offset" "$quarter_0_data_offset"
             ;;
-        "done_store_${to}_${quarter_0_adrr_offset}")
+        "done_store_${to}_${quarter_0_addr_offset}")
             store_Quarter $((pidx+1)) "$to" "$from" "$quarter_1_addr_offset" "$quarter_1_data_offset"
             ;;
         "done_store_${to}_${quarter_1_addr_offset}")
@@ -78,8 +77,8 @@ store_Word() {
     local from=${3}
     local addr_offset=${4:-0}
     local data_offset=${5:-0}
-    local half_0_addr_offset=$offset
-    local half_1_addr_offset=$((offset + 4))
+    local half_0_addr_offset=$addr_offset
+    local half_1_addr_offset=$((addr_offset + 4))
     local half_0_data_offset=$data_offset
     local half_1_data_offset=$((data_offset + 32))
     case ${PROC_STATE[pidx]-} in
