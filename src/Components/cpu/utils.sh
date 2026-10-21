@@ -28,12 +28,15 @@ load_Byte() {
                 local lower_mask=$(( ~( -1 << ( where*8 ) ) ))
                 local mask=$(( (upper_mask) | (lower_mask) ))
                 local data=$(( DATA << (where*8) ))
-            else 
+            elif ((where == 7)); then
+                local mask=$(( ~( -1 << ( where*8 ) ) ))
+                local data=$(( DATA << (where*8) ))
+            else
                 local mask=-1
                 local data=0
             fi
             printf -v "$to" '0x%016X' $(( (prev & mask) | data))
-            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load_$to_$where"; fi
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load_${to}_${where}"; fi
             PROC_STATE[pidx]=""
             ;;
         *)
@@ -52,13 +55,12 @@ load_Quarter() {
     local byte_1_where=$(( byte_0_where + 1 ))
     case ${PROC_STATE[pidx]-} in
         "")
-            load_Byte $((pidx+1)) $to $from $byte_0_where $clear $increment
+            load_Byte $((pidx+1)) "$to" "$from" "$byte_0_where" "$clear" "$increment"
             ;;
-        "done_load_$to_$byte_0_where")
-            load_Byte $((pidx+1)) $to $byte_1_from $byte_1_where false true
+        "done_load_${to}_${byte_0_where}")
+            load_Byte $((pidx+1)) "$to" "$from" "$byte_1_where" false true
             ;;
-        "done_load_$to_$byte_1_where")
-            printf -v "$from" '0x%016X' $(( ${!from} - 1 ))
+        "done_load_${to}_${byte_1_where}")
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load"; fi
             PROC_STATE[pidx]=""
             ;;
