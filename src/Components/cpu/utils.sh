@@ -51,8 +51,8 @@ load_Quarter() {
     local where=${4:-0}
     local clear=${5:-"true"}
     local increment=${6:-"true"}
-    local byte_0_where=$(( 2*$where ))
-    local byte_1_where=$(( byte_0_where + 1 ))
+    local byte_0_where=$where
+    local byte_1_where=$(( where + 1 ))
     case ${PROC_STATE[pidx]-} in
         "")
             load_Byte $((pidx+1)) "$to" "$from" "$byte_0_where" "$clear" "$increment"
@@ -61,9 +61,61 @@ load_Quarter() {
             load_Byte $((pidx+1)) "$to" "$from" "$byte_1_where" false true
             ;;
         "done_load_${to}_${byte_1_where}")
-            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load"; fi
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load_${to}_${where}"; fi
             PROC_STATE[pidx]=""
             ;;
+        *)
+            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
+    esac
+}
+
+load_Half() {
+    local pidx=${1:-0}
+    local to=${2:-"ARGA"}
+    local from=${3:-"PC"}
+    local where=${4:-0}
+    local clear=${5:-"true"}
+    local increment=${6:-"true"}
+    local quarter_0_where=$where
+    local quarter_1_where=$(( where + 2))
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_Quarter $((pidx+1)) "$to" "$from" "$quarter_0_where" "$clear" "$increment"
+            ;;
+        "done_load_${to}_${quarter_0_where}")
+            load_Quarter $((pidx+1)) "$to" "$from" "$quarter_1_where" false true
+            ;;
+        "done_load_${to}_${quarter_1_where}")
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load_${to}_${where}"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *)
+            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
+    esac
+}
+
+load_Word() {
+    local pidx=${1:-0}
+    local to=${2:-"ARGA"}
+    local from=${3:-"PC"}
+    local where=${4:-0}
+    local clear=${5:-"true"}
+    local increment=${6:-"true"}
+    local half_0_where=$where
+    local half_1_where=$(( where + 4 ))
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_Half $((pidx+1)) "$to" "$from" "$half_0_where" "$clear" "$increment"
+            ;;
+        "done_load_${to}_${half_0_where}")
+            load_Half $((pidx+1)) "$to" "$from" "$half_1_where" false true
+            ;;
+        "done_load_${to}_${half_1_where}")
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load_${to}_${where}"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *)
+            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
     esac
 }
 
