@@ -5,11 +5,91 @@ get_Lower_Byte() {
     printf '0x%02X' $(( $1 & 0xFF )) 
 }
 
+store_Byte() {
+    local pidx=${1}
+    local to=${2} # The register holding the address to be stored to
+    local from=${3} # The register holding the value 
+    local offset=${4:-0}
+    local to_address
+    printf -v "to_address" '0x%016X' $(( ${!to} + offset ))
+    echo store "${!from}" "$to_address"
+    PROC_STATE[pidx]="load_byte"
+    if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${offset}"; fi
+}
+
+store_Quarter() {
+    local pidx=${1}
+    local to=${2}
+    local from=${3}
+    local offset={4:-0}
+    local byte_0_offset=$offset
+    local byte_1_offset=$((offset + 1))
+    case ${PROC_STATE[pidx]-} in
+        "")
+            store_Byte $((pidx+1)) "$to" "$from" "byte_0_offset"
+            ;;
+        "done_store_${to}_${byte_0_offset}")
+            store_Byte $((pidx+1)) "$to" "$from" "byte_1_offset"
+            ;;
+        "done_store_${to}_${byte_1_offset}")
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${offset}"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *)
+            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
+    esac
+}
+
+store_Half() {
+    local pidx=${1}
+    local to=${2}
+    local from=${3}
+    local offset={4:-0}
+    local quarter_0_offset=$offset
+    local quarter_1_offset=$((offset + 2))
+    case ${PROC_STATE[pidx]-} in
+        "")
+            store_Quarter $((pidx+1)) "$to" "$from" "quarter_0_offset"
+            ;;
+        "done_store_${to}_${quarter_0_offset}")
+            store_Quarter $((pidx+1)) "$to" "$from" "quarter_1_offset"
+            ;;
+        "done_store_${to}_${quarter_1_offset}")
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${offset}"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *)
+            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
+    esac
+}
+
+store_Word() {
+    local pidx=${1}
+    local to=${2}
+    local from=${3}
+    local offset={4:-0}
+    local half_0_offset=$offset
+    local half_1_offset=$((offset + 4))
+    case ${PROC_STATE[pidx]-} in
+        "")
+            store_Half $((pidx+1)) "$to" "$from" "half_0_offset"
+            ;;
+        "done_store_${to}_${half_0_offset}")
+            store_Half $((pidx+1)) "$to" "$from" "half_1_offset"
+            ;;
+        "done_store_${to}_${half_1_offset}")
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${offset}"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *)
+            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
+    esac
+}
 
 load_Byte() {
     local pidx=${1:-0}
-    local to=${2:-"ARGA"}
-    local from=${3:-"PC"}
+    local to=${2:-"ARGA"} # The register that the byte should be loaded into
+    local from=${3:-"PC"} # The register that holds the address to be loaded
     local where=${4:-0}
     local clear=${5:-"true"}
     local increment=${6:-"true"}
