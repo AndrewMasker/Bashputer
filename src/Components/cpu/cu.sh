@@ -25,7 +25,7 @@ parse_ADD_OPCODE() {
         load)
             load_3_ARGS $((pidx+1))
             ;;
-        done_load_args)
+        done_load)
             GPRs[ARGC]=$(add "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
@@ -43,7 +43,7 @@ parse_SUB_OPCODE() {
         load)
             load_3_ARGS $((pidx+1))
             ;;
-        done_load_args)
+        done_load)
             GPRs[ARGC]=$(sub "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
@@ -61,7 +61,7 @@ parse_AND_OPCODE() {
         load)
             load_3_ARGS $((pidx+1))
             ;;
-        done_load_args)
+        done_load)
             GPRs[ARGC]=$(and "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
@@ -79,7 +79,7 @@ parse_OR_OPCODE() {
         load)
             load_3_ARGS $((pidx+1))
             ;;
-        done_load_args)
+        done_load)
             GPRs[ARGC]=$(or "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
@@ -97,7 +97,7 @@ parse_XOR_OPCODE() {
         load)
             load_3_ARGS $((pidx+1))
             ;;
-        done_load_args)
+        done_load)
             GPRs[ARGC]=$(xor "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
@@ -115,7 +115,7 @@ parse_NOT_OPCODE() {
         load)
             load_2_ARGS $((pidx+1))
             ;;
-        done_load_args)
+        done_load)
             GPRs[ARGB]=$(not "${GPRs[$ARGA]}")
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
@@ -133,8 +133,8 @@ parse_LSR_OPCODE() {
         load)
             load_2_ARGS $((pidx+1))
             ;;
-        done_load_args)
-            GPRs[ARGC]=$(asr "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+        done_load)
+            GPRs[ARGC]=$(lsr "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -151,8 +151,8 @@ parse_ASR_OPCODE() {
         load)
             load_3_ARGS $((pidx+1))
             ;;
-        done_load_args)
-            GPRs[ARGC]=$(lsr "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+        done_load)
+            GPRs[ARGC]=$(asr "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -169,7 +169,7 @@ parse_SHL_OPCODE() {
         load)
             load_3_ARGS $((pidx+1))
             ;;
-        done_load_args)
+        done_load)
             GPRs[ARGC]=$(shl "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
