@@ -24,13 +24,13 @@ parse_Reset_CLK() {
             PROC_STATE=clear_registers
             ;;
         clear_registers)
-            GPRs=( $(for i in {1..256}; do echo 0; done) )
-            OPCODE=0x0
-            ARGA=0x0
-            ARGB=0x0
-            ARGC=0x0
-            ARGD=0x0
-            DATA=0x0
+            for ((i = 0; i < 256; i++)); do printf -v 'GPRs[i]' '0x%016X' 0; done
+            printf -v 'OPCODE' '0x%016X' 0
+            printf -v 'ARGA' '0x%016X' 0
+            printf -v 'ARGB' '0x%016X' 0
+            printf -v 'ARGC' '0x%016X' 0
+            printf -v 'ARGD' '0x%016X' 0
+            printf -v 'DATA' '0x%016X' 0
             PROC_STATE=done
             ;;
         done)
