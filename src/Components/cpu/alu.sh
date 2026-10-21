@@ -26,6 +26,8 @@ not() {
 }
 
 lsr() {
+    if (( $2 == 0)); then printf '0x%016X' $(( $1 )); fi
+    if (( $2 >= 64)); then printf '0x%016X' 0; fi
     local asr=$(( $1 >> $2 ))
     local mask=$(( ~( -1 <<  (64 - $2) ) ))
     printf '0x%016X' $(( asr &  mask))
