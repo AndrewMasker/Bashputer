@@ -8,22 +8,23 @@ source "$MY_DIR"/cu.sh
 
 # INITIALIZATION CODE
 CPU_STATE=reset
-PROC_STATE=none
-SUBPROC_STATE=none
-2SUBPROC_STATE=none
+PROC_STATE=()
 DATA_STATE=none
 
 parse_Reset_CLK() {
-    case $PROC_STATE in
-        none) 
-            PROC_STATE=load_cfgs
+    local i
+    local pidx=${1-}
+    case ${PROC_STATE[pidx]-} in
+        "") 
+            PROC_STATE[pidx]=load_cfgs
             ;;
         load_cfgs)  
             PC="$RESET_PC"
             SP="$RESET_SP"
-            PROC_STATE=clear_registers
+            PROC_STATE[pidx]=clear_registers
             ;;
         clear_registers)
+            GPRs=()
             for ((i = 0; i < 256; i++)); do printf -v 'GPRs[i]' '0x%016X' 0; done
             printf -v 'OPCODE' '0x%016X' 0
             printf -v 'ARGA' '0x%016X' 0
@@ -31,38 +32,39 @@ parse_Reset_CLK() {
             printf -v 'ARGC' '0x%016X' 0
             printf -v 'ARGD' '0x%016X' 0
             printf -v 'DATA' '0x%016X' 0
-            PROC_STATE=done
+            PROC_STATE[pidx]=done
             ;;
         done)
             CPU_STATE=ready
-            PROC_STATE=none
+            PROC_STATE[pidx]=""
             echo done
             ;;
-        *) echo "cpu: unknown PROC_STATE '$PROC_STATE'" >&2 ;;
+        *) echo "cpu: unknown PROC_STATE '${PROC_STATE[pidx]}'" >&2 ;;
     esac
 }
 
 parse_Ready_CLK() {
-    case $PROC_STATE in
-        none) 
-            PROC_STATE=request_opcode
+    local pidx=${1-}
+    case ${PROC_STATE[pidx]-} in
+        "") 
+            PROC_STATE[pidx]=request_opcode
             ;;
         request_opcode)
             echo load "$PC"
-            PROC_STATE=load_opcode
+            PROC_STATE[pidx]=load_opcode
             ;;
         load_opcode)
             OPCODE=$DATA
-            PROC_STATE=parse_opcode
+            PROC_STATE[pidx]=parse_opcode
             ;;
         parse_opcode)
-            parse_OPCODE
+            parse_OPCODE $((pidx+1))
             ;;
-        done)
+        done_parse)
             echo done
-            PROC_STATE=none
+            PROC_STATE[pidx]=""
             ;;
-        *) echo "cpu: unknown PROC_STATE '$PROC_STATE'" >&2 ;;
+        *) echo "cpu: unknown PROC_STATE '${PROC_STATE[pidx]}'" >&2 ;;
     esac
 }
 

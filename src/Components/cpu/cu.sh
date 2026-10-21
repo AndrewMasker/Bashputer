@@ -15,68 +15,214 @@ parse_HLT_OPCODE() {
 }
 
 parse_ADD_OPCODE() {
-    case $SUBPROC_STATE in
-        none)
-            SUBPROC_STATE=load
+    local pidx=${1-}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]=load
             ;;
         load)
-            load_3_ARGS
+            load_3_ARGS $((pidx+1))
             ;;
-        add)
+        done_load_args)
             GPRs[ARGC]=$(add "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
             printf -v 'PC' '0x%016X' $((PC + 1))
-            SUBPROC_STATE=none
-            PROC_STATE=done
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
+parse_SUB_OPCODE() {
+    local pidx=${1-}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]=load
+            ;;
+        load)
+            load_3_ARGS $((pidx+1))
+            ;;
+        done_load_args)
+            GPRs[ARGC]=$(sub "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
+parse_AND_OPCODE() {
+    local pidx=${1-}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]=load
+            ;;
+        load)
+            load_3_ARGS $((pidx+1))
+            ;;
+        done_load_args)
+            GPRs[ARGC]=$(and "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
+parse_OR_OPCODE() {
+    local pidx=${1-}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]=load
+            ;;
+        load)
+            load_3_ARGS $((pidx+1))
+            ;;
+        done_load_args)
+            GPRs[ARGC]=$(or "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
+parse_XOR_OPCODE() {
+    local pidx=${1-}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]=load
+            ;;
+        load)
+            load_3_ARGS $((pidx+1))
+            ;;
+        done_load_args)
+            GPRs[ARGC]=$(xor "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
+parse_NOT_OPCODE() {
+    local pidx=${1-}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]=load
+            ;;
+        load)
+            load_2_ARGS $((pidx+1))
+            ;;
+        done_load_args)
+            GPRs[ARGB]=$(not "${GPRs[$ARGA]}")
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
+parse_LSR_OPCODE() {
+    local pidx=${1-}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]=load
+            ;;
+        load)
+            load_2_ARGS $((pidx+1))
+            ;;
+        done_load_args)
+            GPRs[ARGC]=$(asr "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
+parse_ASR_OPCODE() {
+    local pidx=${1-}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]=load
+            ;;
+        load)
+            load_3_ARGS $((pidx+1))
+            ;;
+        done_load_args)
+            GPRs[ARGC]=$(lsr "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
+parse_SHL_OPCODE() {
+    local pidx=${1-}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]=load
+            ;;
+        load)
+            load_3_ARGS $((pidx+1))
+            ;;
+        done_load_args)
+            GPRs[ARGC]=$(shl "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
             ;;
     esac
 }
 
 parse_OPCODE() {
+    local pidx=${1-}
     case $(get_Lower_Byte $OPCODE) in
-        0x00) parse_NOP_OPCODE ;;
-        0x01) parse_HLT_OPCODE ;;
-        0x02) parse_ADD_OPCODE ;;
-        0x03) parse_SUB_OPCODE ;;
-        # 0x04) parse_INC_OPCODE ;;
-        # 0x05) parse_DEC_OPCODE ;;
-        # 0x07) parse_NEG_OPCODE ;;
-        # 0x08) parse_MUL_OPCODE ;;
-        # 0x09) parse_DIV_OPCODE ;;
-        # 0x0A) parse_REM_OPCODE ;;
-        0x0B) parse_AND_OPCODE ;;
-        0x0C) parse_OR_OPCODE  ;;
-        0x0D) parse_XOR_OPCODE ;;
-        0x0E) parse_NOT_OPCODE ;;
-        # 0x0F) parse_LSL_OPCODE ;;
-        0x10) parse_LSR_OPCODE ;;
-        0x11) parse_ASL_OPCODE ;;
-        0x12) parse_ASR_OPCODE ;;
-        # 0x13) parse_ROL_OPCODE ;;
-        # 0x14) parse_LDB_OPCODE ;;
-        # 0x15) parse_LDQ_OPCODE ;;
-        # 0x16) parse_LDH_OPCODE ;;
-        0x17) parse_LDW_OPCODE ;;
-        # 0x18) parse_STB_OPCODE ;;
-        # 0x19) parse_STQ_OPCODE ;;
-        # 0x1A) parse_STH_OPCODE ;;
-        0x1B) parse_STW_OPCODE ;;
-        # 0x1C) parse_LIB_OPCODE ;;
-        # 0x1D) parse_LIQ_OPCODE ;;
-        # 0x1E) parse_LIH_OPCODE ;;
-        0x1F) parse_LIW_OPCODE ;;
-        0x20) parse_EQ_OPCODE  ;;
-        # 0x21) parse_NE_OPCODE  ;;
-        # 0x22) parse_LT_OPCODE  ;;
-        0x23) parse_LTS_OPCODE ;;
-        # 0x24) parse_LE_OPCODE  ;;
-        # 0x25) parse_LES_OPCODE ;;
-        0x26) parse_BZ_OPCODE  ;;
-        0x27) parse_BNZ_OPCODE ;;
-        0x28) parse_JMP_OPCODE ;;
-        0x29) parse_PSH_OPCODE ;;
-        0x2A) parse_POP_OPCODE ;;
-        0x2B) parse_CAL_OPCODE ;;
-        0x2C) parse_RET_OPCODE ;;
-        0x2D) parse_MOV_OPCODE ;;
+        0x00) parse_NOP_OPCODE $pidx ;;
+        0x01) parse_HLT_OPCODE $pidx ;;
+        0x02) parse_ADD_OPCODE $pidx ;;
+        0x03) parse_SUB_OPCODE $pidx ;;
+        # 0x04) parse_INC_OPCODE $pidx ;;
+        # 0x05) parse_DEC_OPCODE $pidx ;;
+        # 0x07) parse_NEG_OPCODE $pidx ;;
+        # 0x08) parse_MUL_OPCODE $pidx ;;
+        # 0x09) parse_DIV_OPCODE $pidx ;;
+        # 0x0A) parse_REM_OPCODE $pidx ;;
+        0x0B) parse_AND_OPCODE $pidx ;;
+        0x0C) parse_OR_OPCODE  $pidx ;;
+        0x0D) parse_XOR_OPCODE $pidx ;;
+        0x0E) parse_NOT_OPCODE $pidx ;;
+        # 0x0F) parse_LSL_OPCODE $pidx ;;
+        0x10) parse_LSR_OPCODE $pidx ;;
+        0x11) parse_ASR_OPCODE $pidx ;;
+        0x12) parse_SHL_OPCODE $pidx ;;
+        # 0x13) parse_ROL_OPCODE $pidx ;;
+        # 0x14) parse_LDB_OPCODE $pidx ;;
+        # 0x15) parse_LDQ_OPCODE $pidx ;;
+        # 0x16) parse_LDH_OPCODE $pidx ;;
+        0x17) parse_LDW_OPCODE $pidx ;;
+        # 0x18) parse_STB_OPCODE $pidx ;;
+        # 0x19) parse_STQ_OPCODE $pidx ;;
+        # 0x1A) parse_STH_OPCODE $pidx ;;
+        0x1B) parse_STW_OPCODE $pidx ;;
+        # 0x1C) parse_LIB_OPCODE $pidx ;;
+        # 0x1D) parse_LIQ_OPCODE $pidx ;;
+        # 0x1E) parse_LIH_OPCODE $pidx ;;
+        0x1F) parse_LIW_OPCODE $pidx ;;
+        0x20) parse_EQ_OPCODE  $pidx ;;
+        # 0x21) parse_NE_OPCODE  $pidx ;;
+        # 0x22) parse_LT_OPCODE  $pidx ;;
+        0x23) parse_LTS_OPCODE $pidx ;;
+        # 0x24) parse_LE_OPCODE  $pidx ;;
+        # 0x25) parse_LES_OPCODE $pidx ;;
+        0x26) parse_BZ_OPCODE  $pidx ;;
+        0x27) parse_BNZ_OPCODE $pidx ;;
+        0x28) parse_JMP_OPCODE $pidx ;;
+        0x29) parse_PSH_OPCODE $pidx ;;
+        0x2A) parse_POP_OPCODE $pidx ;;
+        0x2B) parse_CAL_OPCODE $pidx ;;
+        0x2C) parse_RET_OPCODE $pidx ;;
+        0x2D) parse_MOV_OPCODE $pidx ;;
     esac
 }
