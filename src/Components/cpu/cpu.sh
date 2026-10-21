@@ -32,6 +32,8 @@ parse_Reset_CLK() {
             printf -v 'ARGC' '0x%016X' 0
             printf -v 'ARGD' '0x%016X' 0
             printf -v 'DATA' '0x%016X' 0
+            printf -v 'MAR' '0x%016X' 0
+            printf -v 'MDR' '0x%016X' 0
             PROC_STATE[pidx]=done
             ;;
         done)
