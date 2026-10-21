@@ -8,13 +8,14 @@ get_Lower_Byte() {
 load_Byte() {
     local pidx=${1:-0}
     local to=${2:-"ARGA"}
-    local from=${3:"PC"}
+    local from=${3:-"PC"}
     local clear=${4:-"true"}
-    local increment=${5:-"true"}
+    local increment=${5:-"pre"}
     case ${PROC_STATE[pidx]-} in
         "")
-            if $increment; then printf -v "$from" '0x%016X' $((${!from} + 1)); fi
+            if [[ $increment == "pre" ]]; then printf -v "$from" '0x%016X' $((${!from} + 1)); fi
             echo load "${!from}"
+            if [[ $increment == "post "]]; then printf -v "$from" '0x%016X' $((${!from} + 1)); fi
             if $clear; then printf -v "$to" '0x%016X' 0; fi
             PROC_STATE[pidx]="load_byte"
             ;;
@@ -68,3 +69,4 @@ load_3_ARGS() {
         *) 
             echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
     esac
+}
