@@ -131,7 +131,7 @@ parse_LSR_OPCODE() {
             PROC_STATE[pidx]=load
             ;;
         load)
-            load_2_ARGS $((pidx+1))
+            load_3_ARGS $((pidx+1))
             ;;
         done_load)
             GPRs[ARGC]=$(lsr "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")

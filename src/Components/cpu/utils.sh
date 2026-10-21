@@ -6,19 +6,24 @@ get_Lower_Byte() {
 }
 
 load_Byte() {
-    local where=${1:-"ARGA"}
-    local pidx=${2:-0}
+    local pidx=${1:-0}
+    local to=${2:-"ARGA"}
+    local from=${3:"PC"}
+    local clear=${4:-"true"}
+    local increment=${5:-"true"}
     case ${PROC_STATE[pidx]-} in
         "")
-            echo load "$PC"
+            if $increment; then printf -v "$from" '0x%016X' $((${!from} + 1)); fi
+            echo load "${!from}"
+            if $clear; then printf -v "$to" '0x%016X' 0; fi
             PROC_STATE[pidx]="load_byte"
             ;;
         load_byte)
             local prev
-            printf -v "prev" '0x%016X' "$where"
+            printf -v "prev" '0x%016X' "${!to}"
             local mask=$((-1 << 8))
-            printf -v "$where" '0x%016X' $(( (prev & mask) | DATA))
-            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load_'$where'"; fi
+            printf -v "$to" '0x%016X' $(( (prev & mask) | DATA))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load_$to"; fi
             PROC_STATE[pidx]=""
             ;;
         *)
@@ -30,20 +35,10 @@ load_2_ARGS() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            printf -v 'PC' '0x%016X' $((PC + 1))
-            printf -v "ARGA" '0x%016X' 0
-            PROC_STATE[pidx]=LA
-            ;;
-        LA)
-            load_Byte ARGA $(( pidx + 1))
+            load_Byte $(( pidx + 1)) ARGA
             ;;
         done_load_ARGA)
-            printf -v 'PC' '0x%016X' $((PC + 1))
-            printf -v "ARGB" '0x%016X' 0
-            PROC_STATE[pidx]=LB
-            ;;
-        LB)
-            load_Byte ARGB $(( pidx + 1))
+            load_Byte $(( pidx + 1)) ARGB
             ;;
         done_load_ARGB)
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load"; fi
@@ -58,28 +53,13 @@ load_3_ARGS() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            printf -v 'PC' '0x%016X' $((PC + 1))
-            printf -v "ARGA" '0x%016X' 0
-            PROC_STATE[pidx]=LA
-            ;;
-        LA)
-            load_Byte ARGA $(( pidx + 1))
+            load_Byte $(( pidx + 1)) ARGA
             ;;
         done_load_ARGA)
-            printf -v 'PC' '0x%016X' $((PC + 1))
-            printf -v "ARGB" '0x%016X' 0
-            PROC_STATE[pidx]=LB
-            ;;
-        LB)
-            load_Byte ARGB $(( pidx + 1))
+            load_Byte $(( pidx + 1)) ARGB
             ;;
         done_load_ARGB)
-            printf -v 'PC' '0x%016X' $((PC + 1))
-            printf -v "ARGC" '0x%016X' 0
-            PROC_STATE[pidx]=LC
-            ;;
-        LC)
-            load_Byte ARGC $(( pidx + 1))
+            load_Byte $(( pidx + 1)) ARGC
             ;;
         done_load_ARGC)
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load"; fi
@@ -88,4 +68,3 @@ load_3_ARGS() {
         *) 
             echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
     esac
-}
