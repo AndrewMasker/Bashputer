@@ -200,6 +200,28 @@ parse_LDW_OPCODE() {
     esac
 }
 
+parse_STW_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_2_ARGS $((pidx+1))
+            ;;
+        done_load)
+            MDR="${GPRs[$ARGA]}"
+            MAR="${GPRs[$ARGB]}"
+            PROC_STATE[pidx]="load_word"
+            ;;
+        load_word)
+            load_Word $((pidx+1)) "MAR" "MDR"
+            ;;
+        done_load_MAR_0)
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
 parse_OPCODE() {
     local pidx=${1:-0}
     case $(get_Lower_Byte $OPCODE) in
