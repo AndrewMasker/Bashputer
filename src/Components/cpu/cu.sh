@@ -178,6 +178,24 @@ parse_SHL_OPCODE() {
     esac
 }
 
+parse_LDW_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]=load
+            ;;
+        load)
+            load_2_ARGS $((pidx+1))
+            ;;
+        done_load)
+            GPRs[ARGB]=$( load_Word $((pidx + 1)) "${GPRs[$ARGA]}" )
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
 parse_OPCODE() {
     local pidx=${1:-0}
     case $(get_Lower_Byte $OPCODE) in
