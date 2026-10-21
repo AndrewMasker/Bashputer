@@ -9,30 +9,36 @@ store_Byte() {
     local pidx=${1}
     local to=${2} # The register holding the address to be stored to
     local from=${3} # The register holding the value 
-    local offset=${4:-0}
+    local addr_offset=${4:-0}
+    local data_offset=${5:-0}
     local to_address
-    printf -v "to_address" '0x%016X' $(( ${!to} + offset ))
-    echo store "${!from}" "$to_address"
+    printf -v "to_address" '0x%016X' $(( ${!to} + addr_offset ))
+    local byte
+    printf -v "byte" '0x%016X' $(( (${!from} >> data_offset) & 0xFF ))
+    echo store "$byte" "$to_address"
     PROC_STATE[pidx]="load_byte"
-    if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${offset}"; fi
+    if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${addr_offset}"; fi
 }
 
 store_Quarter() {
     local pidx=${1}
     local to=${2}
     local from=${3}
-    local offset={4:-0}
-    local byte_0_offset=$offset
-    local byte_1_offset=$((offset + 1))
+    local addr_offset=${4:-0}
+    local data_offset=${5:-0}
+    local byte_0_addr_offset=$addr_offset
+    local byte_1_addr_offset=$((addr_offset + 1))
+    local byte_0_data_offset=$data_offset
+    local byte_1_data_offset=$((data_offset + 8))
     case ${PROC_STATE[pidx]-} in
         "")
-            store_Byte $((pidx+1)) "$to" "$from" "byte_0_offset"
+            store_Byte $((pidx+1)) "$to" "$from" "$byte_0_addr_offset" "$byte_0_data_offset"
             ;;
-        "done_store_${to}_${byte_0_offset}")
-            store_Byte $((pidx+1)) "$to" "$from" "byte_1_offset"
+        "done_store_${to}_${byte_0_addr_offset}")
+            store_Byte $((pidx+1)) "$to" "$from" "$byte_1_addr_offset" "$byte_1_data_offset"
             ;;
-        "done_store_${to}_${byte_1_offset}")
-            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${offset}"; fi
+        "done_store_${to}_${byte_1_addr_offset}")
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${addr_offset}"; fi
             PROC_STATE[pidx]=""
             ;;
         *)
@@ -44,18 +50,21 @@ store_Half() {
     local pidx=${1}
     local to=${2}
     local from=${3}
-    local offset={4:-0}
-    local quarter_0_offset=$offset
-    local quarter_1_offset=$((offset + 2))
+    local addr_offset=${4:-0}
+    local data_offset=${5:-0}
+    local quarter_0_addr_offset=$offset
+    local quarter_1_addr_offset=$((offset + 2))
+    local quarter_0_data_offset=$data_offset
+    local quarter_1_data_offset=$((data_offset + 16))
     case ${PROC_STATE[pidx]-} in
         "")
-            store_Quarter $((pidx+1)) "$to" "$from" "quarter_0_offset"
+            store_Quarter $((pidx+1)) "$to" "$from" "$quarter_0_addr_offset" "$quarter_0_data_offset"
             ;;
-        "done_store_${to}_${quarter_0_offset}")
-            store_Quarter $((pidx+1)) "$to" "$from" "quarter_1_offset"
+        "done_store_${to}_${quarter_0_adrr_offset}")
+            store_Quarter $((pidx+1)) "$to" "$from" "$quarter_1_addr_offset" "$quarter_1_data_offset"
             ;;
-        "done_store_${to}_${quarter_1_offset}")
-            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${offset}"; fi
+        "done_store_${to}_${quarter_1_addr_offset}")
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${addr_offset}"; fi
             PROC_STATE[pidx]=""
             ;;
         *)
@@ -67,18 +76,21 @@ store_Word() {
     local pidx=${1}
     local to=${2}
     local from=${3}
-    local offset={4:-0}
-    local half_0_offset=$offset
-    local half_1_offset=$((offset + 4))
+    local addr_offset=${4:-0}
+    local data_offset=${5:-0}
+    local half_0_addr_offset=$offset
+    local half_1_addr_offset=$((offset + 4))
+    local half_0_data_offset=$data_offset
+    local half_1_data_offset=$((data_offset + 32))
     case ${PROC_STATE[pidx]-} in
         "")
-            store_Half $((pidx+1)) "$to" "$from" "half_0_offset"
+            store_Half $((pidx+1)) "$to" "$from" "$half_0_addr_offset" "$half_0_data_offset"
             ;;
-        "done_store_${to}_${half_0_offset}")
-            store_Half $((pidx+1)) "$to" "$from" "half_1_offset"
+        "done_store_${to}_${half_0_addr_offset}")
+            store_Half $((pidx+1)) "$to" "$from" "$half_1_addr_offset" "$half_1_data_offset"
             ;;
-        "done_store_${to}_${half_1_offset}")
-            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${offset}"; fi
+        "done_store_${to}_${half_1_addr_offset}")
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${addr_offset}"; fi
             PROC_STATE[pidx]=""
             ;;
         *)
