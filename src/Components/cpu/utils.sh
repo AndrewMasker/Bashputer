@@ -37,11 +37,13 @@ load_2_ARGS() {
             ;;
         LA)
             printf -v 'PC' '0x%016X' $((PC + 1))
+            printf -v "ARGA" '0x%016X' 0
             load_Byte ARGA $(( pidx + 1))
             PROC_STATE[pidx]=LB
             ;;
         LB)
             printf -v 'PC' '0x%016X' $((PC + 1))
+            printf -v "ARGB" '0x%016X' 0
             load_Byte ARGB $(( pidx + 1))
             PROC_STATE[pidx]=done
             ;;
@@ -62,16 +64,19 @@ load_3_ARGS() {
             ;;
         LA)
             printf -v 'PC' '0x%016X' $((PC + 1))
+            printf -v "ARGA" '0x%016X' 0
             load_Byte ARGA $(( pidx + 1))
             PROC_STATE[pidx]=LB
             ;;
         LB)
             printf -v 'PC' '0x%016X' $((PC + 1))
+            printf -v "ARGB" '0x%016X' 0
             load_Byte ARGB $(( pidx + 1))
             PROC_STATE[pidx]=LC
             ;;
         LC)
             printf -v 'PC' '0x%016X' $((PC + 1))
+            printf -v "ARGC" '0x%016X' 0
             load_Byte ARGC $(( pidx + 1))
             PROC_STATE[pidx]=done
             ;;
