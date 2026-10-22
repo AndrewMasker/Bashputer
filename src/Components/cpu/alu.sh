@@ -27,22 +27,22 @@ not() {
 
 lsr() {
     if (( $3 == 0)); then printf -v "$1" '0x%016X' $(( $2 )); return; fi
-    if (( $3 >= 64)); then printf -v "$1" '0x%016X' 0; return; fi
-    local asr=$(( $2 >> $3 ))
+    if (( $3 >= 64 || $3 < 0 )); then printf -v "$1" '0x%016X' 0; return; fi
+    local _asr=$(( $2 >> $3 ))
     local mask=$(( ~( -1 <<  (64 - $3) ) ))
-    printf -v "$1" '0x%016X' $(( asr &  mask))
+    printf -v "$1" '0x%016X' $(( _asr &  mask))
 }
 
 asr() {
-    local shifts=$3
-    if (( shifts >= 64 || shifts < 0 )); then shifts=63; fi
-    printf -v "$1" '0x%016X' $(( $2 >> shifts ))
+    local _shifts=$3
+    if (( _shifts >= 64 || _shifts < 0 )); then _shifts=63; fi
+    printf -v "$1" '0x%016X' $(( $2 >> _shifts ))
 }
 
 shl() {
-    local shifts=$3
-    if (( shifts >= 64 || shifts < 0 )); then printf -v "$1" '0x%016X'; return; fi
-    printf -v "$1" '0x%016X' $(( $2 << shifts ))
+    local _shifts=$3
+    if (( _shifts >= 64 || _shifts < 0 )); then printf -v "$1" '0x%016X' 0; return; fi
+    printf -v "$1" '0x%016X' $(( $2 << _shifts ))
 }
 
 eq() {
