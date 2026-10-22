@@ -9,7 +9,7 @@ A message out goes via STDOUT and a message in comes via STDIN.
 **IN**
 <dd>
 
-"clock_pulse" : This moves the cpu forward by a state in its lowest process.
+"clock" : This moves the cpu forward by a state in its lowest process.
 
 "data" `<byte>` : This puts the byte `<byte>` which must be formatted with '0x%02X' into the data register.
 
@@ -18,8 +18,6 @@ A message out goes via STDOUT and a message in comes via STDIN.
 "stall" : This stalls the cpu at its current state.
 
 "unstall" : This resumes the cpu from its stalled state.
-
-"data_valid" : This sets the internal DATA_VALID register to "true" which allows a load command to progress.
 
 </dd>
 

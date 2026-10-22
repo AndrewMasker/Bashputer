@@ -8,6 +8,7 @@ source "$MY_DIR"/cu.sh
 
 # INITIALIZATION CODE
 CPU_STATE=reset
+RESUME_STATE=reset
 PROC_STATE=()
 
 parse_Reset_CLK() {
@@ -46,11 +47,11 @@ parse_Ready_CLK() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            echo load "$PC"
+            load_Byte $((pidx+1)) DATA PC 0 true false '0x%02X'
             PROC_STATE[pidx]=load_opcode
             ;;
         load_opcode)
-            printf -v OPCODE '0x%02X' $(( DATA & 0xFF ))
+            OPCODE=$DATA
             PROC_STATE[pidx]=parse_opcode
             ;;
         parse_opcode)
@@ -80,10 +81,9 @@ parse_Input() {
     case $type in
         clock) parse_CLK ;;
         reset) CPU_STATE=reset; PROC_STATE=() ;;
-        stall) CPU_STATE=stalled ;;
-        unstall) CPU_STATE=ready ;;
-        data) DATA="$value" ;;
-        data_valid) DATA_VALID=true
+        stall) [[ $CPU_STATE == "stalled" ]] || { RESUME_STATE=$CPU_STATE ; CPU_STATE=stalled; } ;;
+        unstall) [[ $CPU_STATE == "stalled" ]] && CPU_STATE=$RESUME_STATE ;;
+        data) DATA="$value"; DATA_VALID=true ;; 
         *) echo "cpu: unknown input '$type'" >&2 ;; 
     esac
 }

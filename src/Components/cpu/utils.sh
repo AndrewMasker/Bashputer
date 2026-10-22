@@ -100,24 +100,18 @@ load_Byte() {
     local where=${4:-0}
     local clear=${5:-"true"}
     local increment=${6:-"true"}
+    local return_format=${7:-'0x%016X'}
     local data=$(( DATA & 0xFF))
     case ${PROC_STATE[pidx]-} in
         "")
             if $increment; then printf -v "$from" '0x%016X' $((${!from} + 1)); fi
             echo load "${!from}"
+            DATA_VALID=false
             if $clear; then printf -v "$to" '0x%016X' 0; fi
-            if [[ $from == "PC" ]]; then 
-                PROC_STATE[pidx]="load_byte"
-            else
-                PROC_STATE[pidx]="wait_for_valid_data"
-            fi
-            ;;
-        wait_for_valid_data)
-            if $DATA_VALID; then 
-                PROC_STATE[pidx]="load_byte"
-            fi
+            PROC_STATE[pidx]="load_byte"
             ;;
         load_byte)
+            $DATA_VALID || return
             local prev
             printf -v "prev" '0x%016X' "${!to}"
             if ((where < 7)); then
@@ -132,7 +126,7 @@ load_Byte() {
                 local mask=-1
                 data=0
             fi
-            printf -v "$to" '0x%016X' $(( (prev & mask) | data))
+            printf -v "$to" $return_format $(( (prev & mask) | data))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load_${to}_${where}"; fi
             PROC_STATE[pidx]=""
             ;;
