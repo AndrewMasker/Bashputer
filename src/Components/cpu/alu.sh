@@ -29,8 +29,8 @@ lsr() {
     if (( $3 == 0)); then printf -v "$1" '0x%016X' $(( $2 )); return; fi
     if (( $3 >= 64 || $3 < 0 )); then printf -v "$1" '0x%016X' 0; return; fi
     local _asr=$(( $2 >> $3 ))
-    local mask=$(( ~( -1 <<  (64 - $3) ) ))
-    printf -v "$1" '0x%016X' $(( _asr &  mask))
+    local _mask=$(( ~( -1 <<  (64 - $3) ) ))
+    printf -v "$1" '0x%016X' $(( _asr &  _mask))
 }
 
 asr() {
