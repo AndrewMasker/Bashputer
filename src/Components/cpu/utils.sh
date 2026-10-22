@@ -210,6 +210,21 @@ load_Word() {
     esac
 }
 
+load_1_ARGS() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_Byte $(( pidx + 1)) ARGA
+            ;;
+        done_load_ARGA_0)
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) 
+            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
+    esac
+}
+
 load_2_ARGS() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in

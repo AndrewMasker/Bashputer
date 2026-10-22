@@ -212,9 +212,126 @@ parse_STW_OPCODE() {
             PROC_STATE[pidx]="load_word"
             ;;
         load_word)
-            load_Word $((pidx+1)) "MAR" "MDR"
+            store_Word $((pidx+1)) "MAR" "MDR"
             ;;
         done_load_MAR_0)
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
+parse_LIW_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_1_ARGS $((pidx+1))
+            ;;
+        done_load)
+            PROC_STATE[pidx]="load_word"
+            ;;
+        load_word)
+            load_Word $((pidx+1)) "MDR" "PC" 0 true true
+            ;;
+        done_load_MDR_0)
+            GPRs[ARGA]=$MDR
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
+parse_EQ_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]=load
+            ;;
+        load)
+            load_3_ARGS $((pidx+1))
+            ;;
+        done_load)
+            GPRs[ARGC]=$(eq "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
+parse_LTS_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]=load
+            ;;
+        load)
+            load_3_ARGS $((pidx+1))
+            ;;
+        done_load)
+            GPRs[ARGC]=$(lts "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
+parse_BZ_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]=load
+            ;;
+        load)
+            load_2_ARGS $((pidx+1))
+            ;;
+        done_load)
+            if (( GPRs[ARGA] == 0 )); then
+                PC=${GPRs[ARGB]}
+            else
+                printf -v 'PC' '0x%016X' $((PC + 1))
+            fi
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
+parse_BNZ_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]=load
+            ;;
+        load)
+            load_2_ARGS $((pidx+1))
+            ;;
+        done_load)
+            if (( GPRs[ARGA] != 0 )); then
+                PC=${GPRs[ARGB]}
+            else
+                printf -v 'PC' '0x%016X' $((PC + 1))
+            fi
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
+parse_MOV_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]=load
+            ;;
+        load)
+            load_2_ARGS $((pidx+1))
+            ;;
+        done_load)
+            GPRs[ARGB]=${GPRs[ARGA]}
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -265,10 +382,10 @@ parse_OPCODE() {
         0x26) parse_BZ_OPCODE  $pidx ;;
         0x27) parse_BNZ_OPCODE $pidx ;;
         0x28) parse_JMP_OPCODE $pidx ;;
-        0x29) parse_PSH_OPCODE $pidx ;;
-        0x2A) parse_POP_OPCODE $pidx ;;
-        0x2B) parse_CAL_OPCODE $pidx ;;
-        0x2C) parse_RET_OPCODE $pidx ;;
+        # 0x29) parse_PSH_OPCODE $pidx ;;
+        # 0x2A) parse_POP_OPCODE $pidx ;;
+        # 0x2B) parse_CAL_OPCODE $pidx ;;
+        # 0x2C) parse_RET_OPCODE $pidx ;;
         0x2D) parse_MOV_OPCODE $pidx ;;
         *) echo "cpu: unknown OPCODE '$OPCODE'" >&2; CPU_STATE=halted ;;
     esac
