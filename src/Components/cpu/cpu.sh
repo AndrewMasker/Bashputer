@@ -28,6 +28,7 @@ parse_Reset_CLK() {
             printf -v 'ARGC' '0x%016X' 0
             printf -v 'ARGD' '0x%016X' 0
             printf -v 'DATA' '0x%016X' 0
+            DATA_VALID=false
             printf -v 'MAR' '0x%016X' 0
             printf -v 'MDR' '0x%016X' 0
             PROC_STATE[pidx]=done
@@ -73,10 +74,6 @@ parse_CLK() {
     esac
 }
 
-parse_Data() {
-    DATA=$1
-}
-
 parse_Input() {
     local type=$1
     local value=$2
@@ -85,7 +82,8 @@ parse_Input() {
         reset) CPU_STATE=reset; PROC_STATE=() ;;
         stall) CPU_STATE=stalled ;;
         unstall) CPU_STATE=ready ;;
-        data) parse_Data "$value" ;;
+        data) DATA="$value" ;;
+        data_valid) DATA_VALID=true
         *) echo "cpu: unknown input '$type'" >&2 ;; 
     esac
 }

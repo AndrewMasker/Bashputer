@@ -19,6 +19,8 @@ A message out goes via STDOUT and a message in comes via STDIN.
 
 "unstall" : This resumes the cpu from its stalled state.
 
+"data_valid" : This sets the internal DATA_VALID register to "true" which allows a load command to progress.
+
 </dd>
 
 **OUT**

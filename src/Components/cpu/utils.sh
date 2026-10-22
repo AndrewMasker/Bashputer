@@ -106,7 +106,16 @@ load_Byte() {
             if $increment; then printf -v "$from" '0x%016X' $((${!from} + 1)); fi
             echo load "${!from}"
             if $clear; then printf -v "$to" '0x%016X' 0; fi
-            PROC_STATE[pidx]="load_byte"
+            if [[ $from == "PC" ]]; then 
+                PROC_STATE[pidx]="load_byte"
+            else
+                PROC_STATE[pidx]="wait_for_valid_data"
+            fi
+            ;;
+        wait_for_valid_data)
+            if $DATA_VALID; then 
+                PROC_STATE[pidx]="load_byte"
+            fi
             ;;
         load_byte)
             local prev
