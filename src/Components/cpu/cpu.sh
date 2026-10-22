@@ -67,6 +67,7 @@ parse_CLK() {
     case $CPU_STATE in
         reset) parse_Reset_CLK ;;
         ready) parse_Ready_CLK ;;
+        stalled) : ;;
         halted) : ;;
         *) echo "cpu: unknown CPU_STATE '$CPU_STATE'" >&2 ;;
     esac
@@ -82,8 +83,8 @@ parse_Input() {
     case $type in
         clock) parse_CLK ;;
         reset) CPU_STATE=reset; PROC_STATE=() ;;
-        halt) CPU_STATE=halted ;;
-        unhalt) CPU_STATE=ready ;;
+        stall) CPU_STATE=stalled ;;
+        unstall) CPU_STATE=ready ;;
         data) parse_Data "$value" ;;
         *) echo "cpu: unknown input '$type'" >&2 ;; 
     esac
