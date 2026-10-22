@@ -11,7 +11,7 @@ store_Byte() {
     printf -v "to_address" '0x%016X' $(( ${!to} + addr_offset ))
     local byte
     printf -v "byte" '0x%02X' $(( (${!from} >> data_offset) & 0xFF ))
-    echo store "$byte" "$to_address"
+    echo store "$to_address" "$byte"
     if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${addr_offset}"; fi
 }
 

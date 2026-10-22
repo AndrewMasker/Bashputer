@@ -80,7 +80,7 @@ parse_Input() {
     local type=$1
     local value=$2
     case $type in
-        clock_pulse) parse_CLK ;;
+        clock) parse_CLK ;;
         reset) CPU_STATE=reset; PROC_STATE=() ;;
         halt) CPU_STATE=halted ;;
         unhalt) CPU_STATE=ready ;;
