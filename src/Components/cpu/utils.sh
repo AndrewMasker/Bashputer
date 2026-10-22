@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 # utils.sh
 
-get_Lower_Byte() {
-    printf '0x%02X' $(( $1 & 0xFF )) 
-}
-
 store_Byte() {
     local pidx=${1}
     local to=${2} # The register holding the address to be stored to

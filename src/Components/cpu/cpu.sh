@@ -22,7 +22,7 @@ parse_Reset_CLK() {
         clear_registers)
             GPRs=()
             for ((i = 0; i < 256; i++)); do printf -v 'GPRs[i]' '0x%016X' 0; done
-            printf -v 'OPCODE' '0x%016X' 0
+            printf -v 'OPCODE' '0x%016X' 0 # Byte register holding the current instruction opcode
             printf -v 'ARGA' '0x%016X' 0
             printf -v 'ARGB' '0x%016X' 0
             printf -v 'ARGC' '0x%016X' 0
@@ -49,7 +49,7 @@ parse_Ready_CLK() {
             PROC_STATE[pidx]=load_opcode
             ;;
         load_opcode)
-            OPCODE=$DATA
+            printf -v OPCODE '0x%02X' $(( DATA & 0xFF ))
             PROC_STATE[pidx]=parse_opcode
             ;;
         parse_opcode)

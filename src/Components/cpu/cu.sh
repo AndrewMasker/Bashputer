@@ -313,7 +313,7 @@ parse_MOV_OPCODE() {
 
 parse_OPCODE() {
     local pidx=${1:-0}
-    case $(get_Lower_Byte $OPCODE) in
+    case $OPCODE in
         0x00) parse_NOP_OPCODE $pidx ;;
         0x01) parse_HLT_OPCODE $pidx ;;
         0x02) parse_ADD_OPCODE $pidx ;;
