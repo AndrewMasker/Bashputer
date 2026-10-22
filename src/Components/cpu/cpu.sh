@@ -15,10 +15,7 @@ parse_Reset_CLK() {
     local i
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
-        "") 
-            PROC_STATE[pidx]=load_cfgs
-            ;;
-        load_cfgs)  
+        "")
             PC="$RESET_PC"
             SP="$RESET_SP"
             PROC_STATE[pidx]=clear_registers
@@ -48,10 +45,7 @@ parse_Reset_CLK() {
 parse_Ready_CLK() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
-        "") 
-            PROC_STATE[pidx]=request_opcode
-            ;;
-        request_opcode)
+        "")
             echo load "$PC"
             PROC_STATE[pidx]=load_opcode
             ;;

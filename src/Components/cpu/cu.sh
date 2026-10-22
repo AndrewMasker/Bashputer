@@ -20,9 +20,6 @@ parse_ADD_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            PROC_STATE[pidx]=load
-            ;;
-        load)
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
@@ -38,9 +35,6 @@ parse_SUB_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            PROC_STATE[pidx]=load
-            ;;
-        load)
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
@@ -56,9 +50,6 @@ parse_AND_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            PROC_STATE[pidx]=load
-            ;;
-        load)
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
@@ -74,9 +65,6 @@ parse_OR_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            PROC_STATE[pidx]=load
-            ;;
-        load)
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
@@ -92,9 +80,6 @@ parse_XOR_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            PROC_STATE[pidx]=load
-            ;;
-        load)
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
@@ -110,9 +95,6 @@ parse_NOT_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            PROC_STATE[pidx]=load
-            ;;
-        load)
             load_2_ARGS $((pidx+1))
             ;;
         done_load)
@@ -128,9 +110,6 @@ parse_LSR_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            PROC_STATE[pidx]=load
-            ;;
-        load)
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
@@ -146,9 +125,6 @@ parse_ASR_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            PROC_STATE[pidx]=load
-            ;;
-        load)
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
@@ -164,9 +140,6 @@ parse_SHL_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            PROC_STATE[pidx]=load
-            ;;
-        load)
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
@@ -247,9 +220,6 @@ parse_EQ_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            PROC_STATE[pidx]=load
-            ;;
-        load)
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
@@ -265,9 +235,6 @@ parse_LTS_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            PROC_STATE[pidx]=load
-            ;;
-        load)
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
@@ -283,9 +250,6 @@ parse_BZ_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            PROC_STATE[pidx]=load
-            ;;
-        load)
             load_2_ARGS $((pidx+1))
             ;;
         done_load)
@@ -304,9 +268,6 @@ parse_BNZ_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            PROC_STATE[pidx]=load
-            ;;
-        load)
             load_2_ARGS $((pidx+1))
             ;;
         done_load)
@@ -325,9 +286,6 @@ parse_JMP_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            PROC_STATE[pidx]=load
-            ;;
-        load)
             load_1_ARGS $((pidx+1))
             ;;
         done_load)
@@ -342,9 +300,6 @@ parse_MOV_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            PROC_STATE[pidx]=load
-            ;;
-        load)
             load_2_ARGS $((pidx+1))
             ;;
         done_load)
