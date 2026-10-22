@@ -72,7 +72,7 @@ parse_CLK() {
 
 parse_Input() {
     local type=$1
-    local value=$2
+    local value=${2-}
     case $type in
         clock) parse_CLK ;;
         reset) CPU_STATE=reset; PROC_STATE=() ;;
