@@ -35,13 +35,13 @@ lsr() {
 
 asr() {
     local shifts=$3
-    elif (( shifts >= 64 || shifts < 0 )); then shifts=63; fi
+    if (( shifts >= 64 || shifts < 0 )); then shifts=63; fi
     printf -v "$1" '0x%016X' $(( $2 >> shifts ))
 }
 
 shl() {
     local shifts=$3
-    elif (( shifts >= 64 || shifts < 0 )); then printf -v "$1" '0x%016X'; return; fi
+    if (( shifts >= 64 || shifts < 0 )); then printf -v "$1" '0x%016X'; return; fi
     printf -v "$1" '0x%016X' $(( $2 << shifts ))
 }
 
