@@ -47,14 +47,9 @@ parse_Ready_CLK() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            load_Byte $((pidx+1)) DATA PC 0 true false '0x%02X'
-            PROC_STATE[pidx]=load_opcode
+            load_Byte $((pidx+1)) OPCODE PC 0 true false '0x%02X'
             ;;
-        load_opcode)
-            OPCODE=$DATA
-            PROC_STATE[pidx]=parse_opcode
-            ;;
-        parse_opcode)
+        done_load_OPCODE_0)
             parse_OPCODE $((pidx+1))
             ;;
         done_parse)
