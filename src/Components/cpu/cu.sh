@@ -23,7 +23,7 @@ parse_ADD_OPCODE() {
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
-            GPRs[ARGC]=$(add "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            add 'GPRs[ARGC]' "${GPRs[$ARGA]}" "${GPRs[$ARGB]}"
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -38,7 +38,7 @@ parse_SUB_OPCODE() {
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
-            GPRs[ARGC]=$(sub "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            sub 'GPRs[ARGC]' "${GPRs[$ARGA]}" "${GPRs[$ARGB]}"
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -53,7 +53,7 @@ parse_AND_OPCODE() {
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
-            GPRs[ARGC]=$(and "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            and 'GPRs[ARGC]' "${GPRs[$ARGA]}" "${GPRs[$ARGB]}"
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -68,7 +68,7 @@ parse_OR_OPCODE() {
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
-            GPRs[ARGC]=$(or "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            or 'GPRs[ARGC]' "${GPRs[$ARGA]}" "${GPRs[$ARGB]}"
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -83,7 +83,7 @@ parse_XOR_OPCODE() {
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
-            GPRs[ARGC]=$(xor "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            xor 'GPRs[ARGC]' "${GPRs[$ARGA]}" "${GPRs[$ARGB]}"
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -98,7 +98,7 @@ parse_NOT_OPCODE() {
             load_2_ARGS $((pidx+1))
             ;;
         done_load)
-            GPRs[ARGB]=$(not "${GPRs[$ARGA]}")
+            not 'GPRs[ARGB]' "${GPRs[$ARGA]}"
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -113,7 +113,7 @@ parse_LSR_OPCODE() {
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
-            GPRs[ARGC]=$(lsr "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            lsr 'GPRs[ARGC]' "${GPRs[$ARGA]}" "${GPRs[$ARGB]}"
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -128,7 +128,7 @@ parse_ASR_OPCODE() {
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
-            GPRs[ARGC]=$(asr "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            asr 'GPRs[ARGC]' "${GPRs[$ARGA]}" "${GPRs[$ARGB]}"
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -143,7 +143,7 @@ parse_SHL_OPCODE() {
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
-            GPRs[ARGC]=$(shl "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            shl 'GPRs[ARGC]' "${GPRs[$ARGA]}" "${GPRs[$ARGB]}"
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -223,7 +223,7 @@ parse_EQ_OPCODE() {
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
-            GPRs[ARGC]=$(eq "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            eq 'GPRs[ARGC]' "${GPRs[$ARGA]}" "${GPRs[$ARGB]}"
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -238,7 +238,7 @@ parse_LTS_OPCODE() {
             load_3_ARGS $((pidx+1))
             ;;
         done_load)
-            GPRs[ARGC]=$(lts "${GPRs[$ARGA]}" "${GPRs[$ARGB]}")
+            lts 'GPRs[ARGC]' "${GPRs[$ARGA]}" "${GPRs[$ARGB]}"
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""

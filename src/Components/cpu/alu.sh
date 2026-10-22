@@ -2,54 +2,54 @@
 # alu.sh
 
 add() {
-    printf '0x%016X' $(( $1 + $2 ))
+    printf -v "$1" '0x%016X' $(( $2 + $3 ))
 }
 
 sub() {
-    printf '0x%016X' $(( $1 - $2 ))
+    printf -v "$1" '0x%016X' $(( $2 - $3 ))
 }
 
 and() {
-    printf '0x%016X' $(( $1 & $2 ))
+    printf -v "$1" '0x%016X' $(( $2 & $3 ))
 }
 
 or() {
-    printf '0x%016X' $(( $1 | $2 ))
+    printf -v "$1" '0x%016X' $(( $2 | $3 ))
 }
 
 xor() {
-    printf '0x%016X' $(( $1 ^ $2 ))
+    printf -v "$1" '0x%016X' $(( $2 ^ $3 ))
 }
 
 not() {
-    printf '0x%016X' $(( ~$1 ))
+    printf -v "$1" '0x%016X' $(( ~$2 ))
 }
 
 lsr() {
-    if (( $2 == 0)); then printf '0x%016X' $(( $1 )); return; fi
-    if (( $2 >= 64)); then printf '0x%016X' 0; return; fi
-    local asr=$(( $1 >> $2 ))
-    local mask=$(( ~( -1 <<  (64 - $2) ) ))
-    printf '0x%016X' $(( asr &  mask))
+    if (( $3 == 0)); then printf -v "$1" '0x%016X' $(( $2 )); return; fi
+    if (( $3 >= 64)); then printf -v "$1" '0x%016X' 0; return; fi
+    local asr=$(( $2 >> $3 ))
+    local mask=$(( ~( -1 <<  (64 - $3) ) ))
+    printf -v "$1" '0x%016X' $(( asr &  mask))
 }
 
 asr() {
-    local shifts=$2
+    local shifts=$3
     elif (( shifts >= 64 || shifts < 0 )); then shifts=63; fi
-    printf '0x%016X' $(( $1 >> shifts ))
+    printf -v "$1" '0x%016X' $(( $2 >> shifts ))
 }
 
 shl() {
-    local shifts=$2
-    elif (( shifts >= 64 || shifts < 0 )); then printf '0x%016X'; return; fi
-    printf '0x%016X' $(( $1 << shifts ))
+    local shifts=$3
+    elif (( shifts >= 64 || shifts < 0 )); then printf -v "$1" '0x%016X'; return; fi
+    printf -v "$1" '0x%016X' $(( $2 << shifts ))
 }
 
 eq() {
-    printf '0x%016X' $(( $1 == $2 ))
+    printf -v "$1" '0x%016X' $(( $2 == $3 ))
 }
 
 lts() {
-    printf '0x%016X' $(( $1 < $2))
+    printf -v "$1" '0x%016X' $(( $2 < $3))
 }
 
