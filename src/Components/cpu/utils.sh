@@ -104,6 +104,7 @@ load_Byte() {
     local where=${4:-0}
     local clear=${5:-"true"}
     local increment=${6:-"true"}
+    local data=$(( DATA & 0xFF))
     case ${PROC_STATE[pidx]-} in
         "")
             if $increment; then printf -v "$from" '0x%016X' $((${!from} + 1)); fi
@@ -118,13 +119,13 @@ load_Byte() {
                 local upper_mask=$(( -1 << ( (where + 1)*8 ) ))
                 local lower_mask=$(( ~( -1 << ( where*8 ) ) ))
                 local mask=$(( (upper_mask) | (lower_mask) ))
-                local data=$(( DATA << (where*8) ))
+                data=$(( data << (where*8) ))
             elif ((where == 7)); then
                 local mask=$(( ~( -1 << ( where*8 ) ) ))
-                local data=$(( DATA << (where*8) ))
+                data=$(( data << (where*8) ))
             else
                 local mask=-1
-                local data=0
+                data=0
             fi
             printf -v "$to" '0x%016X' $(( (prev & mask) | data))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load_${to}_${where}"; fi
