@@ -289,7 +289,7 @@ parse_JMP_OPCODE() {
             load_1_ARGS $((pidx+1))
             ;;
         done_load)
-            PC=${GPRs[ARGB]}
+            PC=${GPRs[ARGA]}
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;

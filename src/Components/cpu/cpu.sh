@@ -9,7 +9,6 @@ source "$MY_DIR"/cu.sh
 # INITIALIZATION CODE
 CPU_STATE=reset
 PROC_STATE=()
-DATA_STATE=none
 
 parse_Reset_CLK() {
     local i
@@ -82,7 +81,7 @@ parse_Input() {
     local value=$2
     case $type in
         clock_pulse) parse_CLK ;;
-        reset) CPU_STATE=reset ;;
+        reset) CPU_STATE=reset; PROC_STATE=() ;;
         halt) CPU_STATE=halted ;;
         unhalt) CPU_STATE=ready ;;
         data) parse_Data "$value" ;;

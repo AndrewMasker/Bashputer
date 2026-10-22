@@ -35,15 +35,13 @@ lsr() {
 
 asr() {
     local shifts=$2
-    if (( shifts < 0 )); then $shifts=0;
-    else (( shifts > 63)); then $shifts=63; fi
+    elif (( shifts >= 64 || shifts < 0 )); then shifts=63; fi
     printf '0x%016X' $(( $1 >> shifts ))
 }
 
 shl() {
     local shifts=$2
-    if (( shifts < 0 )); then $shifts=0;
-    else (( shifts > 63)); then $shifts=63; fi
+    elif (( shifts >= 64 || shifts < 0 )); then printf '0x%016X'; return; fi
     printf '0x%016X' $(( $1 << shifts ))
 }
 
