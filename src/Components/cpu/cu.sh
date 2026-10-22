@@ -214,7 +214,7 @@ parse_STW_OPCODE() {
         load_word)
             store_Word $((pidx+1)) "MAR" "MDR"
             ;;
-        done_load_MAR_0)
+        done_store_MAR_0)
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -315,6 +315,23 @@ parse_BNZ_OPCODE() {
             else
                 printf -v 'PC' '0x%016X' $((PC + 1))
             fi
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+    esac
+}
+
+parse_JMP_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]=load
+            ;;
+        load)
+            load_1_ARGS $((pidx+1))
+            ;;
+        done_load)
+            PC=${GPRs[ARGB]}
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;

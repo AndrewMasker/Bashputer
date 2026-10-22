@@ -26,19 +26,25 @@ not() {
 }
 
 lsr() {
-    if (( $2 == 0)); then printf '0x%016X' $(( $1 )); fi
-    if (( $2 >= 64)); then printf '0x%016X' 0; fi
+    if (( $2 == 0)); then printf '0x%016X' $(( $1 )); return; fi
+    if (( $2 >= 64)); then printf '0x%016X' 0; return; fi
     local asr=$(( $1 >> $2 ))
     local mask=$(( ~( -1 <<  (64 - $2) ) ))
     printf '0x%016X' $(( asr &  mask))
 }
 
 asr() {
-    printf '0x%016X' $(( $1 >> $2 ))
+    local shifts=$2
+    if (( shifts < 0 )); then $shifts=0;
+    else (( shifts > 63)); then $shifts=63; fi
+    printf '0x%016X' $(( $1 >> shifts ))
 }
 
 shl() {
-    printf '0x%016X' $(( $1 << $2 ))
+    local shifts=$2
+    if (( shifts < 0 )); then $shifts=0;
+    else (( shifts > 63)); then $shifts=63; fi
+    printf '0x%016X' $(( $1 << shifts ))
 }
 
 eq() {
