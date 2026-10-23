@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # cpu.sh
 
-$COMPONENT_NAME="CPU"
+COMPONENT_NAME=CPU
 
 MY_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source "$MY_DIR"/../../errors.sh
@@ -69,7 +69,7 @@ parse_CLK() {
         ready) parse_Ready_CLK ;;
         stalled) : ;;
         halted) : ;;
-        *) bad_State $pidx ;;
+        *) die "unknown CPU_STATE '$CPU_STATE'" ;;
     esac
 }
 
@@ -82,7 +82,7 @@ parse_Input() {
         stall) [[ $CPU_STATE == "stalled" ]] || { RESUME_STATE=$CPU_STATE ; CPU_STATE=stalled; } ;;
         unstall) [[ $CPU_STATE == "stalled" ]] && CPU_STATE=$RESUME_STATE ;;
         data) DATA="$value"; DATA_VALID=true ;; 
-        *) bad_State $pidx ;;
+        *) die "unknown input type '$type' with value '$value'" ;;
     esac
 }
 
