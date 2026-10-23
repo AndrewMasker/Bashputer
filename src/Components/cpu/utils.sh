@@ -36,8 +36,7 @@ store_Quarter() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${addr_offset}"; fi
             PROC_STATE[pidx]=""
             ;;
-        *)
-            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -62,8 +61,7 @@ store_Half() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${addr_offset}"; fi
             PROC_STATE[pidx]=""
             ;;
-        *)
-            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -88,8 +86,7 @@ store_Word() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${addr_offset}"; fi
             PROC_STATE[pidx]=""
             ;;
-        *)
-            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -130,8 +127,7 @@ load_Byte() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load_${to}_${where}"; fi
             PROC_STATE[pidx]=""
             ;;
-        *)
-            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -155,8 +151,7 @@ load_Quarter() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load_${to}_${where}"; fi
             PROC_STATE[pidx]=""
             ;;
-        *)
-            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -180,8 +175,7 @@ load_Half() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load_${to}_${where}"; fi
             PROC_STATE[pidx]=""
             ;;
-        *)
-            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -205,8 +199,7 @@ load_Word() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load_${to}_${where}"; fi
             PROC_STATE[pidx]=""
             ;;
-        *)
-            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -220,8 +213,7 @@ load_1_ARGS() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load"; fi
             PROC_STATE[pidx]=""
             ;;
-        *) 
-            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -238,8 +230,7 @@ load_2_ARGS() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load"; fi
             PROC_STATE[pidx]=""
             ;;
-        *) 
-            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -259,8 +250,7 @@ load_3_ARGS() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_load"; fi
             PROC_STATE[pidx]=""
             ;;
-        *) 
-            echo "Unknown PROC_STATE '${PROC_STATE[pidx]}'" ;;
+        *) bad_State $pidx ;;
     esac
 }
 

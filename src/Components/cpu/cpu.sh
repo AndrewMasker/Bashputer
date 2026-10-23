@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # cpu.sh
 
+$COMPONENT_NAME="CPU"
+
 MY_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+source "$MY_DIR"/../../errors.sh
 source "$MY_DIR"/config.sh
 source "$MY_DIR"/utils.sh
 source "$MY_DIR"/cu.sh
@@ -39,7 +42,7 @@ parse_Reset_CLK() {
             PROC_STATE[pidx]=""
             echo done
             ;;
-        *) echo "cpu: unknown PROC_STATE '${PROC_STATE[pidx]}'" >&2 ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -56,7 +59,7 @@ parse_Ready_CLK() {
             echo done
             PROC_STATE[pidx]=""
             ;;
-        *) echo "cpu: unknown PROC_STATE '${PROC_STATE[pidx]}'" >&2 ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -66,7 +69,7 @@ parse_CLK() {
         ready) parse_Ready_CLK ;;
         stalled) : ;;
         halted) : ;;
-        *) echo "cpu: unknown CPU_STATE '$CPU_STATE'" >&2 ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -79,7 +82,7 @@ parse_Input() {
         stall) [[ $CPU_STATE == "stalled" ]] || { RESUME_STATE=$CPU_STATE ; CPU_STATE=stalled; } ;;
         unstall) [[ $CPU_STATE == "stalled" ]] && CPU_STATE=$RESUME_STATE ;;
         data) DATA="$value"; DATA_VALID=true ;; 
-        *) echo "cpu: unknown input '$type'" >&2 ;; 
+        *) bad_State $pidx ;;
     esac
 }
 

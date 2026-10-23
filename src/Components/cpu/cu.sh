@@ -28,6 +28,7 @@ parse_ADD_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -43,6 +44,7 @@ parse_SUB_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -58,6 +60,7 @@ parse_AND_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -73,6 +76,7 @@ parse_OR_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -88,6 +92,7 @@ parse_XOR_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -103,6 +108,7 @@ parse_NOT_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -118,6 +124,7 @@ parse_LSR_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -133,6 +140,7 @@ parse_ASR_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -148,6 +156,7 @@ parse_SHL_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -170,6 +179,7 @@ parse_LDW_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -192,6 +202,7 @@ parse_STW_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -213,6 +224,7 @@ parse_LIW_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -228,6 +240,7 @@ parse_EQ_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -243,6 +256,7 @@ parse_LTS_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -261,6 +275,7 @@ parse_BZ_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -279,6 +294,7 @@ parse_BNZ_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -293,6 +309,7 @@ parse_JMP_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 
@@ -308,6 +325,7 @@ parse_MOV_OPCODE() {
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
+        *) bad_State $pidx ;;
     esac
 }
 

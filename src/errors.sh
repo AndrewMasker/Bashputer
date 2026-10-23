@@ -9,10 +9,10 @@ die() {
     local i
     {
         printf '\n%s: FATAL: %s\n' "${COMPONENT_NAME:-component}" "$*"
-        printf ' call stack (innermost first):\n'
+        printf '    call stack (innermost first):\n'
         for (( i = 1; i < ${#FUNCNAME[@]}; i++ )); do
-            [[ ${FUNCNAME[i]} == _on_ERR || ${FUNCNAME[i]} == bad_State ]] && continue
-            printf '    %-20s %s:%s\n' "${FUNCNAME[i]}" "${BASH_SOURCE[i]##*}" "${BASH_LINENO[i-1]}"
+            [[ ${FUNCNAME[i]} == _on_Err || ${FUNCNAME[i]} == bad_State ]] && continue
+            printf '    %-20s %s:%s\n' "${FUNCNAME[i]}" "${BASH_SOURCE[i]##*/}" "${BASH_LINENO[i-1]}"
         done
         if declare -F dump_State >/dev/null; then dump_State; fi
     } >&2
@@ -37,6 +37,7 @@ _on_Exit() {
         if declare -F dump_State >/dev/null; then dump_State; fi
     } >&2
     fi
+    if declare -F on_Exit >/dev/null; then on_Exit "$status"; fi
 }
 
 set -Eu
