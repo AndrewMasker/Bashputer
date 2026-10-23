@@ -86,7 +86,7 @@ parse_Input() {
     esac
 }
 
-main() {
+run_CPU() {
     while read -r type value; do
         parse_Input "$type" "$value"
     done
@@ -94,16 +94,16 @@ main() {
 
 dump_State() {
     local i 
+    printf 'CPU STATE: \n'
     printf '    CPU_STATE=%s RESUME_STATE=%s\n' "${CPU_STATE-unset}" "${RESUME_STATE-unset}"
     printf '    PC=%s SP=%s OPCODE=%s\n' "${PC-unset}" "${SP-unset}" "${OPCODE-unset}"
-    printf '    ARGA=%s ARGB=%s ARGC\n' "${ARGA-unset}" "${ARGB-unset}" "${ARGC-unset}"
-    printf '    CPU_STATE=%s RESUME_STATE=%s\n' "${CPU_STATE-unset}" "${RESUME_STATE-unset}"
+    printf '    ARGA=%s ARGB=%s ARGC=%s\n' "${ARGA-unset}" "${ARGB-unset}" "${ARGC-unset}"
     printf '    MAR=%s MDR=%s DATA=%s DATA_VALID=%s\n' "${MAR-unset}" "${MDR-unset}" "${DATA-unset}" "${DATA_VALID-unset}"
     printf '    PROC_STATE=(%s)\n' "${PROC_STATE[*]@Q}"
-    printf '    Nonezero GPRs:\n'
-    for i in ${!GPRs[@]}; do
-        if (( GPRs[i] != 0 )); then printf '        r%d=%s' "$i" "${GPRs[i]}\n"; fi
+    printf '    Nonzero GPRs:\n'
+    for i in "${!GPRs[@]}"; do
+        if (( GPRs[i] != 0 )); then printf '        r%d=%s\n' "$i" "${GPRs[i]}"; fi
     done
 }
 
-main
+run_CPU
