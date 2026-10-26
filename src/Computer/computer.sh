@@ -14,7 +14,7 @@ FIFO_DIR=$(mktemp -d)
 declare -A PID IN OUT
 
 for name in "${!COMPONENTS[@]}"; do
-    start_Component "$name" "${COMPONENT[$name]}"
+    start_Component "$name" "${COMPONENTS[$name]}"
 done
 for name in "${!COMPONENTS[@]}"; do
     connect_Component "$name"
@@ -26,7 +26,7 @@ run_Computer() {
 
 on_Exit() {
     local name
-    for name in "${!PID[@]}"; do kill "$PID[$name]" 2>/dev/null || true; done
+    for name in "${!PID[@]}"; do kill "${PID[$name]}" 2>/dev/null || true; done
     wait
     if [[ -n ${FIFO_DIR-} ]]; then rm -rf "$FIFO_DIR"; fi
 }
