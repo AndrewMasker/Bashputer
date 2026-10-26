@@ -13,6 +13,7 @@ parse_NOP_OPCODE() {
 parse_HLT_OPCODE() {
     local pidx=${1:-0}
     CPU_STATE=halted
+    echo halted
     if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
 }
 
