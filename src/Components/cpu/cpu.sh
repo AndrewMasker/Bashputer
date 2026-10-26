@@ -7,6 +7,7 @@ MY_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source "$MY_DIR"/../../errors.sh
 source "$MY_DIR"/config.sh
 source "$MY_DIR"/utils.sh
+source "$MY_DIR"/../../utils.sh
 source "$MY_DIR"/cu.sh
 
 # INITIALIZATION CODE
@@ -73,6 +74,16 @@ parse_CLK() {
     esac
 }
 
+parse_Data() {
+    local value=$1
+    if is_2_Digit_Hex; then
+        DATA="$value"
+        DATA_VALID=true
+    else
+        die "invalid data input of '$value'. CPU data inputs must be of format '0x%016X'"
+
+}
+
 parse_Input() {
     local type=$1
     local value=${2-}
@@ -81,7 +92,7 @@ parse_Input() {
         reset) CPU_STATE=reset; PROC_STATE=() ;;
         stall) [[ $CPU_STATE == "stalled" ]] || { RESUME_STATE=$CPU_STATE ; CPU_STATE=stalled; } ;;
         unstall) [[ $CPU_STATE == "stalled" ]] && CPU_STATE=$RESUME_STATE ;;
-        data) DATA="$value"; DATA_VALID=true ;; 
+        data) parse_Data "$value" ;; 
         *) die "unknown input type '$type' with value '$value'" ;;
     esac
 }
