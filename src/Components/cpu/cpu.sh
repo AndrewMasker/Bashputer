@@ -41,7 +41,6 @@ parse_Reset_CLK() {
         done)
             CPU_STATE=ready
             PROC_STATE[pidx]=""
-            echo done
             ;;
         *) bad_State $pidx ;;
     esac
@@ -57,7 +56,6 @@ parse_Ready_CLK() {
             parse_OPCODE $((pidx+1))
             ;;
         done_parse)
-            echo done
             PROC_STATE[pidx]=""
             ;;
         *) bad_State $pidx ;;
@@ -89,7 +87,7 @@ parse_Input() {
     local type=$1
     local value=${2-}
     case $type in
-        clock) parse_CLK ;;
+        clock) parse_CLK; echo tick ;;
         reset) CPU_STATE=reset; PROC_STATE=() ;;
         stall) [[ $CPU_STATE == "stalled" ]] || { RESUME_STATE=$CPU_STATE ; CPU_STATE=stalled; } ;;
         unstall) if [[ $CPU_STATE == "stalled" ]]; then CPU_STATE=$RESUME_STATE; fi ;;
