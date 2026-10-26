@@ -6,7 +6,7 @@ get_Message() {
     read -r -t $TIMEOUT "$varname" <&"${OUT[$name]}" || exit_status=$?
     if (( exit_status > 128)); then die "component '$name' didn't repond within '$TIMEOUT' seconds"; fi
     if (( exit_status != 0)); then
-        wait "${PID[$name]}" || exit_status=$?
+        exit_status=0; wait "${PID[$name]}" || exit_status=$?
         unset 'PID[$name]'
         die "component '$name' crashed with exit status '$exit_status'"
     fi
@@ -29,4 +29,16 @@ connect_Component() {
     local name=$1
     exec {IN[$name]}> "$FIFO_DIR/$name.in"
     exec {OUT[$name]}< "$FIFO_DIR/$name.out"
+}
+
+shutdown_All_Components() {
+    local name exit_status
+    for name in "${!PID[@]}"; do send_Message "$name" shutdown; done
+    for name in "${!PID[@]}"; do 
+        exit_status=0; wait "${PID[$name]}" || exit_status=$?
+        if (( exit_status != 0 )); then
+            die "component '$name' exited with status '$exit_status'"
+        fi
+        unset 'PID[$name]'
+    done
 }

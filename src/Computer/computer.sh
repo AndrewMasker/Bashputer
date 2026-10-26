@@ -13,12 +13,28 @@ source "$MY_DIR"/utils.sh
 FIFO_DIR=$(mktemp -d)
 declare -A PID IN OUT
 
+for name in "${!COMPONENTS[@]}"; do
+    start_Component "$name" "${COMPONENT[$name]}"
+done
+for name in "${!COMPONENTS[@]}"; do
+    connect_Component "$name"
+done
 
+run_Computer() {
+    
+}
 
+on_Exit() {
+    local name
+    for name in "${!PID[@]}"; do kill "$PID[$name]" 2>/dev/null || true; done
+    wait
+    if [[ -n ${FIFO_DIR-} ]]; then rm -rf "$FIFO_DIR"; fi
+}
 
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-
-
+run_Computer
 
 
 
