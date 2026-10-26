@@ -99,9 +99,13 @@ parse_Input() {
 }
 
 run_CPU() {
-    while read -r type value; do
-        parse_Input "$type" "$value"
+    while read -r type value || [[ -n ${type-} ]]; do
+        case $type in
+            shutdown) exit 0 ;;
+            *) parse_Input "$type" "$value" ;;
+        esac
     done
+    die "input stream closed without shutdown"
 }
 
 dump_State() {
