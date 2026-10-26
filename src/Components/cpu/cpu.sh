@@ -76,7 +76,7 @@ parse_CLK() {
 
 parse_Data() {
     local value=$1
-    if is_2_Digit_Hex $value ; then
+    if is_2_Digit_Hex "$value" ; then
         DATA="$value"
         DATA_VALID=true
     else

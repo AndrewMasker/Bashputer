@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # computer.sh
 
+COMPONENT_NAME=COMPUTER
+
 MY_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-source "$MY_DIR"/../errors.sh
 source "$MY_DIR"/config.sh
+source "$MY_DIR"/../config.sh
+source "$MY_DIR"/../errors.sh
 source "$MY_DIR"/../utils.sh
 source "$MY_DIR"/utils.sh
 

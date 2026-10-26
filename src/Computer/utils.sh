@@ -2,10 +2,11 @@
 # utils.sh
 
 get_Message() {
-    local name=$1
-    local varname=$2
-    if ! read -r -t 5 "$varname" <&"${OUT[$name]}"; then
-        local exit_status=0; wait "${PID[$name]}" || exist_status=$?
+    local name=$1 varname=$2 exit_status=0
+    read -r -t $TIMEOUT "$varname" <&"${OUT[$name]}" || exit_status=$?
+    if (( exit_status > 128)); then die "component '$name' didn't repond within '$TIMEOUT' seconds"; fi
+    if (( exit_status != 0)); then
+        wait "${PID[$name]}" || exit_status=$?
         unset 'PID[$name]'
         die "component '$name' crashed with exit status '$exit_status'"
     fi
@@ -26,6 +27,6 @@ start_Component() {
 
 connect_Component() {
     local name=$1
-    exec {IN[$name]} > "$FIFO_DIR/$name.in"
-    exec {OUT[$name]} < "$FIFO_DIR/$name.out"
+    exec {IN[$name]}> "$FIFO_DIR/$name.in"
+    exec {OUT[$name]}< "$FIFO_DIR/$name.out"
 }
