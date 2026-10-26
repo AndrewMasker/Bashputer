@@ -76,11 +76,12 @@ parse_CLK() {
 
 parse_Data() {
     local value=$1
-    if is_2_Digit_Hex; then
+    if is_2_Digit_Hex $value ; then
         DATA="$value"
         DATA_VALID=true
     else
-        die "invalid data input of '$value'. CPU data inputs must be of format '0x%016X'"
+        die "invalid data input of '$value'. CPU data inputs must be of format '0x%02X'"
+    fi
 
 }
 
