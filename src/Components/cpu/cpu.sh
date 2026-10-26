@@ -92,7 +92,7 @@ parse_Input() {
         clock) parse_CLK ;;
         reset) CPU_STATE=reset; PROC_STATE=() ;;
         stall) [[ $CPU_STATE == "stalled" ]] || { RESUME_STATE=$CPU_STATE ; CPU_STATE=stalled; } ;;
-        unstall) [[ $CPU_STATE == "stalled" ]] && CPU_STATE=$RESUME_STATE ;;
+        unstall) if [[ $CPU_STATE == "stalled" ]]; then CPU_STATE=$RESUME_STATE; fi ;;
         data) parse_Data "$value" ;; 
         *) die "unknown input type '$type' with value '$value'" ;;
     esac

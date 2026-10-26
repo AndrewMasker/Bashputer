@@ -26,7 +26,7 @@ bad_State() {
 
 _on_Err() {
     local status=$1 cmd=$2
-    if (( status > 1 )); then die "Command failed (status $status): $cmd"; fi
+    die "Command failed (status $status): $cmd"; fi
 }
 
 _on_Exit() {

@@ -108,7 +108,7 @@ load_Byte() {
             PROC_STATE[pidx]="load_byte"
             ;;
         load_byte)
-            $DATA_VALID || return
+            $DATA_VALID || return 0
             local prev
             printf -v "prev" '0x%016X' "${!to}"
             if ((where < 7)); then
