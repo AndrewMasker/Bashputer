@@ -9,15 +9,17 @@ A message out goes via STDOUT and a message in comes via STDIN.
 **IN**
 <dd>
 
-"clock" : This moves the cpu forward by a state in its lowest process.
+clock : This moves the cpu forward by a state in its lowest process.
 
-"data" `<byte>` : This puts the byte `<byte>` which must be formatted with '0x%02X' into the data register.
+data `<byte>` : This puts the byte `<byte>` which must be formatted with '0x%02X' into the data register.
 
-"reset" : This enters the cpu reset pipeline.
+reset : This enters the cpu reset pipeline.
 
-"stall" : This stalls the cpu at its current state.
+stall : This stalls the cpu at its current state.
 
-"unstall" : This resumes the cpu from its stalled state.
+unstall : This resumes the cpu from its stalled state.
+
+shutdown : This is a message that tells the cpu to shutdown.
 
 </dd>
 
@@ -27,5 +29,9 @@ A message out goes via STDOUT and a message in comes via STDIN.
 load `<addr>` : This tells whatever is hooked up to the address bus and the data bus for the cpu to return a byte from address `<addr>`.
 
 store `<addr>` `<byte>` This tells whatever is hooked up to the address bus and the data bus to store the byte `<byte>` formatted with '0x%02X' at address `<addr>`.
+
+tick : This is a message sent after a clock pulse has been fully completed.
+
+halted : This is a message that is printed when the cpu has halted.
 
 </dd>
