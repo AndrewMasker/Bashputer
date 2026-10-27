@@ -17,7 +17,7 @@ KEY_BUF=()
 poll_TTY() {
     local char byte
     while read -r -t 0 -u "$TTY"; do
-        IFS= read -r -d '' -n 1 -u "$TTY" ch || die "tty closed"
+        IFS= read -r -d '' -n 1 -u "$TTY" char || die "tty closed"
         printf -v 'byte' '0x%02X' "'$char"
         KEY_BUF+=("$byte")
     done
@@ -38,15 +38,16 @@ parse_Load() {
             fi
             ;;
         "$DATA_ADDR")
-            if (( ${#KEY_BUF[@]} ));
+            if (( ${#KEY_BUF[@]} )); then
                 echo "data ${KEY_BUF[0]}"
-                KEY_BUF[@]=("${KEY_BUF[@]:1}")
+                KEY_BUF=("${KEY_BUF[@]:1}")
             else
                 echo "data $NO_DATA"
             fi
             ;;
         "$CLEAR_ADDR")
             KEY_BUF=()
+            echo "data $NO_DATA"
             ;;
         *)
             echo "data $UNMAPPED_DATA"
