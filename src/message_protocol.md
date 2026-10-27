@@ -35,3 +35,19 @@ tick : This is a message sent after a clock pulse has been fully completed.
 halted : This is a message that is printed when the cpu has halted.
 
 </dd>
+
+## BUS INTERCONNECT
+**IN**
+<dd>
+
+load `<addr>` : This tells the bus interconnect to return a byte from whatver owns address `<addr>` at `<addr>` minus the offset of the component.
+
+store `<addr>` `<byte>` : This tells the bus interconnect to store a byte to whatver owns address `<addr>` at `<addr>` minus the offset of the component.
+
+**OUT**
+
+`<name>` load `<addr>` : This tells the outside world to forward the load `<addr>` command to the component with name `<name>`.
+
+`<name>` store `<addr>` `<byte>` : This tells the outside world to forward the store `<addr>` `<byte>` command to the component with name `<name>`.
+
+</dd>
