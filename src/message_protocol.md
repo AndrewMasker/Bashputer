@@ -48,10 +48,28 @@ data `<byte>` : This tells the bus interconnect the byte from the last load comm
 
 **OUT**
 
+done : Indicates that the current step is over.
+
 `<name>` load `<addr>` : This tells the outside world to forward the load `<addr>` command to the component with name `<name>`.
 
 `<name>` store `<addr>` `<byte>` : This tells the outside world to forward the store `<addr>` `<byte>` command to the component with name `<name>`.
 
 data `<byte>` : This passes the byte that the interconnect received from a load request back to the thing that is requesting from it.
+
+</dd>
+
+## RAM
+**IN**
+<dd>
+
+load `<addr>` : This tells the ram to return a byte from address `<addr>`.
+
+store `<addr>` `<byte>` : This tells the ram to store a byte at address `<addr>`.
+
+**OUT**
+
+done : Indicates that the current step is over.
+
+data `<byte>` : This passes the byte the ram found back.
 
 </dd>

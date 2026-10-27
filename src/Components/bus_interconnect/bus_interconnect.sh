@@ -53,6 +53,7 @@ parse_Store() {
             fi
         else
             die "incorrect byte format of '$byte'. Must be '0x%02X' formatted"
+        fi
     else
         die "incorrect address format of '$addr'. Must be '0x%016X' formatted"
     fi
@@ -72,7 +73,7 @@ parse_Input() {
     case $type in
         load) parse_Load "$value" ; echo done ;;
         store) parse_Store $value ; echo done ;;
-        data) parse_Data "$value" ; echo done
+        data) parse_Data "$value" ; echo done ;;
         *) die "unknown input type" ;;
     esac
 }
