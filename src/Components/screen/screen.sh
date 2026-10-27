@@ -8,19 +8,21 @@ source "$MY_DIR"/../../errors.sh
 source "$MY_DIR"/../../utils.sh
 source "$MY_DIR"/config.sh
 
-writes=""
-mode=0x00
-cmode=0x00
-cx=0x00
-cy=0x00
-fidx=0x10
-fr=0x00
-fg=0x00
-fb=0x00
-bidx=0x0F
-br=0x00
-bg=0x00
-bb=0x00
+reset() {
+    writes=""
+    mode=0x00
+    cmode=0x00
+    cx=0x00
+    cy=0x00
+    fidx=0x10
+    fr=0x00
+    fg=0x00
+    fb=0x00
+    bidx=0x0F
+    br=0x00
+    bg=0x00
+    bb=0x00
+}
 
 parse_Load() {
     local addr=$1
@@ -28,11 +30,47 @@ parse_Load() {
         die "address '$addr' has wrong format. Must be '0x%016X'"
     fi
     case $addr in
+        "$MODE_ADDR")
+            echo "data $mode"
+            ;;
+        "$CMODE_ADDR")
+            echo "data $cmode"
+            ;;
         "$CX_ADDR")
             echo "data $cx"
             ;;
         "$CY_ADDR")
             echo "data $cy"
+            ;;
+        "$FIDX_ADDR")
+            echo "data $fidx"
+            ;;
+        "$FR_ADDR")
+            echo "data $fr"
+            ;;
+        "$FG_ADDR")
+            echo "data $fg"
+            ;;
+        "$FB_ADDR")
+            echo "data $fb"
+            ;;
+        "$BIDX_ADDR")
+            echo "data $bidx"
+            ;;
+        "$BR_ADDR")
+            echo "data $br"
+            ;;
+        "$BG_ADDR")
+            echo "data $bg"
+            ;;
+        "$BB_ADDR")
+            echo "data $bb"
+            ;;
+        "$WIDTH_ADDR")
+            echo "data $WIDTH"
+            ;;
+        "HEIGHT_ADDR")
+            echo "data $HEIGHT"
             ;;
         *)
             echo "data $UNMAPPED_DATA"
@@ -106,6 +144,19 @@ parse_Cell() {
         parse_Pixel
 }
 
+parse_Blit() {
+    printf '%s' "$writes" >&"$TTY"
+    writes=""
+}
+
+parse_Fill() {
+    if (( cmode == 0 )); then
+        printf '\e[48;5;%dm\e[2J' "$bidx" >&"$TTY"
+    else
+        printf '\e[48;2;%d;%d;%dm\e[2J'"$br" "$bg" "$bb" >&"$TTY"
+    fi
+}
+
 parse_Store() {
     local addr=$1 byte=$2
     if ! is_16_Digit_Hex "$addr"; then
@@ -154,7 +205,15 @@ parse_Store() {
         "$CELL_ADDR")
             parse_Cell $byte
             ;;
-        
+        "$BLIT_ADDR")
+            parse_Blit
+            ;;
+        "$FILL_ADDR")
+            parse_Fill
+            ;;
+        "$RESET_ADDR")
+            reset
+            ;;
     esac
 }
 
@@ -176,5 +235,7 @@ run_SCREEN() {
     done
     die "input stream closed without shutdown"
 }
+
+reset
 
 run_SCREEN
