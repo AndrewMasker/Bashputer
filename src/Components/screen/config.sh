@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # config.sh
 
-printf -v 'WIDTH' '0x%02X' 256
-printf -v 'HEIGHT' '0x%02X' 128 # height of characters. Pixel height is twice as high
+printf -v 'WIDTH' '0x%02X' 254
+printf -v 'HEIGHT' '0x%02X' 127 # height of characters. Pixel height is twice as high
 
 printf -v 'MODE_ADDR' '0x%016X' 0       # 0 is character, 1 is pixel
 printf -v 'CMODE_ADDR' '0x%016X' 1      # 0 is by index,  1 is by rgb

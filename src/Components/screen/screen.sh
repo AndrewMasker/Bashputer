@@ -8,6 +8,8 @@ source "$MY_DIR"/../../errors.sh
 source "$MY_DIR"/../../utils.sh
 source "$MY_DIR"/config.sh
 
+exec {TTY}>/dev/tty
+
 reset() {
     writes=""
     mode=0x00
@@ -69,7 +71,7 @@ parse_Load() {
         "$WIDTH_ADDR")
             echo "data $WIDTH"
             ;;
-        "HEIGHT_ADDR")
+        "$HEIGHT_ADDR")
             echo "data $HEIGHT"
             ;;
         *)
@@ -95,16 +97,16 @@ parse_CX() {
     if (( byte < WIDTH )); then 
         cx=$byte 
     else 
-        cx=$WIDTH
+        printf -v 'cx' '0x%02X' $(( WIDTH - 1 ))
     fi
 }
 
 parse_CY() {
     local byte=$1
     if (( byte < HEIGHT )); then 
-        cx=$byte 
+        cy=$byte 
     else 
-        cx=$HEIGHT
+        printf -v 'cy' '0x%02X' $(( HEIGHT - 1 ))
     fi
 }
 
@@ -124,7 +126,7 @@ parse_Char() {
 }
 
 parse_Pixel() {
-    local byte=$1 tmp
+    local tmp
     printf -v 'tmp' '\e[%d;%dH' $(( cy + 1 )) $(( cx + 1))
     writes+=$tmp
     if (( cmode == 0 )); then
@@ -142,6 +144,7 @@ parse_Cell() {
         parse_Char $byte
     else
         parse_Pixel
+    fi
 }
 
 parse_Blit() {
@@ -150,11 +153,13 @@ parse_Blit() {
 }
 
 parse_Fill() {
+    local tmp
     if (( cmode == 0 )); then
-        printf '\e[48;5;%dm\e[2J' "$bidx" >&"$TTY"
+        printf -v 'tmp' '\e[48;5;%dm\e[2J' "$bidx" >&"$TTY"
     else
-        printf '\e[48;2;%d;%d;%dm\e[2J'"$br" "$bg" "$bb" >&"$TTY"
+        printf -v 'tmp' '\e[48;2;%d;%d;%dm\e[2J' "$br" "$bg" "$bb" >&"$TTY"
     fi
+    writes+=$tmp
 }
 
 parse_Store() {
@@ -185,10 +190,10 @@ parse_Store() {
             fr=$byte
             ;;
         "$FG_ADDR")
-            fb=$byte
+            fg=$byte
             ;;
         "$FB_ADDR")
-            fg=$byte
+            fb=$byte
             ;;
         "$BIDX_ADDR")
             bidx=$byte
