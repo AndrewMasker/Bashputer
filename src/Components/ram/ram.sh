@@ -13,7 +13,7 @@ MEM_VAL=0x00
 parse_Load() {
     local addr=$1
     if is_16_Digit_Hex $addr; then
-        printf -v 'MEM_VAL' '0x%02X' $(( MEM[addr] ))
+        printf -v 'MEM_VAL' '0x%02X' ${MEM[$addr]:-0}
         echo data $MEM_VAL
     else
         die "address '$addr' has invalid format. Must be '0x%016X'"
@@ -24,7 +24,7 @@ parse_Store() {
     local addr=$1 byte=$2
     if is_16_Digit_Hex $addr; then
         if is_2_Digit_Hex $byte; then
-            printf -v 'MEM[addr]' '0x%02X' $byte
+            MEM[$addr]=$byte
         else
             die "byte '$byte' has invalid format. Must be '0x%02X'"
         fi
