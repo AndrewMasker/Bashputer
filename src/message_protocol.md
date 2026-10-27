@@ -44,10 +44,14 @@ load `<addr>` : This tells the bus interconnect to return a byte from whatver ow
 
 store `<addr>` `<byte>` : This tells the bus interconnect to store a byte to whatver owns address `<addr>` at `<addr>` minus the offset of the component.
 
+data `<byte>` : This tells the bus interconnect the byte from the last load command it sent.
+
 **OUT**
 
 `<name>` load `<addr>` : This tells the outside world to forward the load `<addr>` command to the component with name `<name>`.
 
 `<name>` store `<addr>` `<byte>` : This tells the outside world to forward the store `<addr>` `<byte>` command to the component with name `<name>`.
+
+data `<byte>` : This passes the byte that the interconnect received from a load request back to the thing that is requesting from it.
 
 </dd>
