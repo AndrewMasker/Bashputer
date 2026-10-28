@@ -10,6 +10,11 @@ source "$MY_DIR"/../errors.sh
 source "$MY_DIR"/../utils.sh
 source "$MY_DIR"/utils.sh
 
+if ! SAVED_STTY=$(stty -g 2>/dev/null </dev/tty); then
+    die "no controlling terminal"
+fi
+stty -echo -icanon min 1 time 0 </dev/tty
+
 FIFO_DIR=$(mktemp -d)
 declare -A PID IN OUT
 
@@ -29,6 +34,11 @@ on_Exit() {
     for name in "${!PID[@]}"; do kill "${PID[$name]}" 2>/dev/null || true; done
     wait
     if [[ -n ${FIFO_DIR-} ]]; then rm -rf "$FIFO_DIR"; fi
+
+    if [[ -n ${SAVED_STTY-} ]]; then
+        printf 'e\[0m\e[?25h]]' >/dev/tty
+        stty "$SAVED_STTY" </dev/tty
+    fi
 }
 
 trap 'exit 130' INT

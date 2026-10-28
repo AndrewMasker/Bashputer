@@ -155,9 +155,9 @@ parse_Blit() {
 parse_Fill() {
     local tmp
     if (( cmode == 0 )); then
-        printf -v 'tmp' '\e[48;5;%dm\e[2J' "$bidx" >&"$TTY"
+        printf -v 'tmp' '\e[48;5;%dm\e[2J' "$bidx"
     else
-        printf -v 'tmp' '\e[48;2;%d;%d;%dm\e[2J' "$br" "$bg" "$bb" >&"$TTY"
+        printf -v 'tmp' '\e[48;2;%d;%d;%dm\e[2J' "$br" "$bg" "$bb"
     fi
     writes+=$tmp
 }
