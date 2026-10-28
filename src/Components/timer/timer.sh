@@ -21,13 +21,14 @@ get_Ticks() {
 
 parse_Load() {
     local addr=$1 byte_num tmp
-    if (( addr >= LOW_ADDR && addr < (LOW_ADDR + 16) )); then
+    if (( addr >= LOW_ADDR && addr < (LOW_ADDR + 8) )); then
         byte_num=$(( (addr - LOW_ADDR) ))
         if (( byte_num == 0)); then
-            printf -v tmp '0x%02X' $(( ticks && 0xFF ))
+            printf -v tmp '0x%02X' $(( ticks & 0xFF ))
         else
-            printf -v tmp '0x%02X' $(( (ticks >> (byte_num*8)) && 0xFF ))
+            printf -v tmp '0x%02X' $(( (ticks >> (byte_num*8)) & 0xFF ))
         fi  
+        echo "data $tmp"
     else
         echo "data $UNMAPPED_DATA"
     fi
@@ -35,7 +36,7 @@ parse_Load() {
 
 parse_Store() {
     local addr=$1
-    case addr in
+    case $addr in
         "$RESET_ADDR")
             reset
             ;;
