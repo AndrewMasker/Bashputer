@@ -8,7 +8,8 @@ source "$MY_DIR"/../../errors.sh
 source "$MY_DIR"/../../utils.sh
 source "$MY_DIR"/config.sh
 
-export {SLEEP_FD}<> <(:)
+export LC_ALL=C
+exec {SLEEP_FD}<> <(:)
 
 set_Now_Us() {
     printf -v "$1" '%d' "${EPOCHREALTIME/./}"
@@ -26,7 +27,7 @@ sleep_Us() {
 set_Now_Us LAST_PULSE
 
 wait_For_Next_Pulse() {
-    local now
+    local now NEXT_PULSE
     set_Now_Us now
     NEXT_PULSE=$(( LAST_PULSE +  PERIOD_US ))
     if (( NEXT_PULSE > now )); then
@@ -49,3 +50,4 @@ run_CLOCK() {
 }
 
 run_CLOCK
+
