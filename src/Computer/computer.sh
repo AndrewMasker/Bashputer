@@ -38,13 +38,15 @@ for name in "${!COMPONENTS[@]}"; do
 done
 
 run_Computer() {
-    
+    start_Component "rom" "$MY_DIR"/cartridges/snake.sh
+    computer_Step
 }
 
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-run_Computer
+rom_disc=$1
+run_Computer $rom_disc
 
 
 
