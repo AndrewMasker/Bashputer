@@ -37,8 +37,12 @@ for name in "${!COMPONENTS[@]}"; do
     connect_Component "$name"
 done
 
+step() {
+    
+}
+
 run_Computer() {
-    computer_Step
+    step
 }
 
 trap 'exit 130' INT
@@ -46,6 +50,7 @@ trap 'exit 143' TERM
 
 rom_cart=$1
 start_Component "rom" "$MY_DIR"/cartridges/"$rom_cart".sh
+connect_Component "rom"
 run_Computer $rom_cart
 
 
