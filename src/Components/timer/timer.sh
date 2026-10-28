@@ -9,9 +9,8 @@ source "$MY_DIR"/../../utils.sh
 source "$MY_DIR"/config.sh
 
 export LC_ALL=C
-exec {SLEEP_FD}<> <(:)
 
-reset() {
+reset_Timer() {
     printf -v start_us '%d' "${EPOCHREALTIME/./}"
 }
 
@@ -38,7 +37,7 @@ parse_Store() {
     local addr=$1
     case $addr in
         "$RESET_ADDR")
-            reset
+            reset_Timer
             ;;
         "$TRIGGER_ADDR")
             get_Ticks
@@ -65,7 +64,7 @@ run_TIMER() {
     die "input stream closed without shutdown"
 }
 
-reset
+reset_Timer
 get_Ticks
 run_TIMER
 

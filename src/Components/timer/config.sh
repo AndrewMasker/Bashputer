@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # config.sh
 
-US_PER_TICK=1000 # 200 Hz freq
+US_PER_TICK=1000 # 1 kHz freq
 
 printf -v RESET_ADDR '0x%016X' 0
 printf -v TRIGGER_ADDR '0x%016X' 1
