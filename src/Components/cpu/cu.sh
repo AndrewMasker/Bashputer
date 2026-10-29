@@ -161,6 +161,75 @@ parse_SHL_OPCODE() {
     esac
 }
 
+parse_LDB_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_2_ARGS $((pidx+1))
+            ;;
+        done_load)
+            MAR="${GPRs[$ARGA]}"
+            PROC_STATE[pidx]="load_byte"
+            ;;
+        load_byte)
+            load_Byte $((pidx+1)) "MDR" "MAR" 0 true false
+            ;;
+        done_load_MDR_0)
+            GPRs[ARGB]=$MDR
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_LDQ_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_2_ARGS $((pidx+1))
+            ;;
+        done_load)
+            MAR="${GPRs[$ARGA]}"
+            PROC_STATE[pidx]="load_quarter"
+            ;;
+        load_quarter)
+            load_Quarter $((pidx+1)) "MDR" "MAR" 0 true false
+            ;;
+        done_load_MDR_0)
+            GPRs[ARGB]=$MDR
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_LDH_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_2_ARGS $((pidx+1))
+            ;;
+        done_load)
+            MAR="${GPRs[$ARGA]}"
+            PROC_STATE[pidx]="load_half"
+            ;;
+        load_half)
+            load_Half $((pidx+1)) "MDR" "MAR" 0 true false
+            ;;
+        done_load_MDR_0)
+            GPRs[ARGB]=$MDR
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
 parse_LDW_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
@@ -184,6 +253,75 @@ parse_LDW_OPCODE() {
     esac
 }
 
+parse_STB_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_2_ARGS $((pidx+1))
+            ;;
+        done_load)
+            MDR="${GPRs[$ARGA]}"
+            MAR="${GPRs[$ARGB]}"
+            PROC_STATE[pidx]="store_byte"
+            ;;
+        store_byte)
+            store_Byte $((pidx+1)) "MAR" "MDR"
+            ;;
+        done_store_MAR_0)
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_STQ_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_2_ARGS $((pidx+1))
+            ;;
+        done_load)
+            MDR="${GPRs[$ARGA]}"
+            MAR="${GPRs[$ARGB]}"
+            PROC_STATE[pidx]="store_quarter"
+            ;;
+        store_quarter)
+            store_Quarter $((pidx+1)) "MAR" "MDR"
+            ;;
+        done_store_MAR_0)
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_STH_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_2_ARGS $((pidx+1))
+            ;;
+        done_load)
+            MDR="${GPRs[$ARGA]}"
+            MAR="${GPRs[$ARGB]}"
+            PROC_STATE[pidx]="store_half"
+            ;;
+        store_half)
+            store_Half $((pidx+1)) "MAR" "MDR"
+            ;;
+        done_store_MAR_0)
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
 parse_STW_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
@@ -193,12 +331,78 @@ parse_STW_OPCODE() {
         done_load)
             MDR="${GPRs[$ARGA]}"
             MAR="${GPRs[$ARGB]}"
-            PROC_STATE[pidx]="load_word"
+            PROC_STATE[pidx]="store_word"
             ;;
-        load_word)
+        store_word)
             store_Word $((pidx+1)) "MAR" "MDR"
             ;;
         done_store_MAR_0)
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_LIB_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_1_ARGS $((pidx+1))
+            ;;
+        done_load)
+            PROC_STATE[pidx]="load_byte"
+            ;;
+        load_byte)
+            load_Byte $((pidx+1)) "MDR" "PC" 0 true true
+            ;;
+        done_load_MDR_0)
+            GPRs[ARGA]=$MDR
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_LIQ_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_1_ARGS $((pidx+1))
+            ;;
+        done_load)
+            PROC_STATE[pidx]="load_quarter"
+            ;;
+        load_quarter)
+            load_Quarter $((pidx+1)) "MDR" "PC" 0 true true
+            ;;
+        done_load_MDR_0)
+            GPRs[ARGA]=$MDR
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_LIH_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_1_ARGS $((pidx+1))
+            ;;
+        done_load)
+            PROC_STATE[pidx]="load_half"
+            ;;
+        load_half)
+            load_Half $((pidx+1)) "MDR" "PC" 0 true true
+            ;;
+        done_load_MDR_0)
+            GPRs[ARGA]=$MDR
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -368,13 +572,13 @@ parse_OPCODE() {
         0x11) parse_ASR_OPCODE $pidx ;;
         0x12) parse_SHL_OPCODE $pidx ;;
         # 0x13) parse_ROL_OPCODE $pidx ;;
-        # 0x14) parse_LDB_OPCODE $pidx ;;
-        # 0x15) parse_LDQ_OPCODE $pidx ;;
-        # 0x16) parse_LDH_OPCODE $pidx ;;
+        0x14) parse_LDB_OPCODE $pidx ;;
+        0x15) parse_LDQ_OPCODE $pidx ;;
+        0x16) parse_LDH_OPCODE $pidx ;;
         0x17) parse_LDW_OPCODE $pidx ;;
-        # 0x18) parse_STB_OPCODE $pidx ;;
-        # 0x19) parse_STQ_OPCODE $pidx ;;
-        # 0x1A) parse_STH_OPCODE $pidx ;;
+        0x18) parse_STB_OPCODE $pidx ;;
+        0x19) parse_STQ_OPCODE $pidx ;;
+        0x1A) parse_STH_OPCODE $pidx ;;
         0x1B) parse_STW_OPCODE $pidx ;;
         # 0x1C) parse_LIB_OPCODE $pidx ;;
         # 0x1D) parse_LIQ_OPCODE $pidx ;;
