@@ -24,7 +24,13 @@ parse_Store() {
     local addr=$1 byte=$2
     if is_16_Digit_Hex $addr; then
         if is_2_Digit_Hex $byte; then
-            MEM[$addr]=$byte
+            if [[ $byte == 0x00 ]]; then
+                if [[ -v MEM[addr] ]]; then
+                    unset 'MEM[$addr]'
+                fi
+            else
+                MEM[$addr]=$byte
+            fi
         else
             die "byte '$byte' has invalid format. Must be '0x%02X'"
         fi
