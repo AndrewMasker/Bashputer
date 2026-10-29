@@ -6,13 +6,14 @@ COMPONENT_NAME=Loader
 MY_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source "$MY_DIR"/config.sh
 source "$MY_DIR"/utils.sh
+source "$MY_DIR"/cartridges.sh
 source "$MY_DIR"/../../errors.sh
 source "$MY_DIR"/../../utils.sh
 
 # INITIALIZATION CODE
 LOADER_STATE=""
-BUSY_STATE=0x00
-RESULT_STATE=0x00
+BUSY_STATE=0x00 # 0x00: Not Busy , 0x01: Busy
+RESULT_STATE=0x00 # 0x00: Okay , 0x01: Busy , 0x02: End Before Start , 0x03: Unknown Cart , 0x04: Unknown Command , 0x05: Bad Cartridge
 CART_BYTE=0x00
 COMMAND_BYTE=0x00
 printf -v START '0x%016X' 0
@@ -24,18 +25,30 @@ parse_Load_CLK() {
     case ${PROC_STATE[pidx]-} in
         "")
             if (( (END - START) < 0 )); then
-                PROC_STATE[pidx]=end_before_start
+                LOADER_STATE=""
+                BUSY_STATE=0x00
+                RESULT_STATE=0x02
+                PROC_STATE[pidx]=""
+            elif [[ ! -v cartridges[$CART_BYTE] ]]; then
+                LOADER_STATE=""
+                BUSY_STATE=0x00
+                RESULT_STATE=0x03
+                PROC_STATE=""
             else
                 BUSY_STATE=0x01
-                RESULT_STATE=0x03
+                RESULT_STATE=0x01
                 PROC_STATE[pidx]=$START
             fi
             ;;
         0x*)
-            if (( PROC_STATE[pidx] > END ))
-            ;;
-        end_before_start)
-            PROC_STATE[pidx]=""
+            if (( PROC_STATE[pidx] > END )); then
+                LOADER_STATE=""
+                BUSY_STATE=0x00
+                RESULT_STATE=0x00
+                PROC_STATE=""
+                return 0
+            fi
+
             ;;
         *) bad_State $pidx ;;
     esac
