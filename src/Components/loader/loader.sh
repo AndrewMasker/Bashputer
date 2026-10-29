@@ -12,20 +12,29 @@ source "$MY_DIR"/../../utils.sh
 # INITIALIZATION CODE
 LOADER_STATE=""
 BUSY_STATE=0x00
+RESULT_STATE=0x00
 CART_BYTE=0x00
 COMMAND_BYTE=0x00
+printf -v START '0x%016X' 0
+printf -v END '0x%016X' 0
 PROC_STATE=()
 
 parse_Load_CLK() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            load_Byte $((pidx+1)) OPCODE PC 0 true false '0x%02X'
+            if (( (END - START) < 0 )); then
+                PROC_STATE[pidx]=end_before_start
+            else
+                BUSY_STATE=0x01
+                RESULT_STATE=0x03
+                PROC_STATE[pidx]=$START
+            fi
             ;;
-        done_load_OPCODE_0)
-            parse_OPCODE $((pidx+1))
+        0x*)
+            if (( PROC_STATE[pidx] > END ))
             ;;
-        done_parse)
+        end_before_start)
             PROC_STATE[pidx]=""
             ;;
         *) bad_State $pidx ;;
@@ -57,15 +66,19 @@ parse_Command()
     COMMAND_BYTE=$byte
     case $COMMAND_BYTE in
         0x00) LOADER_STATE=load ;;
-        0x00) LOADER_STATE=store ;;
+        0x01) LOADER_STATE=store ;;
         0x02) LOADER_STATE=clear ;;
         *) LOADER_STATE="" ; RESULT_STATE=0x04; ;;
     esac
 }
 
 parse_Address_Store() {
-    local addr=$1 byte=$2
-    
+    local addr=$1 byte=$2 offset
+    if (( (offset = addr - START_ADDR) >= 0 && offset < 8 )); then
+        printf -v START '0x%016X' $((
+                                    ( START & ( ~ (0xFF << offset*8 ) ) ) | (byte << offset*8) 
+                                    ))
+    fi
 }
 
 parse_Store() {
