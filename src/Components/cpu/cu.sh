@@ -337,7 +337,8 @@ parse_PC_OPCODE() {
             load_1_ARGS $((pidx+1))
             ;;
         done_load)
-            GPRs[ARGA]=$PC
+            printf -v 'GPRs[ARGA]' '0x%016X' $(( PC - 1 ))
+            printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
