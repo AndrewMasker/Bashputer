@@ -580,9 +580,9 @@ parse_OPCODE() {
         0x19) parse_STQ_OPCODE $pidx ;;
         0x1A) parse_STH_OPCODE $pidx ;;
         0x1B) parse_STW_OPCODE $pidx ;;
-        # 0x1C) parse_LIB_OPCODE $pidx ;;
-        # 0x1D) parse_LIQ_OPCODE $pidx ;;
-        # 0x1E) parse_LIH_OPCODE $pidx ;;
+        0x1C) parse_LIB_OPCODE $pidx ;;
+        0x1D) parse_LIQ_OPCODE $pidx ;;
+        0x1E) parse_LIH_OPCODE $pidx ;;
         0x1F) parse_LIW_OPCODE $pidx ;;
         0x20) parse_EQ_OPCODE  $pidx ;;
         # 0x21) parse_NE_OPCODE  $pidx ;;
