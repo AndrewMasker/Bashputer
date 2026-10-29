@@ -25,9 +25,7 @@ parse_Store() {
     if is_16_Digit_Hex $addr; then
         if is_2_Digit_Hex $byte; then
             if [[ $byte == 0x00 ]]; then
-                if [[ -v MEM[addr] ]]; then
                     unset 'MEM[$addr]'
-                fi
             else
                 MEM[$addr]=$byte
             fi
