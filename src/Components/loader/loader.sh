@@ -31,6 +31,7 @@ HEX_EOF=false
 BYTE=0x00
 NEW_BYTES=()
 REWRITE=""
+CART_PATH=""
 
 parse_Load_CLK() {
     local pidx=${1:-0} path
@@ -77,7 +78,7 @@ parse_Load_CLK() {
 }
 
 parse_Store_CLK() {
-    local pidx=${1:-0} path
+    local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
             if (( (END - START) < 0 )); then
@@ -93,18 +94,18 @@ parse_Store_CLK() {
             else
                 BUSY_STATE=0x01
                 RESULT_STATE=0x01
-                path="$MY_DIR"/../../Cartridges/"${cartridges[$CART_BYTE]}/hex"
-                if [[ ! -f $path ]]; then 
+                CART_PATH="$MY_DIR"/../../Cartridges/"${cartridges[$CART_BYTE]}/hex"
+                if [[ ! -f $CART_PATH ]]; then 
                     die "Cartridge path does not exist for cartridge '${cartridges[CART_BYTE]}'"
                 fi
                 PROC_STATE[pidx]=$START
-                echo "load $PROC_STATE[pidx]"
+                echo "load ${PROC_STATE[pidx]}"
                 DATA_VALID=false
             fi
             ;;
         0x*)
             $DATA_VALID || return 0
-            if [[ DATA != 0x00 ]]; then
+            if [[ $DATA != 0x00 ]]; then
                 NEW_BYTES[OFFSET + ${PROC_STATE[pidx]} - START]=$DATA
             fi
 
@@ -112,14 +113,15 @@ parse_Store_CLK() {
 
             if (( PROC_STATE[pidx] > END )); then
                 make_Rewrite_String
-                hex_Commit $path
+                hex_Commit $CART_PATH
+                NEW_BYTES=()
                 LOADER_STATE=""
                 BUSY_STATE=0x00
                 RESULT_STATE=0x00
                 PROC_STATE[pidx]=""
                 return 0
             else
-                echo "load $PROC_STATE[pidx]"
+                echo "load ${PROC_STATE[pidx]}"
                 DATA_VALID=false
             fi
             ;;

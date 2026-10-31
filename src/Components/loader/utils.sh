@@ -47,14 +47,12 @@ make_Rewrite_String() {
         if (( bytes_strung == 0 )); then
             printf -v msg '%s0x%016X' "$msg" "$i"
         fi
-        if (( bytes_strung <= 16  )); then
-            msg+=" ${NEW_BYTES[i]}"
-            bytes_strung=$(( bytes_strung + 1))
-            last_i_set=$i
-            if (( bytes_strung == 16)); then
-                msg+=$'\n'
-                bytes_strung=0
-            fi
+        msg+=" ${NEW_BYTES[i]}"
+        bytes_strung=$(( bytes_strung + 1))
+        last_i_set=$i
+        if (( bytes_strung == 16)); then
+            msg+=$'\n'
+            bytes_strung=0
         fi
     done
     if (( bytes_strung > 0 )); then msg+=$'\n'; fi
@@ -69,24 +67,21 @@ hex_Commit() {
         base=${fields[0]}
         n=$(( ${#fields[@]} - 1 ))
         top=$(( base + n -1 ))
-        rewrite_top=$(( OFFSET + START - END ))
-        if (( top < OFFSET )); then # This line is safe so it can be directly added
-            printf '%s %s\n' "$base" "${fields[*]:1}" >&"$out"
-        elif (( base == OFFSET )); then # This line's base points at offset so it is completely disregarded
-            $wrote_new || {printf '%s' "$REWRITE" >&"$out"; wrote_new=true} 
-        elif (( base < OFFSET <= top )); then # Offset is within this line so we must take only part of the line
-            num_to_keep=$(( OFFSET - BASE))
-            printf '%s %s\n' "$base" "${fields[*]:1:$((num_to_keep+1))}" >&"$out"
-        elif (( OFFSET < base && top <= rewrite_top )); then # This line is completely within the range that we are rewriting so we can discard
-            $wrote_new || {printf '%s' "$REWRITE" >&"$out"; wrote_new=true}
-        elif (( base <= rewrite_top < top )); then # This line is partially outside of the rewrite range so we must take only part of the line
+        rewrite_top=$(( OFFSET + END - START ))
+        if (( base < OFFSET )); then
+            if (( num_to_keep = OFFSET - base < n )); then
+                num_to_keep=$(( OFFSET - base ))
+            else
+                num_to_keep=$n
+            fi
+            printf '0x%016X %s\n' "$base" "${fields[*]:1:num_to_keep}" >&"$out"
+        if (( top > rewrite_top )); then
+            $wrote_new || { printf '%s' "$REWRITE" >&"$out"; wrote_new=true }
             start_to_keep=$(( rewrite_top - base + 1 ))
-            printf '0x%016X %s' $(( base + start_to_keep )) "${fields[*]:$((start_to_keep+1))}" >&"$out"
-        else # This line is safe so it can be directly added
-            printf '%s %s\n' "$base" "${fields[*]:1}" >&"$out"
+            printf '0x%016X %s\n' "$base" "${fields[*]:1+num_to_keep}" >&"$out"
         fi
     done
-    $wrote_new || {printf '%s' "$REWRITE" >&"$out"; wrote_new=true}
+    $wrote_new || { printf '%s' "$REWRITE" >&"$out"; wrote_new=true }
     exec {in}<&- {out}>&-
     mv -- "$tmp" "$path"
 }
