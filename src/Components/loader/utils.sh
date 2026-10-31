@@ -74,13 +74,13 @@ hex_Commit() {
             else
                 num_to_keep=$n
             fi
-        fi
             printf '0x%016X %s\n' "$base" "${fields[*]:1:num_to_keep}" >&"$out"
+        fi
         if (( top > rewrite_top )); then
             $wrote_new || { printf '%s' "$REWRITE" >&"$out"; wrote_new=true; }
             start_to_keep=$(( rewrite_top - base + 1 ))
             if (( start_to_keep < 0 )); then start_to_keep=0; fi
-            printf '0x%016X %s\n' $((base + start_to_keep )) "${fields[*]:1+strt_to_keep}" >&"$out"
+            printf '0x%016X %s\n' $((base + start_to_keep )) "${fields[*]:1+start_to_keep}" >&"$out"
         fi
     done
     $wrote_new || { printf '%s' "$REWRITE" >&"$out"; wrote_new=true; }
