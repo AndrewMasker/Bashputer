@@ -21,6 +21,9 @@ printf -v END '0x%016X' 0
 printf -v OFFSET '0x%016X' 0
 PROC_STATE=()
 
+DATA=0x00
+DATA_VALID=false
+
 HEX_FD=""
 HEX_BASE=0
 HEX_BYTES=()
@@ -71,24 +74,62 @@ parse_Load_CLK() {
     esac
 }
 
+parse_Store_CLK() {
+    local pidx=${1:-0} path
+    case ${PROC_STATE[pidx]-} in
+        "")
+            if (( (END - START) < 0 )); then
+                LOADER_STATE=""
+                BUSY_STATE=0x00
+                RESULT_STATE=0x02
+                PROC_STATE[pidx]=""
+            elif [[ ! -v cartridges[$CART_BYTE] ]]; then
+                LOADER_STATE=""
+                BUSY_STATE=0x00
+                RESULT_STATE=0x03
+                PROC_STATE[pidx]=""
+            else
+                BUSY_STATE=0x01
+                RESULT_STATE=0x01
+                path="$MY_DIR"/../../Cartridges/"${cartridges[$CART_BYTE]}/hex"
+                if [[ ! -f $path ]]; then 
+                    die "Cartridge path does not exist for cartridge '${cartridges[CART_BYTE]}'"
+                fi
+                hex_Open "$path"
+                PROC_STATE[pidx]=$START
+                echo "load $PROC_STATE[pidx]"
+                DATA_VALID=false
+            fi
+            ;;
+        0x*)
+            $DATA_VALID || return 0
+            
+            printf -v 'PROC_STATE[pidx]' '0x%016X' $(( PROC_STATE[pidx] + 1 ))
+
+            if (( PROC_STATE[pidx] > END )); then
+                LOADER_STATE=""
+                BUSY_STATE=0x00
+                RESULT_STATE=0x00
+                PROC_STATE[pidx]=""
+                hex_Close
+                return 0
+            else
+                echo "load $PROC_STATE[pidx]"
+                DATA_VALID=false
+            fi
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
 parse_CLK() {
     case $LOADER_STATE in
         "") : ;;
         load) parse_Load_CLK ;;
-        store) parse_Load_CLK ;;
-        clear) parse_Load_CLK ;;
+        store) parse_Store_CLK ;;
+        clear) parse_Clear_CLK ;;
         *) die "unknown LOADER_STATE '$LOADER_STATE'" ;;
     esac
-}
-
-parse_Data() {
-    local value=$1
-    if is_2_Digit_Hex "$value" ; then
-        DATA="$value"
-        DATA_VALID=true
-    else
-        die "invalid data input of '$value'. CPU data inputs must be of format '0x%02X'"
-    fi
 }
 
 parse_Command()
@@ -158,6 +199,17 @@ parse_Load() {
     esac
 }
 
+parse_Data() {
+    local value=$1
+    if is_2_Digit_Hex "$value" ; then
+        DATA="$value"
+        DATA_VALID=true
+    else
+        die "invalid data input of '$value'. Data inputs must be of format '0x%02X'"
+    fi
+
+}
+
 parse_Input() {
     local type=$1
     local value=${2-}
@@ -165,6 +217,7 @@ parse_Input() {
         clock) parse_CLK; echo tick ;;
         store) parse_Store $value ; echo done ;;
         load) parse_Load "$value" ; echo done ;;
+        data) parse_Data "$value" ;; 
         *) die "unknown input type '$type' with value '$value'" ;;
     esac
 }
