@@ -69,19 +69,21 @@ hex_Commit() {
         top=$(( base + n -1 ))
         rewrite_top=$(( OFFSET + END - START ))
         if (( base < OFFSET )); then
-            if (( num_to_keep = OFFSET - base < n )); then
+            if (( OFFSET - base < n )); then
                 num_to_keep=$(( OFFSET - base ))
             else
                 num_to_keep=$n
             fi
+        fi
             printf '0x%016X %s\n' "$base" "${fields[*]:1:num_to_keep}" >&"$out"
         if (( top > rewrite_top )); then
-            $wrote_new || { printf '%s' "$REWRITE" >&"$out"; wrote_new=true }
+            $wrote_new || { printf '%s' "$REWRITE" >&"$out"; wrote_new=true; }
             start_to_keep=$(( rewrite_top - base + 1 ))
-            printf '0x%016X %s\n' "$base" "${fields[*]:1+num_to_keep}" >&"$out"
+            if (( start_to_keep < 0 )); then start_to_keep=0; fi
+            printf '0x%016X %s\n' $((base + start_to_keep )) "${fields[*]:1+strt_to_keep}" >&"$out"
         fi
     done
-    $wrote_new || { printf '%s' "$REWRITE" >&"$out"; wrote_new=true }
+    $wrote_new || { printf '%s' "$REWRITE" >&"$out"; wrote_new=true; }
     exec {in}<&- {out}>&-
     mv -- "$tmp" "$path"
 }

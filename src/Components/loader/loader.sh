@@ -52,7 +52,7 @@ parse_Load_CLK() {
                 RESULT_STATE=0x01
                 path="$MY_DIR"/../../Cartridges/"${cartridges[$CART_BYTE]}/hex"
                 if [[ ! -f $path ]]; then 
-                    die "Cartridge path does not exist for cartridge '${cartridges[CART_BYTE]}'"
+                    die "Cartridge path does not exist for cartridge '${cartridges[$CART_BYTE]}'"
                 fi
                 hex_Open "$path"
                 PROC_STATE[pidx]=$START
@@ -96,7 +96,7 @@ parse_Store_CLK() {
                 RESULT_STATE=0x01
                 CART_PATH="$MY_DIR"/../../Cartridges/"${cartridges[$CART_BYTE]}/hex"
                 if [[ ! -f $CART_PATH ]]; then 
-                    die "Cartridge path does not exist for cartridge '${cartridges[CART_BYTE]}'"
+                    die "Cartridge path does not exist for cartridge '${cartridges[$CART_BYTE]}'"
                 fi
                 PROC_STATE[pidx]=$START
                 echo "load ${PROC_STATE[pidx]}"
@@ -113,7 +113,7 @@ parse_Store_CLK() {
 
             if (( PROC_STATE[pidx] > END )); then
                 make_Rewrite_String
-                hex_Commit $CART_PATH
+                hex_Commit "$CART_PATH"
                 NEW_BYTES=()
                 LOADER_STATE=""
                 BUSY_STATE=0x00
