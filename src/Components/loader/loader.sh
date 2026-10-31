@@ -30,6 +30,7 @@ HEX_BYTES=()
 HEX_EOF=false
 BYTE=0x00
 NEW_BYTES=()
+REWRITE=""
 
 parse_Load_CLK() {
     local pidx=${1:-0} path
@@ -110,6 +111,8 @@ parse_Store_CLK() {
             printf -v 'PROC_STATE[pidx]' '0x%016X' $(( PROC_STATE[pidx] + 1 ))
 
             if (( PROC_STATE[pidx] > END )); then
+                make_Rewrite_String
+                hex_Commit $path
                 LOADER_STATE=""
                 BUSY_STATE=0x00
                 RESULT_STATE=0x00

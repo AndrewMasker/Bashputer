@@ -38,7 +38,7 @@ get_Byte() {
 }
 
 make_Rewrite_String() {
-    local out=$1 i msg="" bytes_strung=0 last_i_set=0
+    local i msg="" bytes_strung=0 last_i_set=0
     for i in "${!NEW_BYTES[@]}"; do
         if (( i != (last_i_set+1) && bytes_strung > 0)); then 
             msg+=$'\n'
@@ -56,6 +56,37 @@ make_Rewrite_String() {
                 bytes_strung=0
             fi
         fi
-
     done
+    if (( bytes_strung > 0 )); then msg+=$'\n'; fi
+    printf -v "REWRITE" '%s' "$msg"
+}
+
+hex_Commit() {
+    local path=$1 tmp="$1.tmp" base top rewrite_top n in out fields num_to_keep start_to_keep wrote_new=false
+    exec {in}<"$path" {out}>"$tmp"
+    while read -r -u "$in" -a fields; do
+        (( ${#fields[@]} )) || continue
+        base=${fields[0]}
+        n=$(( ${#fields[@]} - 1 ))
+        top=$(( base + n -1 ))
+        rewrite_top=$(( OFFSET + START - END ))
+        if (( top < OFFSET )); then # This line is safe so it can be directly added
+            printf '%s %s\n' "$base" "${fields[*]:1}" >&"$out"
+        elif (( base == OFFSET )); then # This line's base points at offset so it is completely disregarded
+            $wrote_new || {printf '%s' "$REWRITE" >&"$out"; wrote_new=true} 
+        elif (( base < OFFSET <= top )); then # Offset is within this line so we must take only part of the line
+            num_to_keep=$(( OFFSET - BASE))
+            printf '%s %s\n' "$base" "${fields[*]:1:$((num_to_keep+1))}" >&"$out"
+        elif (( OFFSET < base && top <= rewrite_top )); then # This line is completely within the range that we are rewriting so we can discard
+            $wrote_new || {printf '%s' "$REWRITE" >&"$out"; wrote_new=true}
+        elif (( base <= rewrite_top < top )); then # This line is partially outside of the rewrite range so we must take only part of the line
+            start_to_keep=$(( rewrite_top - base + 1 ))
+            printf '0x%016X %s' $(( base + start_to_keep )) "${fields[*]:$((start_to_keep+1))}" >&"$out"
+        else # This line is safe so it can be directly added
+            printf '%s %s\n' "$base" "${fields[*]:1}" >&"$out"
+        fi
+    done
+    $wrote_new || {printf '%s' "$REWRITE" >&"$out"; wrote_new=true}
+    exec {in}<&- {out}>&-
+    mv -- "$tmp" "$path"
 }
