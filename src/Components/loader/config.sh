@@ -9,4 +9,4 @@ printf -v START_ADDR '0x%016X' 4
 printf -v END_ADDR '0x%016X' 12
 printf -v OFFSET_ADDR '0x%016X' 20
 
-UNAMPPED_DATA=0xFF
+UNMAPPED_DATA=0xFF

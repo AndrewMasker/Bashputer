@@ -40,11 +40,11 @@ parse_Load_CLK() {
                 LOADER_STATE=""
                 BUSY_STATE=0x00
                 RESULT_STATE=0x03
-                PROC_STATE=""
+                PROC_STATE[pidx]=""
             else
                 BUSY_STATE=0x01
                 RESULT_STATE=0x01
-                path="$MY_DIR"/../../Cartridges/"${cartridges[CART_BYTE]}/hex"
+                path="$MY_DIR"/../../Cartridges/"${cartridges[$CART_BYTE]}/hex"
                 if [[ ! -f $path ]]; then 
                     die "Cartridge path does not exist for cartridge '${cartridges[CART_BYTE]}'"
                 fi
@@ -57,13 +57,14 @@ parse_Load_CLK() {
                 LOADER_STATE=""
                 BUSY_STATE=0x00
                 RESULT_STATE=0x00
-                PROC_STATE=""
+                PROC_STATE[pidx]=""
+                hex_Close
                 return 0
             fi
             if ! $HEX_EOF; then
                 get_Byte ${PROC_STATE[pidx]}
             fi
-            printf 'store 0x%016X %s' $(( OFFSET + PROC_STATE[pidx] - START )) "$BYTE"
+            printf 'store 0x%016X %s\n' $(( OFFSET + PROC_STATE[pidx] - START )) "$BYTE"
             printf -v 'PROC_STATE[pidx]' '0x%016X' $(( PROC_STATE[pidx] + 1 ))
             ;;
         *) bad_State $pidx ;;
@@ -76,7 +77,7 @@ parse_CLK() {
         load) parse_Load_CLK ;;
         store) parse_Load_CLK ;;
         clear) parse_Load_CLK ;;
-        *) die "unknown CPU_STATE '$CPU_STATE'" ;;
+        *) die "unknown LOADER_STATE '$LOADER_STATE'" ;;
     esac
 }
 
@@ -123,7 +124,7 @@ parse_Store() {
     if ! is_16_Digit_Hex "$addr"; then
         die "address '$addr' has wrong format. Must be '0x%016X'"
     fi
-    if ! is_2_Digit_Hex "$addr"; then
+    if ! is_2_Digit_Hex "$byte"; then
         die "byte '$byte' has wrong format. Must be '0x%02X'"
     fi
     case $addr in
