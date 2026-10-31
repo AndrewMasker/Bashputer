@@ -20,8 +20,14 @@ printf -v START '0x%016X' 0
 printf -v END '0x%016X' 0
 PROC_STATE=()
 
+HEX_FD=""
+HEX_BASE=0
+HEX_BYTES=()
+HEX_EOF=false
+BYTE=0x00
+
 parse_Load_CLK() {
-    local pidx=${1:-0}
+    local pidx=${1:-0} path
     case ${PROC_STATE[pidx]-} in
         "")
             if (( (END - START) < 0 )); then
@@ -37,6 +43,11 @@ parse_Load_CLK() {
             else
                 BUSY_STATE=0x01
                 RESULT_STATE=0x01
+                path="$MY_DIR"/../../Cartridges/"${cartridges[CART_BYTE]}/hex"
+                if [[ ! -f $path ]]; then 
+                    die "Cartridge path does not exist for cartridge '${cartridges[CART_BYTE]}'"
+                fi
+                hex_Open $path
                 PROC_STATE[pidx]=$START
             fi
             ;;
@@ -48,7 +59,11 @@ parse_Load_CLK() {
                 PROC_STATE=""
                 return 0
             fi
-            get_Byte $((pidx+1)) ${PROC_STATE[pidx]}
+            if ! HEX_EOF; then
+                get_Byte ${PROC_STATE[pidx]}
+            fi
+            echo "data $BYTE"
+            PROC_STATE[pidx]=$(( PROC_STATE[pidx] + 1 ))
             ;;
         *) bad_State $pidx ;;
     esac
