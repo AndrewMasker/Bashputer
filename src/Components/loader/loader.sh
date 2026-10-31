@@ -48,7 +48,7 @@ parse_Load_CLK() {
                 PROC_STATE=""
                 return 0
             fi
-
+            get_Byte $((pidx+1)) ${PROC_STATE[pidx]}
             ;;
         *) bad_State $pidx ;;
     esac
@@ -90,6 +90,10 @@ parse_Address_Store() {
     if (( (offset = addr - START_ADDR) >= 0 && offset < 8 )); then
         printf -v START '0x%016X' $((
                                     ( START & ( ~ (0xFF << offset*8 ) ) ) | (byte << offset*8) 
+                                    ))
+    elif (( (offset = addr - END_ADDR) >= 0 && offset < 8 )); then
+        printf -v END '0x%016X' $((
+                                    ( END & ( ~ (0xFF << offset*8 ) ) ) | (byte << offset*8) 
                                     ))
     fi
 }
