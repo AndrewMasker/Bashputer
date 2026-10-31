@@ -38,19 +38,20 @@ get_Byte() {
 }
 
 make_Rewrite_String() {
-    local out=$1 i msg="" tmp bytes_strung=0 last_i_set=0
+    local out=$1 i msg="" bytes_strung=0 last_i_set=0
     for i in "${!NEW_BYTES[@]}"; do
         if (( i != (last_i_set+1) )); then bytes_strung=0; fi
         if (( bytes_strung == 0 )); then
-            printf -v tmp '0x%016X' i
-            msg+="$tmp "
-        if (( bytes_strung < 16  )); then
-            msg+="$NEW_BYTES[i] "
+            printf -v msg '%s0x%016X ' "$msg" "$i"
+        fi
+        if (( bytes_strung <= 16  )); then
+            msg+=" ${NEW_BYTES[i]}"
             bytes_strung=$(( bytes_strung + 1))
             last_i_set=$i
-        else
-            msg+="\n"
-            bytes_strung=0
+            if (( bytes_strung == 16)); then
+                msg+=$'\n'
+                bytes_strung=0
+            fi
         fi
 
     done
