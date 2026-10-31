@@ -18,6 +18,7 @@ CART_BYTE=0x00
 COMMAND_BYTE=0x00
 printf -v START '0x%016X' 0
 printf -v END '0x%016X' 0
+printf -v OFFSET '0x%016X' 0
 PROC_STATE=()
 
 HEX_FD=""
@@ -47,7 +48,7 @@ parse_Load_CLK() {
                 if [[ ! -f $path ]]; then 
                     die "Cartridge path does not exist for cartridge '${cartridges[CART_BYTE]}'"
                 fi
-                hex_Open $path
+                hex_Open "$path"
                 PROC_STATE[pidx]=$START
             fi
             ;;
@@ -59,11 +60,11 @@ parse_Load_CLK() {
                 PROC_STATE=""
                 return 0
             fi
-            if ! HEX_EOF; then
+            if ! $HEX_EOF; then
                 get_Byte ${PROC_STATE[pidx]}
             fi
-            echo "data $BYTE"
-            PROC_STATE[pidx]=$(( PROC_STATE[pidx] + 1 ))
+            printf 'store 0x%016X %s' $(( OFFSET + PROC_STATE[pidx] - START )) "$BYTE"
+            printf -v 'PROC_STATE[pidx]' '0x%016X' $(( PROC_STATE[pidx] + 1 ))
             ;;
         *) bad_State $pidx ;;
     esac
@@ -109,6 +110,10 @@ parse_Address_Store() {
     elif (( (offset = addr - END_ADDR) >= 0 && offset < 8 )); then
         printf -v END '0x%016X' $((
                                     ( END & ( ~ (0xFF << offset*8 ) ) ) | (byte << offset*8) 
+                                    ))
+    elif (( (offset = addr - OFFSET_ADDR) >= 0 && offset < 8 )); then
+        printf -v OFFSET '0x%016X' $((
+                                    ( OFFSET & ( ~ (0xFF << offset*8 ) ) ) | (byte << offset*8) 
                                     ))
     fi
 }

@@ -24,6 +24,7 @@ get_Byte() {
         HEX_BASE=${fields[0]}
         if ! is_16_Digit_Hex $HEX_BASE; then
             die "incorrect address format for address '$HEX_BASE'. must be '0x%016X'"
+        fi
         HEX_BYTES=("${fields[@]:1}")
     done
     if (( addr < HEX_BASE )); then 
