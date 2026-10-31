@@ -29,6 +29,7 @@ HEX_BASE=0
 HEX_BYTES=()
 HEX_EOF=false
 BYTE=0x00
+NEW_BYTES=()
 
 parse_Load_CLK() {
     local pidx=${1:-0} path
@@ -95,7 +96,6 @@ parse_Store_CLK() {
                 if [[ ! -f $path ]]; then 
                     die "Cartridge path does not exist for cartridge '${cartridges[CART_BYTE]}'"
                 fi
-                hex_Open "$path"
                 PROC_STATE[pidx]=$START
                 echo "load $PROC_STATE[pidx]"
                 DATA_VALID=false
@@ -103,7 +103,10 @@ parse_Store_CLK() {
             ;;
         0x*)
             $DATA_VALID || return 0
-            
+            if [[ DATA != 0x00 ]]; then
+                NEW_BYTES[OFFSET + ${PROC_STATE[pidx]} - START]=$DATA
+            fi
+
             printf -v 'PROC_STATE[pidx]' '0x%016X' $(( PROC_STATE[pidx] + 1 ))
 
             if (( PROC_STATE[pidx] > END )); then
@@ -111,7 +114,6 @@ parse_Store_CLK() {
                 BUSY_STATE=0x00
                 RESULT_STATE=0x00
                 PROC_STATE[pidx]=""
-                hex_Close
                 return 0
             else
                 echo "load $PROC_STATE[pidx]"
