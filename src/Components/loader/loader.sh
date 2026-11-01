@@ -129,12 +129,76 @@ parse_Store_CLK() {
     esac
 }
 
+parse_Clear_CART_CLK() {
+    if (( (END - START) < 0 )); then
+        LOADER_STATE=""
+        BUSY_STATE=0x00
+        RESULT_STATE=0x02
+        PROC_STATE[pidx]=""
+    elif [[ ! -v cartridges[$CART_BYTE] ]]; then
+        LOADER_STATE=""
+        BUSY_STATE=0x00
+        RESULT_STATE=0x03
+        PROC_STATE[pidx]=""
+    else
+        BUSY_STATE=0x01
+        RESULT_STATE=0x01
+        CART_PATH="$MY_DIR"/../../Cartridges/"${cartridges[$CART_BYTE]}/hex"
+        if [[ ! -f $CART_PATH ]]; then 
+            die "Cartridge path does not exist for cartridge '${cartridges[$CART_BYTE]}'"
+        fi
+        NEW_BYTES=()
+        make_Rewrite_String
+        hex_Commit "$CART_PATH"
+        LOADER_STATE=""
+        BUSY_STATE=0x00
+        RESULT_STATE=0x00
+        PROC_STATE[pidx]=""
+    fi
+}
+
+parse_Clear_MEM_CLK() {
+    local pidx=${1:-0} path
+    case ${PROC_STATE[pidx]-} in
+        "")
+            if (( (END - START) < 0 )); then
+                LOADER_STATE=""
+                BUSY_STATE=0x00
+                RESULT_STATE=0x02
+                PROC_STATE[pidx]=""
+            elif [[ ! -v cartridges[$CART_BYTE] ]]; then
+                LOADER_STATE=""
+                BUSY_STATE=0x00
+                RESULT_STATE=0x03
+                PROC_STATE[pidx]=""
+            else
+                BUSY_STATE=0x01
+                RESULT_STATE=0x01
+                PROC_STATE[pidx]=$START
+            fi
+            ;;
+        0x*)
+            if (( PROC_STATE[pidx] > END )); then
+                LOADER_STATE=""
+                BUSY_STATE=0x00
+                RESULT_STATE=0x00
+                PROC_STATE[pidx]=""
+                return 0
+            fi
+            printf 'store 0x%016X %s\n' $(( OFFSET + PROC_STATE[pidx] - START )) "0x00"
+            printf -v 'PROC_STATE[pidx]' '0x%016X' $(( PROC_STATE[pidx] + 1 ))
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
 parse_CLK() {
     case $LOADER_STATE in
         "") : ;;
         load) parse_Load_CLK ;;
         store) parse_Store_CLK ;;
-        clear) parse_Clear_CLK ;;
+        clear_CART) parse_Clear_CART_CLK ;;
+        clear_MEM) parse_Clear_MEM_CLK ;;
         *) die "unknown LOADER_STATE '$LOADER_STATE'" ;;
     esac
 }
@@ -145,7 +209,8 @@ parse_Command()
     case $COMMAND_BYTE in
         0x00) LOADER_STATE=load ;;
         0x01) LOADER_STATE=store ;;
-        0x02) LOADER_STATE=clear ;;
+        0x02) LOADER_STATE=clear_CART ;;
+        0x03) LOADER_STATE=clear_MEM ;;
         *) LOADER_STATE="" ; RESULT_STATE=0x04; ;;
     esac
 }
