@@ -4,7 +4,7 @@
 MY_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 
 
-if [[ ! command -v bwrap >?dev/null ]]; then 
+if ! command -v bwrap >?dev/null; then 
       echo "run.sh: bwrap not found" >&2
       exit 1
 fi
