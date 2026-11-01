@@ -44,6 +44,13 @@ Each component accepts a "shutdown" message which shuts down the component.
 
 </dd>
 
+**Set Name**
+<dd>
+
+"set_name `<name>`" : Sets the name of the component. 
+
+</dd>
+
 **UMAPPED REGISTERS**
 
 <dd>
@@ -73,7 +80,7 @@ Errors go to stderr and exit with status 1.
 
 "stall" : This stalls the cpu at its current state.
 
-"unstall : This resumes the cpu from its stalled state.
+"unstall" : This resumes the cpu from its stalled state.
 
 </dd>
 
