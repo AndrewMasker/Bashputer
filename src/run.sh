@@ -18,8 +18,9 @@ for cart in "$MY_DIR"/Cartridges/*/; do
       binds+=(--bind "$cart" "$cart")
 done
 
+trap '' INT
 exec bwrap  --ro-bind / / \
             --dev /dev --proc /proc --tmpfs /tmp \
             "${binds[@]}" \
             --unshare-all --die-with-parent \
-            bash "$MY_DIR"/Computer/computer.sh "$@"
+            env --default-signal=INT bash "$MY_DIR"/Computer/computer.sh "$@"
