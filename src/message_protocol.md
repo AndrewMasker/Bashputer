@@ -1,23 +1,70 @@
 # Message Protocol
 This file documents the message protocols used by every component shipped with the repo.
 
+Messages are used to pipe the components together; they are not something that the virtual components can see or interact with.
+
 A message is a space separated list of words representing the message type and data sent within it. The first word within a message specifies its type. You can think of a message's type as specifying which pins the component is outputting the data onto.
 
 A message out goes via STDOUT and a message in comes via STDIN.
 
-## CPU
+## General
+**Value Formats**
+<dd>
+
+addresses : All addresses must be in the format `0x%016X`.
+
+bytes : All bytes must be in the format `0x%02X`.
+
+</dd>
+
+**Component Addresses**
+<dd>
+
+Global addresses sent from the cpu go to the bus interconnect. There they are sent to each memory mapped component based on the memory layout in the bus interconnect's `config.sh` file. The `LOW_ADDR` of the component is subtracted from the global address the cpu sends to make a component relative address for the component.
+
+</dd>
+
+**Shutdown**
+<dd>
+
+Each component accepts a "shutdown" message which shuts down the component.
+
+</dd>
+
+**UMAPPED REGISTERS**
+
+<dd>
+
+Reading an unmapped register from a component returns `0xFF`.
+
+Storing to an unmapped register is silently ignored.
+
+</dd>
+
+**ERRORS**
+
+<dd>
+
+Errors go to stderr and exit with status 1. 
+
+</dd>
+
+## Components
+
+### CPU
+
 **IN**
 <dd>
 
-clock : This moves the cpu forward by a state in its lowest process.
+"clock" : This moves the cpu forward by a state in its lowest process. 
 
-data `<byte>` : This puts the byte `<byte>` which must be formatted with '0x%02X' into the data register.
+"data `<byte>`" : This puts the byte `<byte>` into the data register and sets the `DATA_VALID` flag to true which allows the cpu to continue.
 
-reset : This enters the cpu reset pipeline.
+"reset" : This enters the cpu reset pipeline.
 
-stall : This stalls the cpu at its current state.
+"stall" : This stalls the cpu at its current state.
 
-unstall : This resumes the cpu from its stalled state.
+"unstall : This resumes the cpu from its stalled state.
 
 shutdown : This is a message that tells the cpu to shutdown.
 
@@ -28,7 +75,7 @@ shutdown : This is a message that tells the cpu to shutdown.
 
 load `<addr>` : This tells whatever is hooked up to the address bus and the data bus for the cpu to return a byte from address `<addr>`.
 
-store `<addr>` `<byte>` This tells whatever is hooked up to the address bus and the data bus to store the byte `<byte>` formatted with '0x%02X' at address `<addr>`.
+store `<addr>` `<byte>` : This tells whatever is hooked up to the address bus and the data bus to store the byte `<byte>` formatted with '0x%02X' at address `<addr>`.
 
 tick : This is a message sent after a clock pulse has been fully completed.
 
@@ -36,7 +83,7 @@ halted : This is a message that is printed when the cpu has halted.
 
 </dd>
 
-## BUS INTERCONNECT
+### BUS INTERCONNECT
 **IN**
 <dd>
 
@@ -58,7 +105,7 @@ data `<byte>` : This passes the byte that the interconnect received from a load 
 
 </dd>
 
-## RAM
+### RAM
 **IN**
 <dd>
 
