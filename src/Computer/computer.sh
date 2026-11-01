@@ -52,15 +52,14 @@ step() {
         die "clock replied with $msg. Expected 'clock'"
     fi
 
-    for i in ${#CLOCKABLE[@]}; do
-        name=${CLOCKABLE[i]}
+    for name in ${CLOCKABLE[@]}; do
         send_Message "$name" clock
         while true; do 
             get_Message "$name" msg
             if [[ $msg == tick ]]; then
                 break
             fi
-            handle_Clockable_Message "$name" $msg
+            handle_Clockable_Message "$name" "$msg"
         done
     done
 
@@ -74,6 +73,10 @@ run_Computer() {
 
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+if [-z "$1" ]; then
+    die "you must pass a rom cart file name"
+fi
 
 rom_cart=$1
 load_ROM $rom_cart
