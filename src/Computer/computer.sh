@@ -10,6 +10,7 @@ source "$MY_DIR"/../errors.sh
 source "$MY_DIR"/../utils.sh
 source "$MY_DIR"/utils.sh
 source "$MY_DIR"/events.sh
+source "$MY_DIR"/rom_loader.sh
 
 FIFO_DIR=$(mktemp -d)
 declare -A PID IN OUT
