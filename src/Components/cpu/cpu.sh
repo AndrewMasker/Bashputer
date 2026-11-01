@@ -66,8 +66,8 @@ parse_CLK() {
     case $CPU_STATE in
         reset) parse_Reset_CLK ;;
         ready) parse_Ready_CLK ;;
-        stalled) : ;;
-        halted) : ;;
+        stalled) echo stalled ;;
+        halted) echo halted ;;
         *) die "unknown CPU_STATE '$CPU_STATE'" ;;
     esac
 }

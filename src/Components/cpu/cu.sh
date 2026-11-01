@@ -13,7 +13,6 @@ parse_NOP_OPCODE() {
 parse_HLT_OPCODE() {
     local pidx=${1:-0}
     CPU_STATE=halted
-    echo halted
     if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
 }
 
@@ -599,6 +598,6 @@ parse_OPCODE() {
         # 0x2C) parse_RET_OPCODE $pidx ;;
         0x2D) parse_MOV_OPCODE $pidx ;;
         0x2E) parse_PC_OPCODE $pidx ;;
-        *) echo "cpu: unknown OPCODE '$OPCODE'" >&2; CPU_STATE=halted ;;
+        *) parse_HLT_OPCODE $pidx ;;
     esac
 }
