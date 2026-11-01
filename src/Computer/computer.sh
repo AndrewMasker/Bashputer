@@ -72,14 +72,14 @@ run_Computer() {
 }
 
 on_Interrupt(){
-    if ! RUNNING; then exit 130; fi
+    if ! $RUNNING; then exit 130; fi
     RUNNING=false
 }
 
 trap on_Interrupt INT
 trap 'exit 143' TERM
 
-if [-z "$1" ]; then
+if (( $# < 1 )); then
     die "you must pass a rom cart file name"
 fi
 
