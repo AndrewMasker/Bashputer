@@ -134,12 +134,10 @@ parse_Clear_CART_CLK() {
         LOADER_STATE=""
         BUSY_STATE=0x00
         RESULT_STATE=0x02
-        PROC_STATE[pidx]=""
     elif [[ ! -v cartridges[$CART_BYTE] ]]; then
         LOADER_STATE=""
         BUSY_STATE=0x00
         RESULT_STATE=0x03
-        PROC_STATE[pidx]=""
     else
         BUSY_STATE=0x01
         RESULT_STATE=0x01
@@ -153,23 +151,17 @@ parse_Clear_CART_CLK() {
         LOADER_STATE=""
         BUSY_STATE=0x00
         RESULT_STATE=0x00
-        PROC_STATE[pidx]=""
     fi
 }
 
 parse_Clear_MEM_CLK() {
-    local pidx=${1:-0} path
+    local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
             if (( (END - START) < 0 )); then
                 LOADER_STATE=""
                 BUSY_STATE=0x00
                 RESULT_STATE=0x02
-                PROC_STATE[pidx]=""
-            elif [[ ! -v cartridges[$CART_BYTE] ]]; then
-                LOADER_STATE=""
-                BUSY_STATE=0x00
-                RESULT_STATE=0x03
                 PROC_STATE[pidx]=""
             else
                 BUSY_STATE=0x01
