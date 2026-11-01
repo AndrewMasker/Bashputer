@@ -33,6 +33,7 @@ parse_Load() {
         get_Bus $addr
         if [[ $NAME == "none" ]]; then
             echo "data $UNMAPPED_DATA"
+            return 0
         fi
         if [[ $PERM == *R* ]]; then
             echo "$NAME load $ADDR"
