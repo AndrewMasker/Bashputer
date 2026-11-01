@@ -13,6 +13,7 @@ source "$MY_DIR"/events.sh
 
 FIFO_DIR=$(mktemp -d)
 declare -A PID IN OUT
+RUNNING=true
 
 on_Exit() {
     local name
@@ -62,21 +63,19 @@ step() {
         done
     done
 
-    for name in ${!COMPONENTS[@]}; do
-
-    done
 }
 
 run_Computer() {
-    step
+    while $RUNNING; do
+        step
+    done
 }
 
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
 rom_cart=$1
-start_Component "rom" "$MY_DIR"/cartridges/"$rom_cart".sh
-connect_Component "rom"
+load_ROM $rom_cart
 run_Computer $rom_cart
 
 
