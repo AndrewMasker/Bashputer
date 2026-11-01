@@ -50,11 +50,23 @@ done
 start_Component "clock" "$CLOCK"
 connect_Component "clock"
 
-
+msg=""
 step() {
-    printf "wait\n" >&"${IN[clock]}"
-    for name in ${!CLOCKABLE[@]}; do
+    send_Message clock wait
+    get_Message clock msg
+    if [[ $msg != clock ]]; then
+        die "clock replied with $msg. Expected 'clock'"
+    fi
 
+    for name in ${!CLOCKABLE[@]}; do
+        send_Message "$name" clock
+        while true; do 
+            get_Message "$name" msg
+            if [[ $msg == tick ]]; then
+                break
+            fi
+            
+        done
     done
 }
 
