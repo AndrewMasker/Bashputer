@@ -53,9 +53,10 @@ parse_Load_CLK() {
                 path="$MY_DIR"/../../Cartridges/"${cartridges[$CART_BYTE]}/hex"
                 if [[ ! -f $path ]]; then 
                     LOADER_STATE=""
-                    BUSY_STATE=0x01
+                    BUSY_STATE=0x00
                     RESULT_STATE=0x05
                     PROC_STATE[pidx]=""
+                    return 0
                 fi
                 hex_Open "$path"
                 PROC_STATE[pidx]=$START
@@ -100,9 +101,10 @@ parse_Store_CLK() {
                 CART_PATH="$MY_DIR"/../../Cartridges/"${cartridges[$CART_BYTE]}/hex"
                 if [[ ! -f $CART_PATH ]]; then 
                     LOADER_STATE=""
-                    BUSY_STATE=0x01
+                    BUSY_STATE=0x00
                     RESULT_STATE=0x05
                     PROC_STATE[pidx]=""
+                    return 0
                 fi
                 PROC_STATE[pidx]=$START
                 echo "load ${PROC_STATE[pidx]}"
@@ -150,9 +152,9 @@ parse_Clear_CART_CLK() {
         CART_PATH="$MY_DIR"/../../Cartridges/"${cartridges[$CART_BYTE]}/hex"
         if [[ ! -f $CART_PATH ]]; then 
             LOADER_STATE=""
-            BUSY_STATE=0x01
+            BUSY_STATE=0x00
             RESULT_STATE=0x05
-            PROC_STATE[pidx]=""
+            return 0
         fi
         NEW_BYTES=()
         make_Rewrite_String
