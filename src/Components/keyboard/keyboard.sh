@@ -67,6 +67,7 @@ run_KEYBOARD() {
     while read -r type value || [[ -n ${type-} ]]; do
         case $type in
             shutdown) exit 0 ;;
+            set_name) COMPONENT_NAME="$value"
             *) parse_Input "$type" "$value" ;;
         esac
     done

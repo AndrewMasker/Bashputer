@@ -30,39 +30,27 @@ if ! SAVED_STTY=$(stty -g 2>/dev/null </dev/tty); then
 fi
 stty -echo -icanon min 1 time 0 </dev/tty
 
-# Start non clocked components
+# Start components
 for name in "${!COMPONENTS[@]}"; do
     start_Component "$name" "${COMPONENTS[$name]}"
 done
 for name in "${!COMPONENTS[@]}"; do
     connect_Component "$name"
+    send_Message $name "set_name $name"
 done
 
-# Start clocked components
-for name in "${!CLOCKABLE[@]}"; do
-    start_Component "$name" "${CLOCKABLE[$name]}"
-done
-for name in "${!CLOCKABLE[@]}"; do
-    connect_Component "$name"
-done
-
-# Start clock
-start_Component "clock" "$CLOCK"
-connect_Component "clock"
-
-# Start bus interconnect
-start_Component "bus_interconnect" "$BUS_INTERCONNECT"
-connect_Component "bus_interconnect"
 
 msg=""
 step() {
-    send_Message clock wait
-    get_Message clock msg
+    local i name
+    send_Message $CLOCK wait
+    get_Message $CLOCK msg
     if [[ $msg != clock ]]; then
         die "clock replied with $msg. Expected 'clock'"
     fi
 
-    for name in ${!CLOCKABLE[@]}; do
+    for i in ${#CLOCKABLE[@]}; do
+        name=${CLOCKABLE[i]}
         send_Message "$name" clock
         while true; do 
             get_Message "$name" msg
@@ -71,6 +59,10 @@ step() {
             fi
             handle_Clockable_Message "$name" $msg
         done
+    done
+
+    for name in ${!COMPONENTS[@]}; do
+
     done
 }
 

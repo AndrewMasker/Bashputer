@@ -43,6 +43,7 @@ run_CLOCK() {
         case $type in
             wait) wait_For_Next_Pulse ; echo clock ;;
             shutdown) exit 0 ;;
+            set_name) COMPONENT_NAME="$value"
             *) die "Unknown input of '$type'" ;;
         esac
     done
