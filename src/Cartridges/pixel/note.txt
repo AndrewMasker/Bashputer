@@ -1,0 +1,3 @@
+This was written by claude to test out functionality before the assembler was written.
+
+wasd to move, q to halt, space to cycle through color pallete.
