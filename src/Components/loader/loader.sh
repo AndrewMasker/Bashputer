@@ -13,7 +13,7 @@ source "$MY_DIR"/../../utils.sh
 # INITIALIZATION CODE
 LOADER_STATE=""
 BUSY_STATE=0x00 # 0x00: Not Busy , 0x01: Busy
-RESULT_STATE=0x00 # 0x00: Okay , 0x01: Busy , 0x02: End Before Start , 0x03: Unknown Cart , 0x04: Unknown Command , 0x05: Bad Cartridge
+RESULT_STATE=0x00 # 0x00: Okay , 0x01: Busy , 0x02: End Before Start , 0x03: Unknown Cart , 0x04: Unknown Command , 0x05: Bad Cartridge , 0x06: Loader Busy when command was issued
 CART_BYTE=0x00
 COMMAND_BYTE=0x00
 printf -v START '0x%016X' 0
@@ -197,14 +197,18 @@ parse_CLK() {
 
 parse_Command()
 {
-    COMMAND_BYTE=$byte
-    case $COMMAND_BYTE in
-        0x00) LOADER_STATE=load ;;
-        0x01) LOADER_STATE=store ;;
-        0x02) LOADER_STATE=clear_CART ;;
-        0x03) LOADER_STATE=clear_MEM ;;
-        *) LOADER_STATE="" ; RESULT_STATE=0x04; ;;
-    esac
+    if [[ $BUSY_STATE == "0x01" ]]; then
+        RESULT_STATE=0x06
+    elif [[ $BUSY_STATE == "0x00" ]]; then
+        COMMAND_BYTE=$byte
+        case $COMMAND_BYTE in
+            0x00) LOADER_STATE=load ;;
+            0x01) LOADER_STATE=store ;;
+            0x02) LOADER_STATE=clear_CART ;;
+            0x03) LOADER_STATE=clear_MEM ;;
+            *) LOADER_STATE="" ; RESULT_STATE=0x04; ;;
+        esac
+    fi
 }
 
 parse_Address_Store() {
