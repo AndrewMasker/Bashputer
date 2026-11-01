@@ -31,6 +31,9 @@ parse_Load() {
     local addr=$1
     if is_16_Digit_Hex $addr; then
         get_Bus $addr
+        if [[ $NAME == "none" ]]; then
+            echo "data $UNMAPPED_DATA"
+        fi
         if [[ $PERM == *R* ]]; then
             echo "$NAME load $ADDR"
         else
@@ -46,6 +49,9 @@ parse_Store() {
     if is_16_Digit_Hex $addr; then
         if is_2_Digit_Hex $byte; then
             get_Bus $addr
+            if [[ $NAME == "none" ]]; then
+                return 0
+            fi
             if [[ $PERM == *W* ]]; then
                 echo "$NAME store $ADDR $byte"
             else

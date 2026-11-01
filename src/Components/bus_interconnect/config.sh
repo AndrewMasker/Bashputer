@@ -7,3 +7,4 @@ ADDR_HIGH=(   $(( 64*1000 ))    $(( 3*64*1000 ))    $(( 4*64*1000 ))    $(( 5*64
 PERMISSIONS=( R                 RW                  R                   RW                  RW                )
 
 DENIED_READ_DATA=0xFF
+UNMAPPED_DATA=0xFF
