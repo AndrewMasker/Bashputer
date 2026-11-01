@@ -9,6 +9,7 @@ source "$MY_DIR"/../config.sh
 source "$MY_DIR"/../errors.sh
 source "$MY_DIR"/../utils.sh
 source "$MY_DIR"/utils.sh
+source "$MY_DIR"/events.sh
 
 FIFO_DIR=$(mktemp -d)
 declare -A PID IN OUT

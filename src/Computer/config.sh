@@ -19,4 +19,4 @@ CLOCKABLE[1]=loader
 
 CLOCK=clock
 
-BUS_INTERCONNECT=bus_interconnect
+ROUTER=bus_interconnect
