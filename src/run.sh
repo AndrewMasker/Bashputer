@@ -4,7 +4,7 @@
 MY_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 
 
-if ! command -v bwrap >?dev/null; then 
+if ! command -v bwrap >/dev/null; then 
       echo "run.sh: bwrap not found" >&2
       exit 1
 fi
@@ -19,8 +19,14 @@ for cart in "$MY_DIR"/Cartridges/*/; do
 done
 
 trap '' INT
-exec bwrap  --ro-bind / / \
-            --dev /dev --proc /proc --tmpfs /tmp \
-            "${binds[@]}" \
-            --unshare-all --die-with-parent \
-            env --default-signal=INT bash "$MY_DIR"/Computer/computer.sh "$@"
+trap ':' QUIT
+saved=$(stty -g ,/dev/tty)
+bwrap --ro-bind / / \
+      --dev /dev --proc /proc --tmpfs /tmp \
+      "${binds[@]}" \
+      --unshare-all --die-with-parent \
+      env --default-signal=INT bash "$MY_DIR"/Computer/computer.sh "$@"
+status=$?
+stty "saved" </dev/tty
+printf '\e[0m\e[?25h' >/dev/tty
+exit "$status"
