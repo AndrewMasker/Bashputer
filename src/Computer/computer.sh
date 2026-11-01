@@ -30,6 +30,7 @@ if ! SAVED_STTY=$(stty -g 2>/dev/null </dev/tty); then
 fi
 stty -echo -icanon min 1 time 0 </dev/tty
 
+# Start non clocked components
 for name in "${!COMPONENTS[@]}"; do
     start_Component "$name" "${COMPONENTS[$name]}"
 done
@@ -37,8 +38,24 @@ for name in "${!COMPONENTS[@]}"; do
     connect_Component "$name"
 done
 
+# Start clocked components
+for name in "${!CLOCKABLE[@]}"; do
+    start_Component "$name" "${CLOCKABLE[$name]}"
+done
+for name in "${!CLOCKABLE[@]}"; do
+    connect_Component "$name"
+done
+
+# Start clock
+start_Component "clock" "$CLOCK"
+connect_Component "clock"
+
+
 step() {
-    
+    printf "wait\n" >&"${IN[clock]}"
+    for name in ${!CLOCKABLE[@]}; do
+
+    done
 }
 
 run_Computer() {
