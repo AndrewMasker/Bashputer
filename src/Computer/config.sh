@@ -18,5 +18,5 @@ CLOCKABLE[0]=cpu
 CLOCKABLE[1]=loader
 
 CLOCK=clock
-
 ROUTER=bus_interconnect
+ROM=rom
