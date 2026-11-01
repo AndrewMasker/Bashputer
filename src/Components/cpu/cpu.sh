@@ -66,8 +66,8 @@ parse_CLK() {
     case $CPU_STATE in
         reset) parse_Reset_CLK ;;
         ready) parse_Ready_CLK ;;
-        stalled) echo stalled ;;
-        halted) echo halted ;;
+        stalled) echo "$COMPONENT_NAME stalled" ;;
+        halted) echo "$COMPONENT_NAME halted" ;;
         *) die "unknown CPU_STATE '$CPU_STATE'" ;;
     esac
 }
@@ -109,7 +109,7 @@ run_CPU() {
 
 dump_State() {
     local i 
-    printf 'CPU STATE: \n'
+    printf '%s STATE: \n' "$COMPONENT_NAME"
     printf '    CPU_STATE=%s RESUME_STATE=%s\n' "${CPU_STATE-unset}" "${RESUME_STATE-unset}"
     printf '    PC=%s SP=%s OPCODE=%s\n' "${PC-unset}" "${SP-unset}" "${OPCODE-unset}"
     printf '    ARGA=%s ARGB=%s ARGC=%s\n' "${ARGA-unset}" "${ARGB-unset}" "${ARGC-unset}"

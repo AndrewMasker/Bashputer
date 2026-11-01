@@ -44,9 +44,12 @@ shutdown_All_Components() {
 }
 
 handle_Clockable_Message() {
-    local name=$1 msg=$1
-    case $name in
-        cpu) handle_CPU_Clockable_Message ;;
-        loader) handle_LOADER_Clockable_Message ;;
+    local name=$1 msg=$2
+    case $msg in
+        "$name halted") 
+            case $name in
+                cpu)
+            esac
+            ;;
     esac
 }
