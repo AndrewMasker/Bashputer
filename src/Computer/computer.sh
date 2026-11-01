@@ -50,6 +50,10 @@ done
 start_Component "clock" "$CLOCK"
 connect_Component "clock"
 
+# Start bus interconnect
+start_Component "bus_interconnect" "$BUS_INTERCONNECT"
+connect_Component "bus_interconnect"
+
 msg=""
 step() {
     send_Message clock wait
@@ -65,7 +69,7 @@ step() {
             if [[ $msg == tick ]]; then
                 break
             fi
-            
+            handle_Clockable_Message "$name" $msg
         done
     done
 }
