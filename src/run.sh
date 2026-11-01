@@ -20,13 +20,13 @@ done
 
 trap '' INT
 trap ':' QUIT
-saved=$(stty -g ,/dev/tty)
+saved=$(stty -g </dev/tty)
 bwrap --ro-bind / / \
       --dev /dev --proc /proc --tmpfs /tmp \
       "${binds[@]}" \
       --unshare-all --die-with-parent \
       env --default-signal=INT bash "$MY_DIR"/Computer/computer.sh "$@"
 status=$?
-stty "saved" </dev/tty
+stty "$saved" </dev/tty
 printf '\e[0m\e[?25h' >/dev/tty
 exit "$status"
