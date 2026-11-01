@@ -71,7 +71,12 @@ run_Computer() {
     done
 }
 
-trap 'exit 130' INT
+on_Interrupt(){
+    if ! RUNNING; then exit 130; fi
+    RUNNING=false
+}
+
+trap on_Interrupt INT
 trap 'exit 143' TERM
 
 if [-z "$1" ]; then
@@ -81,6 +86,7 @@ fi
 rom_cart=$1
 load_ROM $rom_cart
 run_Computer $rom_cart
+shutdown_All_Components
 
 
 
