@@ -293,7 +293,7 @@ parse_Input() {
     case $type in
         clock) parse_CLK; echo tick ;;
         store) parse_Store $value ; echo done ;;
-        load) parse_Load "$value" ; echo done ;;
+        load) parse_Load "$value" ;;
         data) parse_Data "$value" ;; 
         *) die "unknown input type '$type' with value '$value'" ;;
     esac

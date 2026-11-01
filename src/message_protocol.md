@@ -24,6 +24,19 @@ Global addresses sent from the cpu go to the bus interconnect. There they are se
 
 </dd>
 
+**Commands and Responses**
+<dd>
+
+Each command is given gets a response back. That response may contain information or may just indicate that the command has finished. A "*" indicates optional arguments.
+
+"clock" &rarr; "tick"
+
+"* load `<address>`" &rarr; "data `<byte>`"
+
+"* store `<addr>` `<byte>`" &rarr; "done"
+
+</dd>
+
 **Shutdown**
 <dd>
 

@@ -40,7 +40,7 @@ parse_Store() {
 parse_Input() {
     local type=$1 value=$2
     case $type in
-        load) parse_Load "$value" ; echo done ;;
+        load) parse_Load "$value" ;;
         store) parse_Store $value ; echo done ;;
         *) die "unknown input type" ;;
     esac
