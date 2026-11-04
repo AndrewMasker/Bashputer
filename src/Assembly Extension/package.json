@@ -3,17 +3,17 @@
     "publisher": "andrewmasker" , 
     "version": "0.0.1" , 
     "engines": {"vscode": "^1.80.0"} , 
-    "configuration": "./language-configuration.json" ,
     "contributes":
     {
         "languages": 
         [
             {
                 "id": "bassm" ,
-                "extensions": [".bassm" , ".BASSM" , ".basm" , ".BASM" , ".bsm" , ".BSM"]
+                "extensions": [".bassm" , ".basm" , ".bsm"] ,
+                "configuration": "./language-configuration.json"
             }
         ] ,
-        "grammers":
+        "grammars":
         [
             {
                 "language": "bassm" ,

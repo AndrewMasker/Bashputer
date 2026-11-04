@@ -31,7 +31,7 @@
         } ,
         "substitution-usage":
         {
-            "match": "\\b(\\$)(def|undef)" , 
+            "match": "(\\$)([A-Za-z_]\\w*)" , 
             "captures":
             {
                 "1": {"name": "punctuation.separator.sub-use.bassm"} , 
@@ -49,7 +49,7 @@
         } , 
         "label-usage":
         {
-            "match": "\\b(:)([A-Za-z_]\\w*)" , 
+            "match": "(:)([A-Za-z_]\\w*)" , 
             "captures": 
             {
                 "1": {"name": "punctuation.separator.label.bassm"} , 
@@ -64,7 +64,7 @@
         "register":
         {
             "match": "\\b[rR]\\d+\\b" , 
-            "name": "variable.other.register.bassm"
+            "name": "variable.language.register.bassm"
         },
         "operands":
         {

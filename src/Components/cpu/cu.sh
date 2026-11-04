@@ -569,7 +569,7 @@ parse_OPCODE() {
         # 0x0F) parse_LSL_OPCODE $pidx ;;
         0x10) parse_LSR_OPCODE $pidx ;;
         0x11) parse_ASR_OPCODE $pidx ;;
-        0x11) parse_SHL_OPCODE $pidx ;;
+        0x12) parse_SHL_OPCODE $pidx ;;
         # 0x13) parse_ROL_OPCODE $pidx ;;
         0x14) parse_LDB_OPCODE $pidx ;;
         0x15) parse_LDQ_OPCODE $pidx ;;
