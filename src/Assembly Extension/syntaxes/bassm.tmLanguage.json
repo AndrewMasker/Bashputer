@@ -34,7 +34,7 @@
             "match": "(\\$)([A-Za-z_]\\w*)" , 
             "captures":
             {
-                "1": {"name": "punctuation.separator.sub-use.bassm"} , 
+                "1": {"name": "constant.character.escape.sub-use.bassm"} , 
                 "2": {"name": "variable.other.sub-name.bassm"}
             }
         } ,
