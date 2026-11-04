@@ -24,5 +24,18 @@ OUT=''
 SRC=''
 KEEP=false
 while (( $# > 0 )); do
-    
+    case $1 in 
+        -h|--help) help(); exit 0 ;;
+        -k|--k) KEEP=true ;;
+        -o|--output) if (( $# >= 2 )); then OUT=$2; shift; else usage_Error "$1 needs a file name"; fi ;;
+        -o=*|--output=*) OUT=${1#*=} ;;
+        -*) usage_Error "unknown option '$1'" ;;
+        *) if [[ -z $SRC ]]; then SRC=$1; else usage_Error "source already set to: '$SRC', cannot set source to '$1' as well"
+    esac
+    shift
 done
+if [[ -n $SRC ]]; then
+    usage_Error "no source file passed"
+fi
+name=${SRC##*/}
+if [[ $name == ?*.*]]; 
