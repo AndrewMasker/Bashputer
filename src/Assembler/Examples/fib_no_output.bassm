@@ -1,3 +1,4 @@
+!LABEL_ORIGIN
 def pc_init = r8                                # Define 
 pc $pc_init                                     # Put the initial pc into pc_init
 
