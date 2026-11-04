@@ -3,7 +3,14 @@
     "scopeName": "source.bassm" , 
     "patterns": 
     [
-        {"include": "#comment"}
+        {"include": "#comment"} , 
+        {"include": "#substitution-definition"} , 
+        {"include": "#substitution-usage"} , 
+        {"include": "#label-definition"} , 
+        {"include": "#label-usage"} , 
+        {"include": "#mnemonic"} , 
+        {"include": "#register"} , 
+        {"include": "#operands"} 
     ] ,
     "repository": 
     {
@@ -54,7 +61,7 @@
             "match": "(?i)\\b(nop|hlt|add|sub|and|or|xor|not|lsr|asr|shl|ldb|ldq|ldh|ldw|stb|stq|sth|stw|lib|liq|lih|liw|eq|lts|bz|bnz|jmp|mov|pc)\\b" ,
             "captures": {"1": {"name": "keyword.other.instruction.bassm"}}
         } , 
-        "registers":
+        "register":
         {
             "match": "\\b[rR]\\d+\\b" , 
             "name": "variable.other.register.bassm"

@@ -3,7 +3,8 @@
     "publisher": "andrewmasker" , 
     "version": "0.0.1" , 
     "engines": {"vscode": "^1.80.0"} , 
-    "contributes" :
+    "configuration": "./language-configuration.json" ,
+    "contributes":
     {
         "languages": 
         [

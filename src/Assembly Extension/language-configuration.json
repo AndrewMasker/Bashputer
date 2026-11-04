@@ -1,0 +1,6 @@
+{
+    "comments": {"lineComment": "#"} , 
+    "brackets": [["(" , ")"]] , 
+    "autoClosingPairs": [{ "open": "(" , "close": ")" }] , 
+    "wordPattern": "[$:]?[A-za-z_]\\w*|0[xX][0-9A-Fa-f]+|\\d+"
+}
