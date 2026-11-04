@@ -1,28 +1,40 @@
-/def counter = r4               # The register with the counter
-/def low = r1                   # The register with the low number
-/def high = r2                  # The register with the high number
-/undef high                     # Undefining this just to show
-/def result = r3                # The result register
+$def pc_init = r8
+pc $pc_init                                     # Put the initial pc into pc_init
 
-/def loop = r6                  # Define the loop variable
-liw r6 , loop                   # Load the loop address into r6
+$def counter = r4                               # The register with the counter
+$def low = r1                                   # The register with the low number
+$def high = r2                                  # The register with the high number
+$undef high                                     # Undefining this just to show
+$def high = r2                                  # Redefining so I can work with it
+$def result = r3                                # The result register
 
-/def r_loop_escape = r7         # The loop escape register
-/def num_fib = (13 + 0x05)      # The number of fibonachi numbers to compute
+$def loop = r6                                  # Define the loop register as r6
+liw $loop , :loop                               # Load the relative loop address into the loop register
+add $loop , $pc_init , $loop                    # Add the pc_init value to the loop address to make the address absolute 
 
-/def one = r5                   # Define on to be the register r5
-lib one , (1)                   # Set the register one to 1
+$def r_loop_escape = r7                         # Define the loop register as r7
+liw $loop_escape , :loop_escape                 # Load the loop_escape address into the loop_escape register
+add $loop_escape , $pc_init , $loop_escape      # Add the pc_init value to the loop_escape address to make the address absolute 
 
-liw counter , num_fib           # Set the counter register to num_fib
-liw r7 , loop_escape            # Load the loop_escape address into r7
-lib r1 , ( 0 )                  # Load zero into r1 as a byte
-liw r2 , ( 0x01 )               # Load 1 into r2 as a word
-loop:
-    bz r4 , loop_escape         # Branch to 
-    add r1 , r2 , r3            # Add r1 and r2 together and store in r3
-    mov r2 r1; mov r3 r2        # Move r2 into r1 and r3 into r2
+$def num_fib = (13 + 0x05)                      # The number of fibonachi numbers to compute
 
-# Comment with no instructions. Empty line below
+$def one = #small inline comment# r5            # Define one to be the register r5
+lib $one , (1)                                  # Set the register one to 1
+
+liw $counter , $num_fib                         # Set the counter register to num_fib
+
+lib $low , ( 0 )                                # Load zero into the low register as a byte
+mov $one , $high                                # Copy register one into register high
+
+loop:                                           # Define the loop label
+    bz $counter , $loop_escape                  # Branch to the address in the loop escape register if the counter register is zero
+    add $low , $high , $result                  # Add low and high together and store in result
+    mov r2 r1; mov r3 r2                        # Move high into low and result into high
+    jmp $loop                                   # Jump back to the begining of the loop
+
+loop_escape:                                    # Define the loop_escape label and show
+HLT
+# The result is now within the result register which is r3
 
 
 
