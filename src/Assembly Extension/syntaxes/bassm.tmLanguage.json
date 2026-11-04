@@ -1,5 +1,85 @@
 {
     "name": "Bashputer Assembly" , 
     "scopeName": "source.bassm" , 
-    "patterns": []
+    "patterns": 
+    [
+        {"include": "#comment"}
+    ] ,
+    "repository": 
+    {
+        "comment": 
+        {
+            "begin": "#" ,
+            "end": "/#|$" , 
+            "name": "comment.block.inline.bassm"
+        } ,
+        "substitution-definition":
+        {
+            "match": "\\b(def|undef)(?!:)\\b(?:\\s+([A-Za-z_]\\w*))?" , 
+            "captures":
+            {
+                "1": {"name": "keyword.control.sub-def.bassm"} , 
+                "2": {"name": "variable.other.sub-name.bassm"}
+            }
+        } ,
+        "substitution-usage":
+        {
+            "match": "\\b(\\$)(def|undef)" , 
+            "captures":
+            {
+                "1": {"name": "punctuation.separator.sub-use.bassm"} , 
+                "2": {"name": "keyword.control.sub-name.bassm"}
+            }
+        } ,
+        "label-definition":
+        {
+            "match": "\\b([A-Za-z_]\\w*)(:)" , 
+            "captures": 
+            {
+                "1": {"name": "entity.name.function.label.bassm"} , 
+                "2": {"name": "punctuation.separator.label.bassm"}
+            }
+        } , 
+        "label-usage":
+        {
+            "match": "\\b(:)([A-Za-z_]\\w*)" , 
+            "captures": 
+            {
+                "1": {"name": "punctuation.separator.label.bassm"} , 
+                "2": {"name": "entity.name.function.label.bassm"}
+            }
+        } , 
+        "mnemonic":
+        {
+            "match": "(?i)\\b(nop|hlt|add|sub|and|or|xor|not|lsr|asr|shl|ldb|ldq|ldh|ldw|stb|stq|sth|stw|lib|liq|lih|liw|eq|lts|bz|bnz|jmp|mov|pc)\\b" ,
+            "captures": {"1": {"name": "keyword.other.instruction.bassm"}}
+        } , 
+        "registers":
+        {
+            "match": "\\b[rR]\\d+\\b" , 
+            "name": "variable.other.register.bassm"
+        },
+        "operands":
+        {
+            "patterns":
+            [
+                {
+                    "match": "\\b0[xX][0-9A-Fa-f]+\\b" , 
+                    "name": "constant.numeric.hex.bassm"
+                } ,
+                {
+                    "match": "\\b\\d+\\b" , 
+                    "name": "constant.numeric.decimal.bassm"
+                } ,
+                {
+                    "match": "[-+*/^%]" , 
+                    "name": "keyword.operator.arithmetic.bassm"
+                } , 
+                {
+                    "match": "=" , 
+                    "name": "keyword.operator.assignment.bassm"
+                }
+            ]
+        }
+    }
 }
