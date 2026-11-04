@@ -1,0 +1,24 @@
+{
+    "name": "bassm-syntax" , 
+    "publisher": "andrewmasker" , 
+    "version": "0.0.1" , 
+    "engines": {"vscode": "^1.80.0"} , 
+    "contributes" :
+    {
+        "languages": 
+        [
+            {
+                "id": "bassm" ,
+                "extensions": [".bassm" , ".BASSM" , ".basm" , ".BASM" , ".bsm" , ".BSM"]
+            }
+        ] ,
+        "grammers":
+        [
+            {
+                "language": "bassm" ,
+                "scopeName": "source.bassm" ,
+                "path": "./syntaxes/bassm.tmLanguage.json"
+            }
+        ]
+    }
+}
