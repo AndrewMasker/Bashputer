@@ -10,3 +10,20 @@ source "$MY_DIR"/utils.sh
 source "$MY_DIR"/start.sh
 
 
+run_Stage() {
+    local name=$1 status=0
+    shift
+    bash "$@" || status=$?
+    case $status in
+        0) return 0 ;;
+        2) printf 'assembler: error during the %s stage (errors in source)\n' "$label" >&2 ;;
+        126|127) printf 'assembler: error during the %s stage. Could not run '%s'. Is the source correct?' "$label" "$*" >&2; status=1 ;;
+        *) printf 'assembler: assmbler error with status '%s' during the %s stage' "$status" "$label" >&2 ;;
+    esac
+    _DYING=true
+    exit "$status"
+}
+
+run_Stage preprocessor "$MY_DIR"/stages/preprocesser.sh "$SRC" > "$WORK"/pre
+run_Stage processor "$MY_DIR"/stages/processer.sh "$WORK/pre" > "$WORK"/post
+run_Stage hexer "$MY_DIR"/stages/hexer.sh "$WORK/post" > "$WORK"/hex
