@@ -23,7 +23,7 @@ KEEP=false
 while (( $# > 0 )); do
     case $1 in 
         -h|--help) help; exit 0 ;;
-        -k|--k) KEEP=true ;;
+        -k|--keep) KEEP=true ;;
         -o|--output) if (( $# >= 2 )); then OUT=$2; shift; else usage_Error "$1 needs a file name"; fi ;;
         -o=*|--output=*) OUT=${1#*=} ;;
         -*) usage_Error "unknown option '$1'" ;;
@@ -50,13 +50,16 @@ else
     fi
     OUT=$base
 fi
+if [[ ! -f $SRC || ! -r $SRC ]]; then
+    usage_Error "cannot read source file '$SRC'"
+fi
 if $KEEP; then 
     WORK="$base"/work
     if ! is_Valid_Dir "$WORK"; then
         usage_Error "can't use '$WORK' as a work output directory"
     fi
 else
-    WORK=$(mktmp -d)
+    WORK=$(mktemp -d)
     on_Exit() { rm -rf "$WORK"; }
 fi
 

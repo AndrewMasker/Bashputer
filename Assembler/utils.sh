@@ -3,7 +3,7 @@
 
 is_Valid_Dir() {
     local path=${1:-}
-    if [[ ! -n $path ]]; then
+    if [[ -z $path ]]; then
         return 1
     fi
     if [[ -e $path ]]; then
@@ -19,7 +19,7 @@ is_Valid_Dir() {
             break
         fi
         path=${path%/*}
-        if [[ -n $path ]]; then
+        if [[ -z $path ]]; then
             path=/
         fi
     done
