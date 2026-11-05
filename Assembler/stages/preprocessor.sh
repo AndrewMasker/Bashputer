@@ -60,7 +60,7 @@ is_Def_Statement() {
         _name=${BASH_REMATCH[1]}
         _val=${BASH_REMATCH[2]}
         remove_Surrounding_Whitespace _val
-        if [[ _val =~ ^\{(.*)\}$ ]]; then 
+        if [[ $_val =~ ^\{(.*)\}$ ]]; then 
             _val=${BASH_REMATCH[1]}
         fi
         return 0
@@ -110,17 +110,22 @@ while read -r line || [[ -n $line ]]; do
 done < "$INP"
 remove_Empty_Elements STATES
 
-for i in "${!STATES[@]}"; do
+n="${#STATES[@]}"
+for (( i = 0; i < n; i++)); do
     statement="${STATES[i]}"
+    j=$i
+    if [[ $statement =~ ^def[[:space:]]+.* && (( j + 1 < n)) && [[ ${STAGES[j+1]} == \{* ]] ]]; then
+        (( ++j ))
+        statement+=" ${STATES[j]}"
+        unset 'STATES[j]'
     if [[ $statement =~ \{ ]]; then 
-        j=$i
         while [[ ! $statement =~ \} ]]; do
             (( ++j ))
             if (( j >= ${#STATES[@]} )); then
-                printf "no closing brace for statement '%s'" "$STATES[i]" >&2
+                printf "no closing brace for statement '%s'\n" "${STATES[i]}" >&2
                 exit 2
             fi
-            statement+="; ${STATES[i]}"
+            statement+="; ${STATES[j]}"
             unset 'STATES[j]'
         done
         STATES[i]=$statement
@@ -147,7 +152,9 @@ for statement in "${STATES[@]}"; do
         SUBSTATES=()
         break_On_Semicolons statement SUBSTATES
         for substate in "${SUBSTATES[@]}"; do
-            echo "$substate"
+            if [[ -n $substate ]]; then
+                echo "$substate"
+            fi
         done
     fi
 done
