@@ -17,8 +17,8 @@ run_Stage() {
     case $status in
         0) return 0 ;;
         2) printf "assembler: error during the %s stage (errors in source)\n" "$name" >&2 ;;
-        126|127) printf "assembler: error during the %s stage. Could not run '%s'. Is the source correct?" "$name" "$*" >&2; status=1 ;;
-        *) printf "assembler: assmbler error with status '%s' during the %s stage" "$status" "$name" >&2 ;;
+        126|127) printf "assembler: error during the %s stage. Could not run '%s'. Is the source correct?\n" "$name" "$*" >&2; status=1 ;;
+        *) printf "assembler: assmbler error with status '%s' during the %s stage\n" "$status" "$name" >&2 ;;
     esac
     _DYING=true
     exit "$status"
