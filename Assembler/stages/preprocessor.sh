@@ -114,14 +114,15 @@ n="${#STATES[@]}"
 for (( i = 0; i < n; i++)); do
     statement="${STATES[i]}"
     j=$i
-    if [[ $statement =~ ^def[[:space:]]+.* && (( j + 1 < n)) && [[ ${STAGES[j+1]} == \{* ]] ]]; then
+    if [[ $statement =~ ^def[[:space:]]+.* ]] && (( j + 1 < n )) && [[ ${STAGES[j+1]} == \{* ]]; then
         (( ++j ))
         statement+=" ${STATES[j]}"
         unset 'STATES[j]'
+    fi
     if [[ $statement =~ \{ ]]; then 
         while [[ ! $statement =~ \} ]]; do
             (( ++j ))
-            if (( j >= ${#STATES[@]} )); then
+            if (( j >= n )); then
                 printf "no closing brace for statement '%s'\n" "${STATES[i]}" >&2
                 exit 2
             fi
