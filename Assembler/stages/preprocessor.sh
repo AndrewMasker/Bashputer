@@ -87,7 +87,7 @@ replace_Subs() {
     done
     for sub in ${subs[@]}; do
         if [[ -v SUBS[$sub] ]]; then
-            _statement=${_statement/"\$$sub"/"${SUBS[sub]}"}
+            _statement=${_statement/"\$$sub"/"${SUBS[$sub]}"}
         else
             printf "Unknown substitution name '%s'\n" "$sub" >&2
             exit 2
