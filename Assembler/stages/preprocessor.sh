@@ -6,9 +6,6 @@
 # It then replaces all substitutions with their value and removes their definitions
 # from the file.
 
-MY_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-source "$MY_DIR"/../config.sh
-
 shopt -s extglob
 
 INP=${1:-}
@@ -146,16 +143,7 @@ for statement in "${STATES[@]}"; do
     name=""
     val=""
     if is_Def_Statement "$statement" name val; then
-        for (( i = 0; i < MAX_SUB_DEPTH; i++ )); do
-            if [[ $val =~ \$ ]]; then
-                replace_Subs val
-            else
-                break
-            fi
-        done
-        if (( i == MAX_SUB_DEPTH )); then
-            printf "maximum substituion depth reached with statement '%s'\n" "$statement" >&2
-        fi
+        replace_Subs val
         SUBS[$name]=$val
     elif is_Undef_Statement "$statement" name; then
         if [[ -v SUBS[$name] ]]; then
