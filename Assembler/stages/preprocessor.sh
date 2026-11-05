@@ -6,6 +6,9 @@
 # It then replaces all substitutions with their value and removes their definitions
 # from the file.
 
+MY_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+source "$MY_DIR"/../config.sh
+
 shopt -s extglob
 
 INP=${1:-}
@@ -60,6 +63,7 @@ is_Def_Statement() {
         _name=${BASH_REMATCH[1]}
         _val=${BASH_REMATCH[2]}
         remove_Surrounding_Whitespace _val
+        # printf '%s\n' "$_val" >&2
         if [[ $_val =~ ^\{(.*)\}$ ]]; then 
             _val=${BASH_REMATCH[1]}
         fi
@@ -98,6 +102,7 @@ replace_Subs() {
     done
 }
 
+# Loop over each line, remove comments and surrounding whitespace, then break each line on semiolons
 STATES=()
 while read -r line || [[ -n $line ]]; do
     remove_Comments line
@@ -110,11 +115,12 @@ while read -r line || [[ -n $line ]]; do
 done < "$INP"
 remove_Empty_Elements STATES
 
+# Find multiline def statements and group them into a single colon separated brace group on the same line
 n="${#STATES[@]}"
 for (( i = 0; i < n; i++)); do
     statement="${STATES[i]}"
     j=$i
-    if [[ $statement =~ ^def[[:space:]]+.* ]] && (( j + 1 < n )) && [[ ${STAGES[j+1]} == \{* ]]; then
+    if [[ $statement =~ ^def[[:space:]]+.* ]] && (( j + 1 < n )) && [[ ${STATES[j+1]} == \{* ]]; then
         (( ++j ))
         statement+=" ${STATES[j]}"
         unset 'STATES[j]'
@@ -134,12 +140,22 @@ for (( i = 0; i < n; i++)); do
     fi
 done
 
+# Walk through the STATES and substitute references with their values
 declare -A SUBS
 for statement in "${STATES[@]}"; do
     name=""
     val=""
     if is_Def_Statement "$statement" name val; then
-        replace_Subs val
+        for (( i = 0; i < MAX_SUB_DEPTH; i++ )); do
+            if [[ $val =~ \$ ]]; then
+                replace_Subs val
+            else
+                break
+            fi
+        done
+        if (( i == MAX_SUB_DEPTH )); then
+            printf "maximum substituion depth reached with statement '%s'\n" "$statement" >&2
+        fi
         SUBS[$name]=$val
     elif is_Undef_Statement "$statement" name; then
         if [[ -v SUBS[$name] ]]; then

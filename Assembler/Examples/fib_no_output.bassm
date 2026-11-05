@@ -38,6 +38,5 @@ loop_escape:                                    # Define the loop_escape label a
 HLT
 # The result is now within the result register which is r3
 
-def tmp = mov r6 , r5
-$tmp
+
 
