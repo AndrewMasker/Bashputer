@@ -6,6 +6,8 @@
 # It then replaces all substitutions with their value and removes their definitions
 # from the file.
 
+shopt -s extglob
+
 INP=${1:-}
 if [[ -z $INP ]]; then 
     exit 1
@@ -28,7 +30,7 @@ break_On_Semicolons() {
     local rest=$_line
     local -n _STATES=$2
     while [[ -n $rest ]]; do
-        if [[ $_line == *\;* ]]; then
+        if [[ $rest == *\;* ]]; then
             _STATES+=("${rest%%;*}")
             rest="${rest#*;}"
         else
@@ -49,11 +51,12 @@ remove_Empty_Elements() {
 is_Def_Statement() {
     local statement=$1
     local -n _name=$2
-    local -n _var=$3
-    local regex='def[[:space:]]*([A-Za-z]w*)[[:space:]]*=[[:space:]]*(.*)'
+    local -n _val=$3
+    local regex='^def[[:space:]]*([A-Za-z]\w*)[[:space:]]*=(.*)'
     if [[ $statement =~ $regex ]]; then
         _name=${BASH_REMATCH[1]}
-        _var=${BASH_REMATCH[2]}
+        _val=${BASH_REMATCH[2]}
+        remove_Surrounding_Whitespace "${!_val}"
         return 0
     else
         return 1
@@ -62,7 +65,7 @@ is_Def_Statement() {
 is_Undef_Statement() {
     local statement=$1
     local -n _name=$2
-    local regex='undef[[:space:]]*([A-Za-z]w*)'
+    local regex='^undef[[:space:]]*([A-Za-z]w*)'
     if [[ $statement =~ $regex ]]; then
         _name=${BASH_REMATCH[1]}
         return 0
@@ -70,9 +73,26 @@ is_Undef_Statement() {
         return 1
     fi
 }
+replace_Subs() {
+    local -n _statement=$1
+    local regex='$([A-za-z]w*)' subs=()
+    local rest=_statement
+    while [[ $rest =~ $regex ]]; do
+        subs+=${BASH_REMATCH[1]}
+        rest=${rest#*"${BASH_REMATCH[0]}"}
+    done
+    for sub in $subs; do
+        if [[ -v ${SUBS[sub]} ]];  
+            _statement=${_statement/"$sub"/"${SUBS[sub]}"}
+        else
+            printf 'Unknown substitution name '%s'' "$sub" >&2
+            exit 2
+        fi
+    done
+}
 
 STATES=()
-while read -r line || [-n $line]; do
+while read -r line || [[ -n $line ]]; do
     remove_Comments line
     remove_Surrounding_Whitespace line
     if [[ -n $line ]]; then # Check that the comment free line is not empty
@@ -84,16 +104,19 @@ done < "$INP"
 remove_Empty_Elements STATES
 
 declare -A SUBS
-for statement in ${STATES[@]}; do
+for statement in "${STATES[@]}"; do
     name=""
-    var=""
-    if is_Def_Statement $statement name var; then
-        SUBS[$name]=$var
-    elif is_Undef_Statement $statement name; then
-        if [[ -n ${SUBS[$name]} ]]; then
+    val=""
+    if is_Def_Statement "$statement" name val; then
+        SUBS[$name]=$val
+    elif is_Undef_Statement "$statement" name; then
+        if [[ -v ${SUBS[$name]} ]]; then
             unset SUBS[$name]
         else
-            return 2
+            printf 'Cannot unset substitution '%s' before it is defined\n' "$name" >&2
+            exit 2
         fi
     fi
+    replace_Subs statement
+    echo "$statement"
 done
