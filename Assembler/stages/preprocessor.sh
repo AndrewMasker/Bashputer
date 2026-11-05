@@ -50,6 +50,7 @@ remove_Empty_Elements() {
             unset _STATES[$i]
         fi
     done
+    _STATES=("${_STATES[@]}")
 }
 is_Def_Statement() {
     local statement=$1
@@ -117,7 +118,7 @@ n="${#STATES[@]}"
 for (( i = 0; i < n; i++)); do
     statement="${STATES[i]}"
     j=$i
-    if [[ $statement =~ ^def[[:space:]]+.* ]] && (( j + 1 < n )) && [[ ${STATES[j+1]} == \{* ]]; then
+    if [[ $statement =~ ^def[[:space:]]+.*=$ ]] && (( j + 1 < n )) && [[ ${STATES[j+1]} == \{* ]]; then
         (( ++j ))
         statement+=" ${STATES[j]}"
         unset 'STATES[j]'
