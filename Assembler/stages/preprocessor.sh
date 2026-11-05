@@ -36,6 +36,7 @@ break_On_Semicolons() {
             _STATES+=("$tmp")
             rest="${rest#*;}"
         else
+            remove_Surrounding_Whitespace rest
             _STATES+=("$rest")
             rest=""
         fi
@@ -54,7 +55,7 @@ is_Def_Statement() {
     local statement=$1
     local -n _name=$2
     local -n _val=$3
-    local regex='^def[[:space:]]*([A-Za-z]\w*)[[:space:]]*=(.*)'
+    local regex='^def[[:space:]]+([A-Za-z]\w*)[[:space:]]*=(.*)'
     if [[ $statement =~ $regex ]]; then
         _name=${BASH_REMATCH[1]}
         _val=${BASH_REMATCH[2]}
@@ -67,9 +68,10 @@ is_Def_Statement() {
 is_Undef_Statement() {
     local statement=$1
     local -n _name=$2
-    local regex='^undef[[:space:]]*([A-Za-z]\w*)'
+    local regex='^undef[[:space:]]+([A-Za-z].*)'
     if [[ $statement =~ $regex ]]; then
         _name=${BASH_REMATCH[1]}
+        remove_Surrounding_Whitespace _name
         return 0
     else
         return 1
@@ -77,14 +79,14 @@ is_Undef_Statement() {
 }
 replace_Subs() {
     local -n _statement=$1
-    local regex='\$([A-Za-z]w*)\b' subs=()
+    local regex='\$([A-Za-z]\w*)\b' subs=()
     local rest=$_statement
     while [[ $rest =~ $regex ]]; do
         subs+=(${BASH_REMATCH[1]})
         rest=${rest#*"${BASH_REMATCH[0]}"}
     done
     for sub in ${subs[@]}; do
-        if [[ -v SUBS[sub] ]]; then
+        if [[ -v SUBS[$sub] ]]; then
             _statement=${_statement/"\$$sub"/"${SUBS[sub]}"}
         else
             printf "Unknown substitution name '%s'\n" "$sub" >&2
