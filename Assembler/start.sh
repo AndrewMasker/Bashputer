@@ -63,3 +63,5 @@ else
     on_Exit() { rm -rf "$WORK"; }
 fi
 
+mkdir -p "$WORK"
+mkdir -p "$OUT"
