@@ -107,6 +107,23 @@ while read -r line || [[ -n $line ]]; do
 done < "$INP"
 remove_Empty_Elements STATES
 
+for i in "${!STATES[@]}"; do
+    i_0=$i
+    statement="${STATES[i]}"
+    if [[ $statement =~ '\{' ]]; then 
+        while [[ ! $statement =~ '\}' ]]; do
+            i=$(( i + 1 ))
+            if [[ -z "STATES[$i]" ]]; then
+                printf "no closing brace for statement '%s'\n" "$statement" >&2
+                exit 2
+            fi
+            statement+=" ${STATES[i]}"
+            unset "STATES[$i]"
+        done
+        STATES[i_0]=$statement
+    fi
+done
+
 declare -A SUBS
 for statement in "${STATES[@]}"; do
     name=""
@@ -122,6 +139,10 @@ for statement in "${STATES[@]}"; do
         fi
     else
         replace_Subs statement
-        echo "$statement"
+        SUBSTATES=()
+        break_On_Semicolons statement SUBSTATES
+        for substate in ${SUBSTATES[@]}; do
+            echo "$substate"
+        done
     fi
 done
