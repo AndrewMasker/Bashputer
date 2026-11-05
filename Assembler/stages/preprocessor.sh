@@ -27,11 +27,13 @@ remove_Surrounding_Whitespace() {
 }
 break_On_Semicolons() {
     local -n _line=$1
-    local rest=$_line
+    local rest=$_line tmp
     local -n _STATES=$2
     while [[ -n $rest ]]; do
         if [[ $rest == *\;* ]]; then
-            _STATES+=("${rest%%;*}")
+            tmp="${rest%%;*}"
+            remove_Surrounding_Whitespace tmp
+            _STATES+=("$tmp")
             rest="${rest#*;}"
         else
             _STATES+=("$rest")
@@ -56,7 +58,7 @@ is_Def_Statement() {
     if [[ $statement =~ $regex ]]; then
         _name=${BASH_REMATCH[1]}
         _val=${BASH_REMATCH[2]}
-        remove_Surrounding_Whitespace "${!_val}"
+        remove_Surrounding_Whitespace _val
         return 0
     else
         return 1
@@ -65,7 +67,7 @@ is_Def_Statement() {
 is_Undef_Statement() {
     local statement=$1
     local -n _name=$2
-    local regex='^undef[[:space:]]*([A-Za-z]w*)'
+    local regex='^undef[[:space:]]*([A-Za-z]\w*)'
     if [[ $statement =~ $regex ]]; then
         _name=${BASH_REMATCH[1]}
         return 0
@@ -75,17 +77,17 @@ is_Undef_Statement() {
 }
 replace_Subs() {
     local -n _statement=$1
-    local regex='$([A-za-z]w*)' subs=()
-    local rest=_statement
+    local regex='\$([A-Za-z]w*)\b' subs=()
+    local rest=$_statement
     while [[ $rest =~ $regex ]]; do
-        subs+=${BASH_REMATCH[1]}
+        subs+=(${BASH_REMATCH[1]})
         rest=${rest#*"${BASH_REMATCH[0]}"}
     done
-    for sub in $subs; do
-        if [[ -v ${SUBS[sub]} ]];  
-            _statement=${_statement/"$sub"/"${SUBS[sub]}"}
+    for sub in ${subs[@]}; do
+        if [[ -v SUBS[sub] ]]; then
+            _statement=${_statement/"\$$sub"/"${SUBS[sub]}"}
         else
-            printf 'Unknown substitution name '%s'' "$sub" >&2
+            printf "Unknown substitution name '%s'\n" "$sub" >&2
             exit 2
         fi
     done
@@ -110,13 +112,14 @@ for statement in "${STATES[@]}"; do
     if is_Def_Statement "$statement" name val; then
         SUBS[$name]=$val
     elif is_Undef_Statement "$statement" name; then
-        if [[ -v ${SUBS[$name]} ]]; then
+        if [[ -v SUBS[$name] ]]; then
             unset SUBS[$name]
         else
-            printf 'Cannot unset substitution '%s' before it is defined\n' "$name" >&2
+            printf "Cannot unset substitution '%s' before it is defined\n" "$name" >&2
             exit 2
         fi
+    else
+        replace_Subs statement
+        echo "$statement"
     fi
-    replace_Subs statement
-    echo "$statement"
 done
