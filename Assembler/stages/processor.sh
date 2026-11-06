@@ -65,24 +65,18 @@ do_Label_Replacement() {
             label=${BASH_REMATCH[2]}
             scope=${#dots}
             if (( scope == 0 )); then 
-                if [[ -v LABELS[$label] ]]; then
-                    local_regex="(:${dots//./\\.}$label)([^A-Za-z0-9_]|$)"
-                    _STATES[i]=${_STATES[i]//"${BASH_REMATCH[1]}"/"${LABELS[$label]}"}
-                    advance_ADDR "${_STATES[i]}" addr
-                    continue
-                else
-                    printf "global label '%s' does not match any defined labels\n" "$label" >&2
-                    exit 2
-                fi
+                label_key=$label
+            else
+                parent_scope=${STATE_SCOPES[i]}
+                for (( j = 0; j < scope; j++ )); do
+                    parent_scope=${parent_scope%.*}
+                done
+                label_key="$parent_scope"."$label"
             fi
-            parent_scope=${STATE_SCOPES[i]}
-            for (( j = 0; j < dots; j++ )); do
-                parent_scope=${parent_scope%.*}
-            done
-            label_key="$parent_scope"."$label"
             if [[ -v LABELS[$label_key] ]]; then
                 local_regex="(:${dots//./\\.}$label)([^A-Za-z0-9_]|$)"
-                _STATES[i]=${_STATES[i]//"${BASH_REMATCH[1]}"/"${LABELS[$label]}"}
+                [[ ${_STATES[i]} =~ $local_regex ]] || true
+                _STATES[i]=${_STATES[i]//"${BASH_REMATCH[1]}"/$((${LABELS[$label]} - ${STATE_ORIGINS[i]}))}
                 advance_ADDR "${_STATES[i]}" addr
                 continue
             else
