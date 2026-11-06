@@ -43,6 +43,15 @@ do_Label_Assignment() {
     fi
     LABELS[$label]=$ADDR
 }
+advance_ADDR() {
+    local mnemonic=${1%%[[:space:]]*}
+    mnemonic=${mnemonic^^}
+    if [[ -v ${NUM_BYTES[$mnemonic]} ]]; then
+        printf "unknown mnemonic '%s' in statement '%s'\n" "$mnemonic" "$1" >&2
+        exit 2
+    fi
+    ADDR=$(( ADDR + ${NUM_BYTES[$mnemonic]} ))
+}
 
 # Loop over each line
 ADDR=0
@@ -54,6 +63,7 @@ while read -r line || [[ -n $line ]]; do
         if ! do_Assembler_Command $line; then
             if ! do_Label_Assignment $line; then
                 STATES+=("$line")
+                advance_ADDR $line
             fi
         fi
     else
