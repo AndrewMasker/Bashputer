@@ -48,7 +48,7 @@ do_Label_Assignment() {
 }
 advance_ADDR() {
     local mnemonic=${1%%[[:space:]]*}
-    local -n _addr
+    local -n _addr=$2
     mnemonic=${mnemonic^^}
     if [[ ! -v NUM_BYTES[$mnemonic] ]]; then
         printf "unknown mnemonic '%s' in statement '%s'\n" "$mnemonic" "$1" >&2
@@ -58,68 +58,34 @@ advance_ADDR() {
 }
 do_Label_Replacement() {
     local -n _STATES=$1
-    local regex=':(\.*)([A-Za-z_][A-Za-z0-9_]*)[[:space:]]' addr=0 i j key match correct_match local_regex top_addr next_addr
-    local ordered
-    mapfile -t ordered < <(for k in "${!LABELS[@]}"; do printf '%s %s\n' "${LABELS[$k]}" "$k"; done | LC_ALL=C sort -n)
-    for i in ${#STATES[@]}; do
-        if [[ ${STATES[i]} =~ $regex ]]; then
+    local regex=':(\.*)([A-Za-z_][A-Za-z0-9_]*)' addr=0 i dots label scope parent_scope
+    for i in "${!_STATES[@]}"; do
+        while [[ ${_STATES[i]} =~ $regex ]]; do
             dots=${BASH_REMATCH[1]}
             label=${BASH_REMATCH[2]}
             scope=${#dots}
             if (( scope == 0 )); then 
                 if [[ -v LABELS[$label] ]]; then
                     _STATES[i]=${_STATES[i]//:"$dots""$label"/"${LABELS[$label]}"}
-                    advance_ADDR "$line" addr
+                    advance_ADDR "${_STATES[i]}" addr
                     continue
                 else
-                    printf "global label '%s' does not match nay defined labels\n" "$label" >&2
+                    printf "global label '%s' does not match any defined labels\n" "$label" >&2
                     exit 2
                 fi
             fi
-            local -A matches
-            # Get array of matching labels
-            for key in ${!LABELS[@]}; do
-                if [[ ! ${key//[^.]/} == $dots ]]; then
-                    continue
-                fi
-                if [[ $key =~ *"$label" ]]; then
-                    matches[$key]=${LABELS[$key]}
-                fi
-            done
-            # If that array is empty error out
-            if (( ${#matches[@]} == 0 )); then
-                printf "label usage '%s%s' does not match andy defined labels\n" "$dots" "$label" >&2
+            parent_scope=${STATE_SCOPES[@]%.*}
+            label="$parent_scope"."$label"
+            if [[ -v LABELS[$label] ]]; then
+                _STATES[i]=${_STATES[i]//:"$dots""$label"/"${LABELS[$label]}"}
+                advance_ADDR "${_STATES[i]}" addr
+                continue
+            else
+                printf "label '%s' does not match any defined labels\n" "$label" >&2
                 exit 2
             fi
-            for match in ${!matches[@]}; do
-                for (( j = 0; j < ${#ordered[@]}; j++ )); do
-                local_regex='^([0-9]+)[[:space:]]+'"$match"\$
-                    if [[ ${ordered[j]} =~ $local_regex ]]; then
-                        top_addr=${BASH_REMATCH[1]}
-                        if (( top_addr <= addr )); then
-                            if (( j+1 == ${#ordered[@]} )); then
-                                correct_match=$match
-                                break
-                            fi
-                            local_regex='^([0-9]+)[[:space:]]+.*'
-                            if [[ ${ordered[j+1]} =~ $local_regex ]]; then
-                                next_addr=${BASH_REMATCH[1]}
-                                if (( next_addr > addr )); then
-                                    correct_match=$match
-                                    break
-                                fi
-                            fi
-                        fi
-                    fi
-                done
-            done
-            if [[ -z $correct_match ]]; then
-                printf "label '%s%s' is used outside of its scope\n" "$dots" "$label" >&2
-                exit 2
-            fi
-        fi
-        _STATES[i]=${_STATES[i]//:"$dots""$label"/"$correct_match"}
-        advance_ADDR "$line" addr
+        done
+        advance_ADDR "${_STATES[i]}" addr
     done
 }
 
@@ -129,11 +95,15 @@ ORIGIN=0
 declare -A LABELS
 SCOPES=()
 STATES=()
+STATE_SCOPES=()
+STATE_ORIGINS=()
 while read -r line || [[ -n $line ]]; do
     if [[ -n $line ]]; then # Ensure the line is not empty
         if ! do_Assembler_Command "$line"; then
             if ! do_Label_Assignment "$line"; then
                 STATES+=("$line")
+                STATE_SCOPES+=("$(IFS=.; printf '%s' "${SCOPES[*]}")")
+                STATE_ORIGINS+=("$ORIGIN")
                 advance_ADDR "$line" ADDR
             fi
         fi
