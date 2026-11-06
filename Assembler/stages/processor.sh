@@ -21,7 +21,7 @@ do_Assembler_Command() {
     if [[ ! $line == '!'* ]]; then return 1; fi
     local lo_regex='^!LABEL_ORIGIN([[:space:]]|$)'
     if [[ $line =~ $lo_regex ]]; then
-        ADDR=0
+        ORIGIN=$ADDR
         return 0
     else
         printf "unknown assembler command '%s'\n" "$line" >&2
@@ -35,7 +35,7 @@ do_Label_Assignment() {
     label=${BASH_REMATCH[2]}
     scope=${#dots}
     if (( scope > ${#SCOPES[@]} )); then
-        printf "label '%s%s' is at scope %d but scope %d does not exists\n" "$dots" "$label" "$scope" $(( scope - 1 )) >&2 
+        printf "label '%s%s' is at scope %d but scope %d does not exist\n" "$dots" "$label" "$scope" $(( scope - 1 )) >&2 
         exit 2
     fi
     SCOPES=("${SCOPES[@]:0:scope}" "$label")
@@ -44,7 +44,7 @@ do_Label_Assignment() {
         printf "label '%s' was defined more than once at address '%s' and at address '%s'\n" "$label" "${LABELS[$label]}" "$ADDR" >&2
         exit 2
     fi
-    LABELS[$label]=$ADDR
+    LABELS[$label]=$(( ADDR - ORIGIN ))
 }
 advance_ADDR() {
     local mnemonic=${1%%[[:space:]]*}
@@ -58,6 +58,7 @@ advance_ADDR() {
 
 # Loop over each line
 ADDR=0
+ORIGIN=0
 declare -A LABELS
 SCOPES=()
 STATES=()
