@@ -4,6 +4,9 @@
 # The processor replaces all labels with their value and then
 # evaluates expressions within () with bash arithmetic and prints the result
 
+MY_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+source "$MY_DIR"/../opcodes.sh
+
 shopt -s extglob
 
 INP=${1:-}
@@ -46,7 +49,7 @@ do_Label_Assignment() {
 advance_ADDR() {
     local mnemonic=${1%%[[:space:]]*}
     mnemonic=${mnemonic^^}
-    if [[ -v ${NUM_BYTES[$mnemonic]} ]]; then
+    if [[ ! -v NUM_BYTES[$mnemonic] ]]; then
         printf "unknown mnemonic '%s' in statement '%s'\n" "$mnemonic" "$1" >&2
         exit 2
     fi
@@ -60,10 +63,10 @@ SCOPES=()
 STATES=()
 while read -r line || [[ -n $line ]]; do
     if [[ -n $line ]]; then # Ensure the line is not empty
-        if ! do_Assembler_Command $line; then
-            if ! do_Label_Assignment $line; then
+        if ! do_Assembler_Command "$line"; then
+            if ! do_Label_Assignment "$line"; then
                 STATES+=("$line")
-                advance_ADDR $line
+                advance_ADDR "$line"
             fi
         fi
     else
