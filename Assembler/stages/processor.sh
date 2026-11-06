@@ -58,7 +58,7 @@ advance_ADDR() {
 }
 do_Label_Replacement() {
     local -n _STATES=$1
-    local regex=':(\.*)([A-Za-z_][A-Za-z0-9_]*)' addr=0 i dots label scope parent_scope
+    local regex=':(\.*)([A-Za-z_][A-Za-z0-9_]*)' addr=0 i j dots label scope parent_scope label_key local_regex
     for i in "${!_STATES[@]}"; do
         while [[ ${_STATES[i]} =~ $regex ]]; do
             dots=${BASH_REMATCH[1]}
@@ -66,7 +66,8 @@ do_Label_Replacement() {
             scope=${#dots}
             if (( scope == 0 )); then 
                 if [[ -v LABELS[$label] ]]; then
-                    _STATES[i]=${_STATES[i]//:"$dots""$label"/"${LABELS[$label]}"}
+                    local_regex="(:${dots//./\\.}$label)([^A-Za-z0-9_]|$)"
+                    _STATES[i]=${_STATES[i]//"${BASH_REMATCH[1]}"/"${LABELS[$label]}"}
                     advance_ADDR "${_STATES[i]}" addr
                     continue
                 else
@@ -74,10 +75,14 @@ do_Label_Replacement() {
                     exit 2
                 fi
             fi
-            parent_scope=${STATE_SCOPES[@]%.*}
-            label="$parent_scope"."$label"
-            if [[ -v LABELS[$label] ]]; then
-                _STATES[i]=${_STATES[i]//:"$dots""$label"/"${LABELS[$label]}"}
+            parent_scope=${STATE_SCOPES[i]}
+            for (( j = 0; j < dots; j++ )); do
+                parent_scope=${parent_scope%.*}
+            done
+            label_key="$parent_scope"."$label"
+            if [[ -v LABELS[$label_key] ]]; then
+                local_regex="(:${dots//./\\.}$label)([^A-Za-z0-9_]|$)"
+                _STATES[i]=${_STATES[i]//"${BASH_REMATCH[1]}"/"${LABELS[$label]}"}
                 advance_ADDR "${_STATES[i]}" addr
                 continue
             else
