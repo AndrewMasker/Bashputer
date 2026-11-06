@@ -86,6 +86,43 @@ do_Label_Replacement() {
         done
     done
 }
+check_Arithmetic() {
+    local expr=$1
+    local bad_chars='([^-[:alnum:][:blank:]_+*/%<>=!&|^~?,()#@{}])'
+    if [[ $expr =~ $bad_chars ]]; then
+        printf "Expression '%s' may not contain the character '%s'" "$expr" "$BASH_REMATCH[1]" >&2
+        exit 2
+    fi
+
+}
+do_Arithmetic() {
+    local -n _STATES working group expr result
+    for i in "${!_STATES[@]}"; do
+        while [[ ${_STATES[i]} =~ \( ]]; do
+            working="${_STATES[@]#*\(}"
+            group=\(
+            depth=1
+            while (( depth != 0 )); do
+                if [[ -z $working ]]; then
+                    printf "arithmetic group '%s' has unbalanced parentheses\n" "$group" >&2
+                    exit 2
+                fi
+                if [[ ${working[0]} == \( ]]; then
+                    depth=$(( depth + 1 ))
+                elif [[ ${working[0]} == \) ]]; then
+                    depth=$(( depth - 1))
+                fi
+                group+=${working[0]}
+                working=${working[@]:1:}
+            done
+            expr=${group:1:-1}
+            check_Arithmetic $expr
+            result=$( env -i bash --norc --noprofile -c 'set -u; printf "%d" "$(( $1 ))"' _ "$expr") || {
+                printf "Could not evaluate arithmetic expression '%s'\n" "$expr" >&2; exit 2
+            }
+        done
+    done
+}
 
 # Loop over each line
 ADDR=0
@@ -111,3 +148,7 @@ while read -r line || [[ -n $line ]]; do
 done < "$INP"
 
 do_Label_Replacement STATES
+
+for statement in "${STATES[@]}"; do
+    echo "$statement"
+done

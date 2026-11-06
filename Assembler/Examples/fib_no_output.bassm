@@ -31,8 +31,8 @@ mov $one , $high                                # Copy register one into registe
 loop:                                           # Define the loop label
     bz $counter , $loop_escape                  # Branch to the address in the loop escape register if the counter register is zero
     add $low , $high , $result                  # Add low and high together and store in result
-    mov $high $low; mov $result $high           # Move high into low and result into high
-    sub $counter $one $counter                  # Subtract one from counter 
+    mov $high , $low; mov $result , $high       # Move high into low and result into high
+    sub $counter , $one , $counter              # Subtract one from counter 
     jmp $loop                                   # Jump back to the begining of the loop
 
 loop_escape:                                    # Define the loop_escape label and show

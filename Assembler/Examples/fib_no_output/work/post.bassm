@@ -1,0 +1,16 @@
+pc r8
+liw r6 , 49
+add r6 , r8 , r6
+liw r7 , 68
+add r7 , r8 , r7
+lib r5 , (1)
+liw r4 , (13 + 0x05)
+lib r1 , ( 0 )
+mov r5 , r2
+bz r4 , r7
+add r1 , r2 , r3
+mov r2 , r1
+mov r3 , r2
+sub r4 , r5 , r4
+jmp r6
+HLT
