@@ -88,7 +88,7 @@ do_Label_Replacement() {
 }
 check_Arithmetic() {
     local expr=$1
-    local bad_chars='([^-[:alnum:][:blank:]_+*/%<>=!&|^~?,()#@{}])'
+    local bad_chars='([^-[:alnum:][:blank:]_+*/%<>=!&|^~?,()#@:])'
     if [[ $expr =~ $bad_chars ]]; then
         printf "Expression '%s' may not contain the character '%s'" "$expr" "$BASH_REMATCH[1]" >&2
         exit 2
@@ -96,10 +96,11 @@ check_Arithmetic() {
 
 }
 do_Arithmetic() {
-    local -n _STATES working group expr result
+    local -n _STATES=$1
+    local working group expr result regex i depth
     for i in "${!_STATES[@]}"; do
         while [[ ${_STATES[i]} =~ \( ]]; do
-            working="${_STATES[@]#*\(}"
+            working="${_STATES[i]#*\(}"
             group=\(
             depth=1
             while (( depth != 0 )); do
@@ -107,20 +108,27 @@ do_Arithmetic() {
                     printf "arithmetic group '%s' has unbalanced parentheses\n" "$group" >&2
                     exit 2
                 fi
-                if [[ ${working[0]} == \( ]]; then
+                if [[ ${working:0:1} == \( ]]; then
                     depth=$(( depth + 1 ))
-                elif [[ ${working[0]} == \) ]]; then
+                elif [[ ${working:0:1} == \) ]]; then
                     depth=$(( depth - 1))
                 fi
-                group+=${working[0]}
-                working=${working[@]:1:}
+                group+=${working:0:1}
+                working=${working:1}
             done
             expr=${group:1:-1}
-            check_Arithmetic $expr
-            result=$( env -i bash --norc --noprofile -c 'set -u; printf "%d" "$(( $1 ))"' _ "$expr") || {
+            check_Arithmetic "$expr"
+            result=$( env -i "$BASH" --norc --noprofile -c 'set -u; printf "%d" "$(( $1 ))"' _ "$expr") || {
                 printf "Could not evaluate arithmetic expression '%s'\n" "$expr" >&2; exit 2
             }
+            regex='(.*)'$group'(.*)'
+            [[ ${_STATES[i]} =~ $regex ]] || true
+            _STATES[i]=${BASH_REMATCH[1]}" "$result" "${BASH_REMATCH[2]}
         done
+        if [[ ${_STATES[i]} =~ \) ]]; then
+            printf "arithmetic group in partially evaluated statement '%s' has unbalanced parentheses\n" "${_STATES[i]}" >&2
+            exit 2
+        fi
     done
 }
 
@@ -148,6 +156,7 @@ while read -r line || [[ -n $line ]]; do
 done < "$INP"
 
 do_Label_Replacement STATES
+do_Arithmetic STATES
 
 for statement in "${STATES[@]}"; do
     echo "$statement"
