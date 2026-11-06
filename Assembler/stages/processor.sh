@@ -15,13 +15,13 @@ fi
 
 do_Assembler_Command() {
     local line=$1
-    if [[ ! $line =+ '!'* ]]; then return 1; fi
+    if [[ ! $line == '!'* ]]; then return 1; fi
     local lo_regex='^!LABEL_ORIGIN([[:space:]]|$)'
-    if [[ $line =~ lo_regex ]]; then
+    if [[ $line =~ $lo_regex ]]; then
         ADDR=0
         return 0
     else
-        printf "unknown assembler command '%s" "$line" >&2
+        printf "unknown assembler command '%s'\n" "$line" >&2
         exit 2
     fi
 }
