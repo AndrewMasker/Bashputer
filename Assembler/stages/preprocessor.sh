@@ -113,6 +113,35 @@ while read -r line || [[ -n $line ]]; do
 done < "$INP"
 remove_Empty_Elements STATES
 
+# Find multiline arithmetic statements and group them into a single comma separated parenthesis group on the same line
+n="${#STATES[@]}"
+for (( i = 0; i < n; i++)); do
+    statement="${STATES[i]}"
+    j=$i
+    if [[ $statement =~ \( ]]; then 
+        opens=${statement//[^\(]/}
+        closes=${statement//[^\)]/}
+        depth=$(( ${#opens} - ${#closes} ))
+        while (( depth > 0 )); do
+            (( ++j ))
+            if (( j >= n )); then
+                printf "no closing parenthesis for statement '%s'\n" "${STATES[i]}" >&2
+                exit 2
+            fi
+            statement+=", ${STATES[j]}"
+            unset 'STATES[j]'
+            opens=${statement//[^\(]/}
+            closes=${statement//[^\)]/}
+            depth=$(( ${#opens} - ${#closes} ))
+        done
+        statement=${statement//\(,/\(}
+        statement=${statement//, \)/\)}
+        STATES[i]=$statement
+        i=$j
+    fi
+done
+STATES=("${STATES[@]}")
+
 # Find multiline def statements and group them into a single colon separated brace group on the same line
 n="${#STATES[@]}"
 for (( i = 0; i < n; i++)); do
@@ -137,6 +166,7 @@ for (( i = 0; i < n; i++)); do
         i=$j
     fi
 done
+STATES=("${STATES[@]}")
 
 # Walk through the STATES and substitute references with their values
 declare -A SUBS
