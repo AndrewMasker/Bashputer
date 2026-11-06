@@ -15,8 +15,9 @@ fi
 
 do_Assembler_Command() {
     local line=$1
-    if [[ ! $line =~ '^!.*' ]]; then return 1; fi
-    if [[ $line =~ '!LABEL_ORIGIN[[:space:]]*.*' ]]; then
+    if [[ ! $line =+ '!'* ]]; then return 1; fi
+    local lo_regex='^!LABEL_ORIGIN([[:space:]]|$)'
+    if [[ $line =~ lo_regex ]]; then
         ADDR=0
         return 0
     else
@@ -25,21 +26,17 @@ do_Assembler_Command() {
     fi
 }
 do_Label_Assignment() {
-    local line=$1 dots label scope regex='^(\.*):([A-Za-z]\w*).*'
+    local line=$1 dots label scope regex='^(\.*)([A-Za-z_][A-Za-z0-9_]*):$'
     if [[ ! $line =~ $regex ]]; then return 1; fi
     dots=${BASH_REMATCH[1]}
     label=${BASH_REMATCH[2]}
     scope=${#dots}
-    SCOPES[scope]=$label
-    SCOPES=${SCOPES[@]:0:$((scope+1))}
-    while (( scope != 0 )); do 
-        if [[ -z ${SCOPES[scope-1]} ]]; then
-            printf "scope '%s' empty for label '%s%s'" $(( scope - 1 )) "$dots" "$label" >&2
-            exit 2
-        fi
-        label="${SCOPES[scope-1]}"."$label"
-        scope=$(( scope - 1 ))
-    done
+    if (( scope > ${#SCOPES[@]} )); then
+        printf "label '%s%s' is at scope %d but scope %d does not exists\n" "$dots" "$label" "$scope" $(( scope - 1 )) >&2 
+        exit 2
+    fi
+    SCOPES=("${SCOPES[@]:0:scope}" "$label")
+    label=$(IFS=.; printf '%s' "${SCOPES[*]}")
     if [[ -n ${LABELS[$label]} ]]; then
         printf "label '%s' was defined more than once at address '%s' and at address '%s'\n" "$label" "${LABELS[$label]}" "$ADDR" >&2
         exit 2

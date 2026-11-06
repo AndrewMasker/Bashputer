@@ -10,11 +10,11 @@ def high = r2                                   # Redefining so I can work with 
 def result = r3                                 # The result register
 
 def loop = r6                                   # Define the loop register as r6
-liw $loop , loop:                               # Load the relative loop address into the loop register
+liw $loop , :loop                               # Load the relative loop address into the loop register
 add $loop , $pc_init , $loop                    # Add the pc_init value to the loop address to make the address absolute 
 
 def loop_escape = r7                            # Define the loop escape register as r7
-liw $loop_escape , loop_escape:                 # Load the loop_escape address into the loop_escape register
+liw $loop_escape , :loop_escape                 # Load the loop_escape address into the loop_escape register
 add $loop_escape , $pc_init , $loop_escape      # Add the pc_init value to the loop_escape address to make the address absolute 
 
 def a = 1
