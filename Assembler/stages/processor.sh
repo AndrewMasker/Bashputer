@@ -58,7 +58,7 @@ advance_ADDR() {
 }
 do_Label_Replacement() {
     local -n _STATES=$1
-    local regex=':(\.*)([A-Za-z_][A-Za-z0-9_]*)' addr=0 i j dots label scope parent_scope label_key local_regex
+    local regex=':(\.*)([A-Za-z_][A-Za-z0-9_]*)' i j dots label scope parent_scope label_key local_regex parents
     for i in "${!_STATES[@]}"; do
         while [[ ${_STATES[i]} =~ $regex ]]; do
             dots=${BASH_REMATCH[1]}
@@ -67,24 +67,23 @@ do_Label_Replacement() {
             if (( scope == 0 )); then 
                 label_key=$label
             else
-                parent_scope=${STATE_SCOPES[i]}
-                for (( j = 0; j < scope; j++ )); do
-                    parent_scope=${parent_scope%.*}
-                done
-                label_key="$parent_scope"."$label"
+                IFS=. read -ra parents <<< "${STATE_SCOPES[i]}"
+                if (( scope > ${#parents[@]} )); then
+                    printf "label '%s' has a scope of '%s' but only has '%s' parent labels\n" "$label" "$scope" "${#parents[@]}" >&2
+                    exit 2
+                fi
+                label_key=$(IFS=.; printf '%s' "${parents[*]:0:scope}")."$label"
             fi
             if [[ -v LABELS[$label_key] ]]; then
                 local_regex="(:${dots//./\\.}$label)([^A-Za-z0-9_]|$)"
                 [[ ${_STATES[i]} =~ $local_regex ]] || true
-                _STATES[i]=${_STATES[i]//"${BASH_REMATCH[1]}"/$((${LABELS[$label]} - ${STATE_ORIGINS[i]}))}
-                advance_ADDR "${_STATES[i]}" addr
+                _STATES[i]=${_STATES[i]/"${BASH_REMATCH[1]}${BASH_REMATCH[2]}"/$((${LABELS[$label_key]} - ${STATE_ORIGINS[i]}))"${BASH_REMATCH[2]}"}
                 continue
             else
                 printf "label '%s' does not match any defined labels\n" "$label" >&2
                 exit 2
             fi
         done
-        advance_ADDR "${_STATES[i]}" addr
     done
 }
 
