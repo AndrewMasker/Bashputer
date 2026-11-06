@@ -58,7 +58,7 @@ advance_ADDR() {
 }
 do_Label_Replacement() {
     local -n _STATES=$1
-    local regex=':(\.*)([A-Za-z_][A-Za-z0-9_]*)' i j dots label scope parent_scope label_key local_regex parents
+    local regex=':(\.*)([A-Za-z_][A-Za-z0-9_]*)' i dots label scope label_key local_regex parents
     for i in "${!_STATES[@]}"; do
         while [[ ${_STATES[i]} =~ $regex ]]; do
             dots=${BASH_REMATCH[1]}
