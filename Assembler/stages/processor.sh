@@ -44,16 +44,61 @@ do_Label_Assignment() {
         printf "label '%s' was defined more than once at address '%s' and at address '%s'\n" "$label" "${LABELS[$label]}" "$ADDR" >&2
         exit 2
     fi
-    LABELS[$label]=$(( ADDR - ORIGIN ))
+    LABELS[$label]=$(( ADDR ))
 }
 advance_ADDR() {
     local mnemonic=${1%%[[:space:]]*}
+    local -n _addr
     mnemonic=${mnemonic^^}
     if [[ ! -v NUM_BYTES[$mnemonic] ]]; then
         printf "unknown mnemonic '%s' in statement '%s'\n" "$mnemonic" "$1" >&2
         exit 2
     fi
-    ADDR=$(( ADDR + ${NUM_BYTES[$mnemonic]} ))
+    _addr=$(( _addr + ${NUM_BYTES[$mnemonic]} ))
+}
+do_Label_Replacement() {
+    local -n _STATES=$1
+    local regex=':(\.*)([A-Za-z_][A-Za-z0-9_]*)[[:space:]]' addr=0 i j key match correct_match local_regex
+    local ordered
+    mapfile -t ordered < <(for k in "${!LABELS[@]}"; do printf '%s %s\n' "${LABELS[$k]}" "$k"; done | LC_ALL=C sort -n)
+    for i in ${#STATES[@]}; do
+        if [[ ${STATES[i]} =~ $regex ]]; then
+            dots=${BASH_REMATCH[1]}
+            label=${BASH_REMATCH[2]}
+            scope=${#dots}
+            if (( scope == 0 )); then 
+                if [[ -v LABELS[$label] ]]; then
+                    _STATES[i]=${_STATES[i]//:"$dots""$label"/"${LABELS[$label]}"}
+                    continue
+                else
+                    printf "global label '%s' does not match nay defined labels\n" "$label" >&2
+                    exit 2
+                fi
+            fi
+            local -A labels
+            # Get array of matching labels
+            for key in ${!LABELS[@]}; do
+                if [[ ! ${key//[^.]/} == $dots ]]; then
+                    continue
+                fi
+                if [[ $key =~ *"$label" ]]; then
+                    labels[$key]=${LABELS[$key]}
+                fi
+            done
+            # If that array is empty error out
+            if (( ${#labels[@]} == 0 )); then
+                printf "label usage '%s%s' does not match andy defined labels\n" "$dots" "$label" >&2
+                exit 2
+            fi
+            for match in ${!labels[@]}; do
+                for (( j = 0; j < ${#ordered[@]}; j++ )); do
+                local_regex='[0-9]+[[:space:]]+'"$match"
+                    if [[ ${ordered[j]} =~ $match ]]; then
+                done
+            done
+        fi
+        advance_ADDR "$line" addr
+    done
 }
 
 # Loop over each line
@@ -67,10 +112,12 @@ while read -r line || [[ -n $line ]]; do
         if ! do_Assembler_Command "$line"; then
             if ! do_Label_Assignment "$line"; then
                 STATES+=("$line")
-                advance_ADDR "$line"
+                advance_ADDR "$line" ADDR
             fi
         fi
     else
         continue
     fi
 done < "$INP"
+
+do_Label_Replacement STATES
