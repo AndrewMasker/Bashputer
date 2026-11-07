@@ -997,6 +997,9 @@ parse_OPCODE() {
 
         0x04) parse_INC_OPCODE $pidx ;;
         0x05) parse_DEC_OPCODE $pidx ;;
+
+        # 0x06 UNMAPPED $pidx ;;
+
         0x07) parse_NEG_OPCODE $pidx ;;
         0x08) parse_MUL_OPCODE $pidx ;;
         0x09) parse_DIV_OPCODE $pidx ;;
