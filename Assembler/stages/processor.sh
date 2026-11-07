@@ -94,6 +94,13 @@ check_Arithmetic() {
         exit 2
     fi
 }
+replace_Binary() {
+    local -n _expr=$1
+    local regex='(^|[^[:alnum:]_])0[bB]([01]+)'
+    while [[ $_expr =~ $regex ]]; do
+        _expr=${_expr/"${BASH_REMATCH[0]}"/"${BASH_REMATCH[1]}2#${BASH_REMATCH[2]}"}
+    done
+}
 do_Arithmetic() {
     local -n _STATES=$1
     local working group expr result i depth
@@ -121,6 +128,7 @@ do_Arithmetic() {
                 exit 2
             fi
             check_Arithmetic "$expr"
+            replace_Binary expr
             result=$( env -i "$BASH" --norc --noprofile -c 'set -u; printf "%d" "$(( $1 ))"' _ "$expr") || {
                 printf "Could not evaluate arithmetic expression '%s'\n" "$expr" >&2; exit 2
             }

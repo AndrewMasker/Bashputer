@@ -17,7 +17,7 @@ liw $loop_escape , :loop_escape                 # Load the loop_escape address i
 add $loop_escape , $pc_init , $loop_escape      # Add the pc_init value to the loop_escape address to make the address absolute 
 
 def a = 1
-def num_fib = (13 + 0x05)                       # The number of fibonachi numbers to compute
+def num_fib = (13 + 0x05 + 0b1)                 # The number of fibonachi numbers to compute
 
 def one = #small inline comment/# r5            # Define one to be the register r5
 lib $one , (1)                                  # Set the register one to 1

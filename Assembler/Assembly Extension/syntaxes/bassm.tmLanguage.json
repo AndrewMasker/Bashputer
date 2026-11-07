@@ -85,6 +85,10 @@
                     "name": "constant.numeric.hex.bassm"
                 } ,
                 {
+                    "match": "\\b0[bB][0-1]+\\b" , 
+                    "name": "constant.numeric.binary.bassm"
+                } ,
+                {
                     "match": "\\b\\d+\\b" , 
                     "name": "constant.numeric.decimal.bassm"
                 } ,
