@@ -79,7 +79,7 @@ def nib_mask = 0xF
 def r_nib_mask = r7
 lib $r_nib_mask , $nib_mask
 
-def r_col = r8
+def r_col = r11
 liw $r_addr , $WIDTH
 ldb $r_addr , $r_col
 sub $r_col , $r_one , $r_col
