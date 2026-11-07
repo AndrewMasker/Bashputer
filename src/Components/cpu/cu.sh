@@ -685,14 +685,13 @@ parse_PSHB_OPCODE() {
             ;;
         done_load)
             MDR="${GPRs[$ARGA]}"
+            SP=$(( SP + 1 ))
             PROC_STATE[pidx]="store_byte"
             ;;
         store_byte)
-            SP=$(( SP + 1 ))
             store_Byte $((pidx+1)) "SP" "MDR"
             ;;
         done_store_SP_0)
-            SP=$(( SP > 0 ? SP - 1 : 0 ))
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -716,7 +715,7 @@ parse_PSHQ_OPCODE() {
             store_Quarter $((pidx+1)) "SP" "MDR"
             ;;
         done_store_SP_0)
-            SP=$(( SP > 0 ? SP - 1 : 0 ))
+            SP=$(( SP + 1 ))
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -740,7 +739,7 @@ parse_PSHH_OPCODE() {
             store_Half $((pidx+1)) "SP" "MDR"
             ;;
         done_store_SP_0)
-            SP=$(( SP > 0 ? SP - 1 : 0 ))
+            SP=$(( SP + 3 ))
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -764,7 +763,7 @@ parse_PSHW_OPCODE() {
             store_Word $((pidx+1)) "SP" "MDR"
             ;;
         done_store_SP_0)
-            SP=$(( SP > 0 ? SP - 1 : 0 ))
+            SP=$(( SP + 7 ))
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -780,13 +779,14 @@ parse_POPB_OPCODE() {
             load_1_ARGS $((pidx+1))
             ;;
         done_load)
+            SP=$(( SP - 1 ))
             PROC_STATE[pidx]="load_byte"
             ;;
         load_byte)
             load_Byte $((pidx+1)) "MDR" "SP" 0 true true
             ;;
         done_load_MDR_0)
-            SP=$(( SP - 2 ))
+            SP=$(( SP - 1 ))
             GPRs[ARGA]=$MDR
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
@@ -803,14 +803,14 @@ parse_POPQ_OPCODE() {
             load_1_ARGS $((pidx+1))
             ;;
         done_load)
-            SP=$(( SP - 1 ))
+            SP=$(( SP - 2 ))
             PROC_STATE[pidx]="load_quarter"
             ;;
         load_quarter)
             load_Quarter $((pidx+1)) "MDR" "SP" 0 true true
             ;;
         done_load_MDR_0)
-            SP=$(( SP - 3 ))
+            SP=$(( SP - 2 ))
             GPRs[ARGA]=$MDR
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
@@ -827,14 +827,14 @@ parse_POPH_OPCODE() {
             load_1_ARGS $((pidx+1))
             ;;
         done_load)
-            SP=$(( SP - 3 ))
+            SP=$(( SP - 4 ))
             PROC_STATE[pidx]="load_half"
             ;;
         load_half)
             load_Half $((pidx+1)) "MDR" "SP" 0 true true
             ;;
         done_load_MDR_0)
-            SP=$(( SP - 5 ))
+            SP=$(( SP - 4 ))
             GPRs[ARGA]=$MDR
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
@@ -851,14 +851,14 @@ parse_POPW_OPCODE() {
             load_1_ARGS $((pidx+1))
             ;;
         done_load)
-            SP=$(( SP - 7 ))
+            SP=$(( SP - 8 ))
             PROC_STATE[pidx]="load_word"
             ;;
         load_word)
             load_Word $((pidx+1)) "MDR" "SP" 0 true true
             ;;
         done_load_MDR_0)
-            SP=$(( SP - 9 ))
+            SP=$(( SP - 8 ))
             GPRs[ARGA]=$MDR
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
@@ -876,14 +876,14 @@ parse_CAL_OPCODE() {
             ;;
         done_load)
             MAR="$PC"
+            SP=$(( SP + 1 ))
             PROC_STATE[pidx]="store_word"
             ;;
         store_word)
-            SP=$(( SP + 1 ))
             store_Word $((pidx+1)) "SP" "MAR"
             ;;
-        done_store_MAR_0)
-            SP=$(( SP > 0 ? SP - 1 : 0 ))
+        done_store_SP_0)
+            SP=$(( SP + 7 ))
             PC=${GPRs[ARGA]}
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -903,14 +903,14 @@ parse_CALI_OPCODE() {
             load_Word $((pidx+1)) "MDR" "PC" 0 true true
             ;;
         done_load_MDR_0)
+            SP=$(( SP + 1 ))
             PROC_STATE[pidx]="store_word"
             ;;
         store_word)
-            SP=$(( SP + 1 ))
             store_Word $((pidx+1)) "SP" "MAR"
             ;;
-        done_store_MAR_0)
-            SP=$(( SP > 0 ? SP - 1 : 0 ))
+        done_store_SP_0)
+            SP=$(( SP + 7 ))
             PC="$MDR"
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -978,7 +978,7 @@ parse_SP_OPCODE() {
             load_1_ARGS $((pidx+1))
             ;;
         done_load)
-            printf -v 'GPRs[ARGA]' '0x%016X' $(( SP - 1 ))
+            printf -v 'GPRs[ARGA]' '0x%016X' $(( SP ))
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
