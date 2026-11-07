@@ -43,7 +43,7 @@ translate_Line() {
     local -n _BYTES=$2
     local regex='^([A-Za-z_][[:alnum:]_]*)'
     local reg_regex='^[rR]([0-9]+)$'
-    local num_regex='^([0-9]+|0[xX][[:xdigit:]]+)$'
+    local num_regex='^-?([0-9]+|0[xX][[:xdigit:]]+)$'
     if [[ ! $line =~ $regex ]]; then
         printf "line '%s' does not start with a mnemonic'\n" "$line" >&2
         exit 2

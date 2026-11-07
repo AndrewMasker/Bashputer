@@ -47,7 +47,7 @@ do_Label_Assignment() {
     LABELS[$label]=$(( ADDR ))
 }
 advance_ADDR() {
-    local mnemonic=${1%%[[:space:]]*}
+    local mnemonic=${1%%[[:space:]]*} n
     local -n _addr=$2
     mnemonic=${mnemonic^^}
     if [[ ! -v NUM_BYTES[$mnemonic] ]]; then
