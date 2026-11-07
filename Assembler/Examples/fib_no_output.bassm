@@ -1,7 +1,6 @@
 !LABEL_ORIGIN
 def pc_init = r8                                # Define 
 pc $pc_init                                     # Put the initial pc into pc_init
-
 def counter = r4                                # The register with the counter
 def low = r1                                    # The register with the low number
 def high = r2                                   # The register with the high number

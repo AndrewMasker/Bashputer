@@ -90,14 +90,13 @@ check_Arithmetic() {
     local expr=$1
     local bad_chars='([^-[:alnum:][:blank:]_+*/%<>=!&|^~?,()#@:])'
     if [[ $expr =~ $bad_chars ]]; then
-        printf "Expression '%s' may not contain the character '%s'" "$expr" "$BASH_REMATCH[1]" >&2
+        printf "Expression '%s' may not contain the character '%s'\n" "$expr" "${BASH_REMATCH[1]}" >&2
         exit 2
     fi
-
 }
 do_Arithmetic() {
     local -n _STATES=$1
-    local working group expr result regex i depth
+    local working group expr result i depth
     for i in "${!_STATES[@]}"; do
         while [[ ${_STATES[i]} =~ \( ]]; do
             working="${_STATES[i]#*\(}"
@@ -117,13 +116,15 @@ do_Arithmetic() {
                 working=${working:1}
             done
             expr=${group:1:-1}
+            if [[ -z $expr ]]; then
+                printf "Empty arithmetic expression in partially evaluated statement '%s'\n" "${_STATES[i]}" >&2
+                exit 2
+            fi
             check_Arithmetic "$expr"
             result=$( env -i "$BASH" --norc --noprofile -c 'set -u; printf "%d" "$(( $1 ))"' _ "$expr") || {
                 printf "Could not evaluate arithmetic expression '%s'\n" "$expr" >&2; exit 2
             }
-            regex='(.*)'$group'(.*)'
-            [[ ${_STATES[i]} =~ $regex ]] || true
-            _STATES[i]=${BASH_REMATCH[1]}" "$result" "${BASH_REMATCH[2]}
+            _STATES[i]=${_STATES[i]/"$group"/" $result "}
         done
         if [[ ${_STATES[i]} =~ \) ]]; then
             printf "arithmetic group in partially evaluated statement '%s' has unbalanced parentheses\n" "${_STATES[i]}" >&2
