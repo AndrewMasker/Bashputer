@@ -6,8 +6,8 @@ declare -A OPCODES NUM_ARGS NUM_BYTES
 # NUM_ARGS:  contains the number of arguments epected for a given opcode
 # NUM_BYTES: contains a space spearated list of bytes per argument
 
-OPCODES[NOP]=0x00; NUM_ARGS[NOP]=0; NUM_BYTES[NOP]=0
-OPCODES[HLT]=0x01; NUM_ARGS[HLT]=0; NUM_BYTES[HLT]=0
+OPCODES[NOP]=0x00; NUM_ARGS[NOP]=0; NUM_BYTES[NOP]=""
+OPCODES[HLT]=0x01; NUM_ARGS[HLT]=0; NUM_BYTES[HLT]=""
 OPCODES[ADD]=0x02; NUM_ARGS[ADD]=3; NUM_BYTES[ADD]="1 1 1"
 OPCODES[SUB]=0x03; NUM_ARGS[SUB]=3; NUM_BYTES[SUB]="1 1 1"
 
