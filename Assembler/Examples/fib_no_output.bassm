@@ -17,7 +17,7 @@ liw $loop_escape , :loop_escape                 # Load the loop_escape address i
 add $loop_escape , $pc_init , $loop_escape      # Add the pc_init value to the loop_escape address to make the address absolute 
 
 def a = 1
-def num_fib = (13 + 0x05 + 0b1)                 # The number of fibonachi numbers to compute
+def num_fib = 15                                # The number of fibonachi numbers to compute
 
 def one = #small inline comment/# r5            # Define one to be the register r5
 lib $one , (1)                                  # Set the register one to 1
@@ -35,6 +35,33 @@ loop:                                           # Define the loop label
     jmp $loop                                   # Jump back to the begining of the loop
 
 loop_escape:                                    # Define the loop_escape label and show
-HLT
-# The result is now within the result register which is r3
+
+# These are all of the registers for the screen
+def SCREEN = 0xFA00
+def MODE = ( $SCREEN )
+def CMODE = ( $SCREEN + 1 )
+def CX = ( $SCREEN + 2 )
+def CY = ( $SCREEN + 3 )
+def FIDX = ( $SCREEN + 4 )
+def FR = ( $SCREEN + 5)
+def FG = ( $SCREEN + 6)
+def FB = ( $SCREEN + 7)
+def BIDX = ( $SCREEN + 8 )
+def BR = ( $SCREEN + 9 )
+def BG = ( $SCREEN + 10 )
+def BB = ( $SCREEN + 11 )
+def WIDTH = ( $SCREEN + 12 )
+def HEIGHT = ( $SCREEN + 13 )
+def CELL = ( $SCREEN + 14 )
+def BLIT = ( $SCREEN + 15 )
+def FILL = ( $SCREEN + 16 )
+def RESET = ( $SCREEN + 17 )
+
+def byte_0 = 0x30
+
+# Since we are done with the calculation, we only care about the result register which is r3
+
+def r_fib = r1
+liw r_fib , $num_fib
+def r_result = $result
 

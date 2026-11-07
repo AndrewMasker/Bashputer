@@ -19,8 +19,8 @@ fi
 do_Assembler_Command() {
     local line=$1
     if [[ ! $line == '!'* ]]; then return 1; fi
-    local lo_regex='^!LABEL_ORIGIN([[:space:]]|$)'
-    if [[ $line =~ $lo_regex ]]; then
+    local label_origin_regex='^!LABEL_ORIGIN([[:space:]]|$)'
+    if [[ $line =~ $label_origin_regex ]]; then
         ORIGIN=$ADDR
         return 0
     else
@@ -46,10 +46,33 @@ do_Label_Assignment() {
     fi
     LABELS[$label]=$(( ADDR ))
 }
+count_Items() {
+    local line=$1
+    local -n _n=$2
+    while [[ $line =~ \([^()]*\) ]]; do line=${line/"${BASH_REMATCH[0]}"/_}; done
+    if [[ -z ${line//[[:space:]]/} ]]; then _n=0; return 0; fi
+    local commas=${line//[^,]/}
+    _n=$(( ${#commas} + 1 ))
+}
+advance_Pseudo_Mnemonic() {
+    local mnemonic=${1%%[[:space:]]*} line=$1
+    local -n __addr=$2
+    if [[ $mnemonic == DB ]]; then
+        local n
+        count_Items "$line" n
+        __addr = $(( __addr + n ))
+        return 0
+    else
+        return 1
+    fi
+}
 advance_ADDR() {
-    local mnemonic=${1%%[[:space:]]*} n
+    local mnemonic=${1%%[[:space:]]*} line=$1 n 
     local -n _addr=$2
     mnemonic=${mnemonic^^}
+    if advance_Pseudo_Mnemonic "$line" _addr; then
+        return 0
+    fi
     if [[ ! -v NUM_BYTES[$mnemonic] ]]; then
         printf "unknown mnemonic '%s' in statement '%s'\n" "$mnemonic" "$1" >&2
         exit 2

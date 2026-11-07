@@ -38,6 +38,26 @@ break_On_Commas() {
         fi
     done
 }
+translate_Pseudo_Mnemonic() {
+    local mnemonic=$1 args=$2 ARGS=()
+    local -n __BYTES=$3
+    local num_regex='^-?([0-9]+|0[xX][[:xdigit:]]+)$'
+    if [[ $mnemonic == DB ]]; then
+        break_On_Commas args ARGS
+        for arg in "${ARGS[@]}"; do
+            if [[ ! $args =~ $num_regex ]]; then
+                printf "db item '%s' is not a number\n" "$arg" >&2
+                exit 2
+            fi
+            printf -v byte '0x%02X' $(( arg & 0xFF ))
+            __BYTES+=("$byte")
+        done
+        return 0
+    else
+        return 1
+    fi
+
+}
 translate_Line() {
     local line=$1 mnemonic opcode num_args num_bytes args ARGS=() arg byte i j val
     local -n _BYTES=$2
@@ -52,6 +72,9 @@ translate_Line() {
     args=${line#"$mnemonic"}
     read -r args <<< "$args"
     mnemonic=${mnemonic^^}
+    if translate_Pseudo_Mnemonic "$mnemonic" "$args" _BYTES; then
+        return 0
+    fi
     if [[ ! -v OPCODES[$mnemonic] ]]; then
         printf "mnemonic '%s' does not match any opcodes\n" "$mnemonic" >&2
         exit 2
