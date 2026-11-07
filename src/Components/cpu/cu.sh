@@ -896,13 +896,13 @@ parse_CALI_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            MAR="$PC"
             PROC_STATE[pidx]="load_word"
             ;;
         load_word)
             load_Word $((pidx+1)) "MDR" "PC" 0 true true
             ;;
         done_load_MDR_0)
+            MAR="$PC"
             SP=$(( SP + 1 ))
             PROC_STATE[pidx]="store_word"
             ;;
@@ -923,14 +923,14 @@ parse_RET_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            SP=$(( SP - 7 ))
+            SP=$(( SP - 8 ))
             PROC_STATE[pidx]="load_word"
             ;;
         load_word)
             load_Word $((pidx+1)) "MDR" "SP" 0 true true
             ;;
         done_load_MDR_0)
-            SP=$(( SP - 9 ))
+            SP=$(( SP - 8 ))
             printf -v 'PC' '0x%016X' $(( MDR + 1 ))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
