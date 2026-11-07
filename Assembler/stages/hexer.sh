@@ -39,13 +39,13 @@ break_On_Commas() {
     done
 }
 translate_Pseudo_Mnemonic() {
-    local mnemonic=$1 args=$2 ARGS=()
+    local mnemonic=$1 args=$2 ARGS=() arg byte
     local -n __BYTES=$3
     local num_regex='^-?([0-9]+|0[xX][[:xdigit:]]+)$'
     if [[ $mnemonic == DB ]]; then
         break_On_Commas args ARGS
         for arg in "${ARGS[@]}"; do
-            if [[ ! $args =~ $num_regex ]]; then
+            if [[ ! $arg =~ $num_regex ]]; then
                 printf "db item '%s' is not a number\n" "$arg" >&2
                 exit 2
             fi
