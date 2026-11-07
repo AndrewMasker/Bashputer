@@ -1,40 +1,60 @@
+
+def r_pc_init = r8                              # Define 
+def r_counter = r4                              # The register with the counter
+def r_low = r1                                  # The register with the low number
+def r_high = r2                                 # The register with the high number
+def r_result = r3                               # The result register
+def r_loop = r6                                 # Define the loop register as r6
+def r_loop_escape = r7                          # Define the loop escape register as r7
+def r_one = r5                                  # Define one to be the register r5
+def r_index = r40          
+def r_left = r41   
+def r_fib_index = r42
+def r_addr = r31
+
+def fib_index = 20                              # The Fibonacci number to compute. Must be greater than or equal to 1
+liw $r_fib_index , $fib_index
+
 !LABEL_ORIGIN
-def pc_init = r8                                # Define 
-pc $pc_init                                     # Put the initial pc into pc_init
-def counter = r4                                # The register with the counter
-def low = r1                                    # The register with the low number
-def high = r2                                   # The register with the high number
-undef high                                      # Undefining this just to show
-def high = r2                                   # Redefining so I can work with it
-def result = r3                                 # The result register
+pc $r_pc_init                                   # Put the initial pc into pc_init
 
-def loop = r6                                   # Define the loop register as r6
-liw $loop , :loop                               # Load the relative loop address into the loop register
-add $loop , $pc_init , $loop                    # Add the pc_init value to the loop address to make the address absolute 
+liw $r_addr , :prep_screen                     
+add $r_addr , $r_pc_init , $r_addr           
+jmp $r_addr 
+done_prep:
 
-def loop_escape = r7                            # Define the loop escape register as r7
-liw $loop_escape , :loop_escape                 # Load the loop_escape address into the loop_escape register
-add $loop_escape , $pc_init , $loop_escape      # Add the pc_init value to the loop_escape address to make the address absolute 
+liw $r_loop , :loop                             # Load the relative loop address into the loop register
+add $r_loop , $r_pc_init , $r_loop              # Add the pc_init value to the loop address to make the address absolute 
 
-def a = 1
-def num_fib = 15                                # The number of fibonachi numbers to compute
+liw $r_loop_escape , :loop_escape               # Load the loop_escape address into the loop_escape register
+add $r_loop_escape , $r_pc_init , $r_loop_escape# Add the pc_init value to the loop_escape address to make the address absolute 
 
-def one = #small inline comment/# r5            # Define one to be the register r5
-lib $one , (1)                                  # Set the register one to 1
+lib $r_one , (1)                                # Set the register one to 1
 
-liw $counter , $num_fib                         # Set the counter register to num_fib
+calc_fib:
+sub $r_fib_index , $r_index , $r_left
+add $r_index , $r_one , $r_index
+liw $r_addr , :done                             # Load the loop_escape address into the loop_escape register
+add $r_addr , $r_pc_init , $r_addr              # Add the pc_init value to the loop_escape address to make the address absolute 
+bz $r_left , $r_addr
+mov $r_index , $r_counter                       # Set the counter register to fib_index
 
-lib $low , ( 0 )                                # Load zero into the low register as a byte
-mov $one , $high                                # Copy register one into register high
+lib $r_low , ( 0 )                              # Load zero into the low register as a byte
+mov $r_one , $r_high                            # Copy register one into register high
+mov $r_high , $r_result                         # Move high into result
 
 loop:                                           # Define the loop label
-    bz $counter , $loop_escape                  # Branch to the address in the loop escape register if the counter register is zero
-    add $low , $high , $result                  # Add low and high together and store in result
-    mov $high , $low; mov $result , $high       # Move high into low and result into high
-    sub $counter , $one , $counter              # Subtract one from counter 
-    jmp $loop                                   # Jump back to the begining of the loop
+    bz $r_counter , $r_loop_escape              # Branch to the address in the loop escape register if the counter register is zero
+    add $r_low , $r_high , $r_result            # Add low and high together and store in result
+    mov $r_high , $r_low                        # Move high into low
+    mov $r_result , $r_high                     # Move result into high
+    sub $r_counter , $r_one , $r_counter        # Subtract one from counter 
+    jmp $r_loop                                 # Jump back to the begining of the loop
 
 loop_escape:                                    # Define the loop_escape label and show
+    liw $r_addr , :write_result                 # Load the :write_result address into the address register
+    add $r_addr , $r_pc_init , $r_addr          # Add the offset to the address
+    jmp $r_addr                                 # Jump to the :write_result address
 
 # These are all of the registers for the screen
 def SCREEN = 0xFA00
@@ -59,37 +79,45 @@ def RESET = ( $SCREEN + 17 )
 
 # Since we are done with the calculation, we only care about the result register which is r3
 
-def r_fib = r1
-liw $r_fib , $num_fib
+def r_1 = r32
+def r_ascii = r33
+def r_four = r34         
+def r_nib_mask = r35
+def r_col = r36
+def r_row = r37
 
-def r_result = $result
+prep_screen:
+    liw $r_addr , $FILL
+    stb r10 , $r_addr
+    liw $r_addr , $BLIT                         # Load the BLIT address into the address register
+    stb r10 , $r_addr                           # Store anything to the BLIT address to blit the screen
 
-def r_addr = r2
+    liw $r_addr , :done_prep                     
+    add $r_addr , $r_pc_init , $r_addr           
+    jmp $r_addr                                 
 
-def r_1 = r4
-def r_ascii = r5
 
-def r_one = r6                                  # Define one to be the register r5
+write_result:
+
 lib $r_one , 1                                  # Set the register one to 1
 
-def r_four = r9                                 # Define one to be the register r5
 lib $r_four , 4                                 # Set the register one to 1
 
 def nib_mask = 0xF
-def r_nib_mask = r7
 lib $r_nib_mask , $nib_mask
 
-def r_col = r11
+
 liw $r_addr , $WIDTH
 ldb $r_addr , $r_col
 sub $r_col , $r_one , $r_col
+lib $r_col , 45
 
 hex_loop:
     mov $r_result , $r_1                        # Move a working copy of th result into r_1
     lsr $r_result , $r_four , $r_result         # Shift the result by one nibble right
     and $r_1 , $r_nib_mask , $r_1               # AND the working copy with the nibble mask to get the lower nibble
     liw $r_addr , :hex_table                    # Load the address of the hex_table into the address register
-    add $r_addr , $pc_init , $r_addr            # Add the offset to the address
+    add $r_addr , $r_pc_init , $r_addr            # Add the offset to the address
     add $r_addr , $r_1 , $r_addr                # ADD the nibble to the address to get the correct address for a given nibble
     ldb $r_addr , $r_ascii                      # load the ascii byte from the table into the ascii register
     liw $r_addr , $CX                           # Load the cursor x address into the address register
@@ -98,10 +126,10 @@ hex_loop:
     liw $r_addr , $CELL                         # Load the cell address to into the address register
     stb $r_ascii , $r_addr                      # Store the ascii byte to the cell address
     liw $r_addr , :hex_done                     # Load the :hex_done address into the address register
-    add $r_addr , $pc_init , $r_addr            # Add the offset to the address
+    add $r_addr , $r_pc_init , $r_addr           # Add the offset to the address
     bz $r_result , $r_addr                      # If the result after shifting is zero, then jumpt to :hex_done              
     liw $r_addr , :hex_loop                     # Load the :hex_loop address into the address register
-    add $r_addr , $pc_init , $r_addr            # Add the offset to the address
+    add $r_addr , $r_pc_init , $r_addr           # Add the offset to the address
     jmp $r_addr                                 # Jump to the :hex_loop address
 
 hex_done:
@@ -122,7 +150,28 @@ hex_done:
     liw $r_addr , $BLIT                         # Load the BLIT address into the address register
     stb r10 , $r_addr                           # Store anything to the BLIT address to blit the screen
 
+    liw $r_addr , $CY                           # Load the cursor y address into the address register
+    add $r_row , $r_one , $r_row                # Increment the row register by one
+    stb $r_row , $r_addr                        # Store the current row in the cursor y address
+
+    liw $r_addr , :calc_fib                     # Load the :hex_loop address into the address register
+    add $r_addr , $r_pc_init , $r_addr          # Add the offset to the address
+    jmp $r_addr                                 # Jump to the :hex_loop address
+
+done:
+liw $r_addr , $CY                           # Load the cursor y address into the address register
+add $r_row , $r_one , $r_row                # Increment the row register by one
+stb $r_row , $r_addr                        # Store the current row in the cursor y address
+liw $r_addr , $CX                           # Load the cursor x address into the address register
+stb $r_col , $r_addr                        # Store the current column in the cursor x address
+sub $r_col , $r_one , $r_col                # Decrement the column register by one
+lib $r_ascii , 0x21                         # Load the byte for 'x' into the ascii register
+liw $r_addr , $CELL                         # Load the cell address to into the address register
+stb $r_ascii , $r_addr                      # Store the ascii byte to the cell address
+liw $r_addr , $BLIT                         # Load the BLIT address into the address register
+stb r10 , $r_addr                           # Store anything to the BLIT address to blit the screen
 hlt
+
 
 hex_table:
     db 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46
