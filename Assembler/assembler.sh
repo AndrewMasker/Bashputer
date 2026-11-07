@@ -26,4 +26,4 @@ run_Stage() {
 
 run_Stage preprocessor "$MY_DIR"/stages/preprocessor.sh "$SRC" > "$WORK"/pre.bassm
 run_Stage processor "$MY_DIR"/stages/processor.sh "$WORK/pre.bassm" > "$WORK"/post.bassm
-# run_Stage hexer "$MY_DIR"/stages/hexer.sh "$WORK/post.bassm" > "$OUT"/hex
+run_Stage hexer "$MY_DIR"/stages/hexer.sh "$WORK/post.bassm" > "$OUT"/hex
