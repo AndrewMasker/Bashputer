@@ -57,7 +57,7 @@ count_Items() {
 advance_Pseudo_Mnemonic() {
     local mnemonic=${1%%[[:space:]]*} line=$1
     local -n __addr=$2
-    line=${line/"$mnemonic "/}
+    line=${line#"$mnemonic"}
     mnemonic=${mnemonic^^}
     if [[ $mnemonic == DB ]]; then
         local n
