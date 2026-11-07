@@ -54,7 +54,8 @@ advance_ADDR() {
         printf "unknown mnemonic '%s' in statement '%s'\n" "$mnemonic" "$1" >&2
         exit 2
     fi
-    _addr=$(( _addr + ${NUM_BYTES[$mnemonic]} ))
+    _addr=$(( _addr + 1 ))
+    for n in ${NUM_BYTES[$mnemonic]}; do _addr=$(( _addr + n )); done
 }
 do_Label_Replacement() {
     local -n _STATES=$1
