@@ -68,7 +68,7 @@
         } , 
         "mnemonic":
         {
-            "match": "(?i)\\b(nop|hlt|add|sub|and|or|xor|not|lsr|asr|shl|ldb|ldq|ldh|ldw|stb|stq|sth|stw|lib|liq|lih|liw|eq|lts|bz|bnz|jmp|mov|pc)\\b" ,
+            "match": "(?i)\\b(nop|hlt|add|sub|and|or|xor|not|lsr|asr|shl|ldb|ldq|ldh|ldw|stb|stq|sth|stw|lib|liq|lih|liw|eq|lts|bz|bnz|jmp|mov|pc|db)\\b" ,
             "captures": {"1": {"name": "keyword.other.instruction.bassm"}}
         } , 
         "register":
