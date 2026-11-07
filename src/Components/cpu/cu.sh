@@ -709,10 +709,10 @@ parse_PSHQ_OPCODE() {
             ;;
         done_load)
             MDR="${GPRs[$ARGA]}"
+            SP=$(( SP + 1 ))
             PROC_STATE[pidx]="store_quarter"
             ;;
         store_quarter)
-            SP=$(( SP + 1 ))
             store_Quarter $((pidx+1)) "SP" "MDR"
             ;;
         done_store_SP_0)
@@ -733,10 +733,10 @@ parse_PSHH_OPCODE() {
             ;;
         done_load)
             MDR="${GPRs[$ARGA]}"
+            SP=$(( SP + 1 ))
             PROC_STATE[pidx]="store_half"
             ;;
         store_half)
-            SP=$(( SP + 1 ))
             store_Half $((pidx+1)) "SP" "MDR"
             ;;
         done_store_SP_0)
@@ -757,10 +757,10 @@ parse_PSHW_OPCODE() {
             ;;
         done_load)
             MDR="${GPRs[$ARGA]}"
+            SP=$(( SP + 1 ))
             PROC_STATE[pidx]="store_word"
             ;;
         store_word)
-            SP=$(( SP + 1 ))
             store_Word $((pidx+1)) "SP" "MDR"
             ;;
         done_store_SP_0)
@@ -923,9 +923,6 @@ parse_RET_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            load_1_ARGS $((pidx+1))
-            ;;
-        done_load)
             SP=$(( SP - 7 ))
             PROC_STATE[pidx]="load_word"
             ;;
@@ -1032,7 +1029,7 @@ parse_OPCODE() {
         0x1F) parse_LIW_OPCODE $pidx ;;
         0x20) parse_EQ_OPCODE  $pidx ;;
 
-        0x21) parse_NE_OPCODE  $pidx ;;
+        0x21) parse_NEQ_OPCODE  $pidx ;;
         0x22) parse_LT_OPCODE  $pidx ;;
 
         0x23) parse_LTS_OPCODE $pidx ;;

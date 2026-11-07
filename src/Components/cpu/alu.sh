@@ -30,7 +30,7 @@ inc() {
     printf -v _target '0x%016X' $(( _target + 1 ))
 }
 
-inc() {
+dec() {
     local -n _target="$1"
     printf -v _target '0x%016X' $(( _target - 1 ))
 }
@@ -44,10 +44,18 @@ mul() {
 }
 
 div() {
+    if (( $3 == 0 && $2 >= 0 )); then 
+        printf -v "$1" '0x%016X' $(( ~ ( 1 << 63 ) ))
+        return
+    elif (( $3 == 0 && $2 < 0 )); then
+        printf -v "$1" '0x%016X' $(( 1 << 63 ))
+        return
+    fi
     printf -v "$1" '0x%016X' $(( $2 / $3 ))
 }
 
 rem() {
+    if (( $3 == 0 )); then printf -v "$1" '0x%016X' $(( $2 )); return; fi
     printf -v "$1" '0x%016X' $(( $2 % $3 ))
 }
 
