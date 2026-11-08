@@ -17,17 +17,15 @@ liw $r_fib_index , $fib_index
 
 !LABEL_ORIGIN
 pc $r_pc_init                                   # Put the initial pc into pc_init
+sjo $r_pc_init                                  # Set the jump origin to r_pc_init
 
 liw $r_addr , :prep_screen                     
-add $r_addr , $r_pc_init , $r_addr           
 jmp $r_addr 
 done_prep:
 
 liw $r_loop , :loop                             # Load the relative loop address into the loop register
-add $r_loop , $r_pc_init , $r_loop              # Add the pc_init value to the loop address to make the address absolute 
 
 liw $r_loop_escape , :loop_escape               # Load the loop_escape address into the loop_escape register
-add $r_loop_escape , $r_pc_init , $r_loop_escape# Add the pc_init value to the loop_escape address to make the address absolute 
 
 lib $r_one , (1)                                # Set the register one to 1
 
@@ -35,7 +33,6 @@ calc_fib:
 sub $r_fib_index , $r_index , $r_left
 add $r_index , $r_one , $r_index
 liw $r_addr , :done                             # Load the loop_escape address into the loop_escape register
-add $r_addr , $r_pc_init , $r_addr              # Add the pc_init value to the loop_escape address to make the address absolute 
 bz $r_left , $r_addr
 mov $r_index , $r_counter                       # Set the counter register to fib_index
 
@@ -53,7 +50,6 @@ loop:                                           # Define the loop label
 
 loop_escape:                                    # Define the loop_escape label and show
     liw $r_addr , :write_result                 # Load the :write_result address into the address register
-    add $r_addr , $r_pc_init , $r_addr          # Add the offset to the address
     jmp $r_addr                                 # Jump to the :write_result address
 
 # These are all of the registers for the screen
@@ -92,8 +88,7 @@ prep_screen:
     liw $r_addr , $BLIT                         # Load the BLIT address into the address register
     stb r10 , $r_addr                           # Store anything to the BLIT address to blit the screen
 
-    liw $r_addr , :done_prep                     
-    add $r_addr , $r_pc_init , $r_addr           
+    liw $r_addr , :done_prep                        
     jmp $r_addr                                 
 
 
@@ -117,7 +112,6 @@ hex_loop:
     lsr $r_result , $r_four , $r_result         # Shift the result by one nibble right
     and $r_1 , $r_nib_mask , $r_1               # AND the working copy with the nibble mask to get the lower nibble
     liw $r_addr , :hex_table                    # Load the address of the hex_table into the address register
-    add $r_addr , $r_pc_init , $r_addr            # Add the offset to the address
     add $r_addr , $r_1 , $r_addr                # ADD the nibble to the address to get the correct address for a given nibble
     ldb $r_addr , $r_ascii                      # load the ascii byte from the table into the ascii register
     liw $r_addr , $CX                           # Load the cursor x address into the address register
@@ -126,10 +120,8 @@ hex_loop:
     liw $r_addr , $CELL                         # Load the cell address to into the address register
     stb $r_ascii , $r_addr                      # Store the ascii byte to the cell address
     liw $r_addr , :hex_done                     # Load the :hex_done address into the address register
-    add $r_addr , $r_pc_init , $r_addr           # Add the offset to the address
     bz $r_result , $r_addr                      # If the result after shifting is zero, then jumpt to :hex_done              
     liw $r_addr , :hex_loop                     # Load the :hex_loop address into the address register
-    add $r_addr , $r_pc_init , $r_addr           # Add the offset to the address
     jmp $r_addr                                 # Jump to the :hex_loop address
 
 hex_done:
@@ -155,7 +147,6 @@ hex_done:
     stb $r_row , $r_addr                        # Store the current row in the cursor y address
 
     liw $r_addr , :calc_fib                     # Load the :hex_loop address into the address register
-    add $r_addr , $r_pc_init , $r_addr          # Add the offset to the address
     jmp $r_addr                                 # Jump to the :hex_loop address
 
 done:
