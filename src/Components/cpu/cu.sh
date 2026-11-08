@@ -1071,6 +1071,57 @@ parse_BNZI_OPCODE() {
     esac
 }
 
+parse_SSP_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_1_ARGS $((pidx+1))
+            ;;
+        done_load)
+            printf -v 'SP' '0x%016X' $(( ${GPRs[ARGA]} ))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_SSPI_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]="load_word"
+            ;;
+        load_word)
+            load_Word $((pidx+1)) "MDR" "PC" 0 true true
+            ;;
+        done_load_MDR_0)
+            printf -v 'SP' '0x%016X' $(( MDR ))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_XSP_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_1_ARGS $((pidx+1))
+            ;;
+        done_load)
+            local tmp="$SP"
+            SP="${GPRs[ARGA]}"
+            GPRs[ARGA]="$tmp"
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
 parse_OPCODE() {
     local pidx=${1:-0}
     case $OPCODE in
@@ -1147,6 +1198,10 @@ parse_OPCODE() {
         0x39) parse_JMPI_OPCODE $pidx ;;
         0x3A) parse_BZI_OPCODE $pidx ;;
         0x3B) parse_BNZI_OPCODE $pidx ;;
+
+        0x3C) parse_SSP_OPCODE $pidx ;;
+        0x3D) parse_SSPI_OPCODE $pidx ;;
+        0x3E) parse_XSP_OPCODE $pidx ;;
 
         *) parse_HLT_OPCODE $pidx ;;
     esac
