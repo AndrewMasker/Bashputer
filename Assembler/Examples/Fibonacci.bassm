@@ -1,3 +1,5 @@
+# Fibonacci.bassm
+# Author: Andrew Masker
 
 def r_pc_init = r8                              # Define 
 def r_counter = r4                              # The register with the counter

@@ -48,21 +48,21 @@
         } ,
         "label-definition":
         {
-            "match": "(\\.)?\\b([A-Za-z_]\\w*)(:)" , 
+            "match": "(\\.)*\\b([A-Za-z_]\\w*)(:)" , 
             "captures": 
             {
                 "1": {"name": "constant.character.escape.label-dot.bassm"} ,
                 "2": {"name": "entity.name.type.label.bassm"} , 
-                "3": {"name": "punctuation.separator.label.bassm"}
+                "3": {"name": "constant.character.escape.label-dot.bassm"}
             }
         } , 
         "label-usage":
         {
-            "match": "(:)(\\.)?([A-Za-z_]\\w*)" , 
+            "match": "(:)(\\.)*([A-Za-z_]\\w*)" , 
             "captures": 
             {
                 "1": {"name": "constant.character.escape.label-dot.bassm"} ,
-                "2": {"name": "punctuation.separator.label.bassm"} , 
+                "2": {"name": "constant.character.escape.label-dot.bassm"} , 
                 "3": {"name": "entity.name.type.label.bassm"}
             }
         } , 

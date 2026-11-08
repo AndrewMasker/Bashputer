@@ -1,0 +1,95 @@
+# Hanoi.bassm - Towers of Hanoi, one move per line ("A > C")
+# Author: Claude Opus 5.5
+
+def SCREEN = 0xFA00
+def CX = ( $SCREEN + 2 )
+def CY = ( $SCREEN + 3 )
+def CELL = ( $SCREEN + 14 )
+def BLIT = ( $SCREEN + 15 )
+def FILL = ( $SCREEN + 16 )
+
+def DISKS = 4
+
+def r_n = r1                        # disks left to move
+def r_from = r2                     # pegs are held as their ASCII letters
+def r_to = r3
+def r_via = r4
+def r_tmp = r5
+def r_ch = r6                       # argument to putc
+def r_col = r7
+def r_row = r8
+def r_one = r9
+def r_pc_init = r30
+def r_addr = r31
+
+!LABEL_ORIGIN
+pc $r_pc_init
+sjo $r_pc_init
+
+lib $r_one , 1
+lib $r_row , 0
+liw $r_addr , $FILL
+stb $r_one , $r_addr                # any write clears the screen
+liw $r_addr , $CY
+stb $r_row , $r_addr
+
+lib $r_n , $DISKS
+lib $r_from , 0x41                  # 'A'
+lib $r_to , 0x43                    # 'C'
+lib $r_via , 0x42                   # 'B'
+cali :hanoi
+hlt
+
+# hanoi(n, from, to, via)
+hanoi:
+    bzi $r_n , :hanoi_ret           # nothing to move
+    pshb $r_n                       # save our arguments across the first call
+    pshb $r_from
+    pshb $r_to
+    pshb $r_via
+    dec $r_n                        # hanoi(n-1, from, via, to)
+    mov $r_to , $r_tmp
+    mov $r_via , $r_to
+    mov $r_tmp , $r_via
+    cali :hanoi
+    popb $r_via
+    popb $r_to
+    popb $r_from
+    popb $r_n
+    cali :print_move                # move disk n: from -> to
+    dec $r_n                        # hanoi(n-1, via, to, from)
+    mov $r_from , $r_tmp
+    mov $r_via , $r_from
+    mov $r_tmp , $r_via
+    jmpi :hanoi                     # tail call: its RET returns to our caller
+hanoi_ret:
+    ret
+
+# print "<from> > <to>" on the current row, blit, then move down a row
+print_move:
+    lib $r_col , 0
+    mov $r_from , $r_ch
+    cali :putc
+    lib $r_ch , 0x20                # ' '
+    cali :putc
+    lib $r_ch , 0x3E                # '>'
+    cali :putc
+    lib $r_ch , 0x20
+    cali :putc
+    mov $r_to , $r_ch
+    cali :putc
+    liw $r_addr , $BLIT
+    stb $r_one , $r_addr
+    inc $r_row
+    liw $r_addr , $CY
+    stb $r_row , $r_addr
+    ret
+
+# write r_ch at (r_col, current row) and advance the column
+putc:
+    liw $r_addr , $CX
+    stb $r_col , $r_addr
+    liw $r_addr , $CELL
+    stb $r_ch , $r_addr
+    inc $r_col
+    ret
