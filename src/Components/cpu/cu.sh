@@ -995,6 +995,7 @@ parse_SJO_OPCODE() {
             ;;
         done_load)
             JO=${GPRs[ARGA]}
+            printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
@@ -1011,7 +1012,7 @@ parse_JMPI_OPCODE() {
         load_word)
             load_Word $((pidx+1)) "MDR" "PC" 0 true true
             ;;
-        done_store_MDR_0)
+        done_load_MDR_0)
             printf -v 'PC' '0x%016X' $(( MDR + JO ))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -1032,7 +1033,7 @@ parse_BZI_OPCODE() {
         done_load)
             load_Word $((pidx+1)) "MDR" "PC" 0 true true
             ;;
-        done_store_MDR_0)
+        done_load_MDR_0)
             if (( ${GPRs[ARGA]} == 0 )); then
                 printf -v 'PC' '0x%016X' $(( MDR + JO ))
             else
@@ -1057,7 +1058,7 @@ parse_BNZI_OPCODE() {
         done_load)
             load_Word $((pidx+1)) "MDR" "PC" 0 true true
             ;;
-        done_store_MDR_0)
+        done_load_MDR_0)
             if (( ${GPRs[ARGA]} != 0 )); then
                 printf -v 'PC' '0x%016X' $(( MDR + JO ))
             else
