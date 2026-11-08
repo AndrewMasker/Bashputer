@@ -632,7 +632,7 @@ parse_BZ_OPCODE() {
             ;;
         done_load)
             if (( GPRs[ARGA] == 0 )); then
-                PC=${GPRs[ARGB]}
+                printf -v 'PC' '0x%016X' $(( ${GPRs[ARGB]} + JO ))
             else
                 printf -v 'PC' '0x%016X' $((PC + 1))
             fi
@@ -651,7 +651,7 @@ parse_BNZ_OPCODE() {
             ;;
         done_load)
             if (( GPRs[ARGA] != 0 )); then
-                PC=${GPRs[ARGB]}
+                printf -v 'PC' '0x%016X' $(( ${GPRs[ARGB]} + JO ))
             else
                 printf -v 'PC' '0x%016X' $((PC + 1))
             fi
@@ -669,7 +669,7 @@ parse_JMP_OPCODE() {
             load_1_ARGS $((pidx+1))
             ;;
         done_load)
-            PC=${GPRs[ARGA]}
+            printf -v 'PC' '0x%016X' $(( ${GPRs[ARGA]} + JO ))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
@@ -685,7 +685,7 @@ parse_PSHB_OPCODE() {
             ;;
         done_load)
             MDR="${GPRs[$ARGA]}"
-            SP=$(( SP + 1 ))
+            printf -v SP '0x%016X' $(( SP + 1 ))
             PROC_STATE[pidx]="store_byte"
             ;;
         store_byte)
@@ -708,14 +708,14 @@ parse_PSHQ_OPCODE() {
             ;;
         done_load)
             MDR="${GPRs[$ARGA]}"
-            SP=$(( SP + 1 ))
+            printf -v SP '0x%016X' $(( SP + 1 ))
             PROC_STATE[pidx]="store_quarter"
             ;;
         store_quarter)
             store_Quarter $((pidx+1)) "SP" "MDR"
             ;;
         done_store_SP_0)
-            SP=$(( SP + 1 ))
+            printf -v SP '0x%016X' $(( SP + 1 ))
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -732,14 +732,14 @@ parse_PSHH_OPCODE() {
             ;;
         done_load)
             MDR="${GPRs[$ARGA]}"
-            SP=$(( SP + 1 ))
+            printf -v SP '0x%016X' $(( SP + 1 ))
             PROC_STATE[pidx]="store_half"
             ;;
         store_half)
             store_Half $((pidx+1)) "SP" "MDR"
             ;;
         done_store_SP_0)
-            SP=$(( SP + 3 ))
+            printf -v SP '0x%016X' $(( SP + 3 ))
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -756,14 +756,14 @@ parse_PSHW_OPCODE() {
             ;;
         done_load)
             MDR="${GPRs[$ARGA]}"
-            SP=$(( SP + 1 ))
+            printf -v SP '0x%016X' $(( SP + 1 ))
             PROC_STATE[pidx]="store_word"
             ;;
         store_word)
             store_Word $((pidx+1)) "SP" "MDR"
             ;;
         done_store_SP_0)
-            SP=$(( SP + 7 ))
+            printf -v SP '0x%016X' $(( SP + 7 ))
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -779,14 +779,14 @@ parse_POPB_OPCODE() {
             load_1_ARGS $((pidx+1))
             ;;
         done_load)
-            SP=$(( SP - 1 ))
+            printf -v SP '0x%016X' $(( SP - 1 ))
             PROC_STATE[pidx]="load_byte"
             ;;
         load_byte)
             load_Byte $((pidx+1)) "MDR" "SP" 0 true true
             ;;
         done_load_MDR_0)
-            SP=$(( SP - 1 ))
+            printf -v SP '0x%016X' $(( SP - 1 ))
             GPRs[ARGA]=$MDR
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
@@ -803,14 +803,14 @@ parse_POPQ_OPCODE() {
             load_1_ARGS $((pidx+1))
             ;;
         done_load)
-            SP=$(( SP - 2 ))
+            printf -v SP '0x%016X' $(( SP - 2 ))
             PROC_STATE[pidx]="load_quarter"
             ;;
         load_quarter)
             load_Quarter $((pidx+1)) "MDR" "SP" 0 true true
             ;;
         done_load_MDR_0)
-            SP=$(( SP - 2 ))
+            printf -v SP '0x%016X' $(( SP - 2 ))
             GPRs[ARGA]=$MDR
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
@@ -827,14 +827,14 @@ parse_POPH_OPCODE() {
             load_1_ARGS $((pidx+1))
             ;;
         done_load)
-            SP=$(( SP - 4 ))
+            printf -v SP '0x%016X' $(( SP - 4 ))
             PROC_STATE[pidx]="load_half"
             ;;
         load_half)
             load_Half $((pidx+1)) "MDR" "SP" 0 true true
             ;;
         done_load_MDR_0)
-            SP=$(( SP - 4 ))
+            printf -v SP '0x%016X' $(( SP - 4 ))
             GPRs[ARGA]=$MDR
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
@@ -851,14 +851,14 @@ parse_POPW_OPCODE() {
             load_1_ARGS $((pidx+1))
             ;;
         done_load)
-            SP=$(( SP - 8 ))
+            printf -v SP '0x%016X' $(( SP - 8 ))
             PROC_STATE[pidx]="load_word"
             ;;
         load_word)
             load_Word $((pidx+1)) "MDR" "SP" 0 true true
             ;;
         done_load_MDR_0)
-            SP=$(( SP - 8 ))
+            printf -v SP '0x%016X' $(( SP - 8 ))
             GPRs[ARGA]=$MDR
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
@@ -876,15 +876,15 @@ parse_CAL_OPCODE() {
             ;;
         done_load)
             MAR="$PC"
-            SP=$(( SP + 1 ))
+            printf -v SP '0x%016X' $(( SP + 1 ))
             PROC_STATE[pidx]="store_word"
             ;;
         store_word)
             store_Word $((pidx+1)) "SP" "MAR"
             ;;
         done_store_SP_0)
-            SP=$(( SP + 7 ))
-            PC=${GPRs[ARGA]}
+            printf -v SP '0x%016X' $(( SP + 7 ))
+            printf -v 'PC' '0x%016X' $(( ${GPRs[ARGA]} + JO ))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
@@ -903,15 +903,15 @@ parse_CALI_OPCODE() {
             ;;
         done_load_MDR_0)
             MAR="$PC"
-            SP=$(( SP + 1 ))
+            printf -v SP '0x%016X' $(( SP + 1 ))
             PROC_STATE[pidx]="store_word"
             ;;
         store_word)
             store_Word $((pidx+1)) "SP" "MAR"
             ;;
         done_store_SP_0)
-            SP=$(( SP + 7 ))
-            PC="$MDR"
+            printf -v SP '0x%016X' $(( SP + 7 ))
+            printf -v 'PC' '0x%016X' $(( MDR + JO ))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
@@ -923,14 +923,14 @@ parse_RET_OPCODE() {
     local pidx=${1:-0}
     case ${PROC_STATE[pidx]-} in
         "")
-            SP=$(( SP - 8 ))
+            printf -v SP '0x%016X' $(( SP - 8 ))
             PROC_STATE[pidx]="load_word"
             ;;
         load_word)
             load_Word $((pidx+1)) "MDR" "SP" 0 true true
             ;;
         done_load_MDR_0)
-            SP=$(( SP - 8 ))
+            printf -v SP '0x%016X' $(( SP - 8 ))
             printf -v 'PC' '0x%016X' $(( MDR + 1 ))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -978,8 +978,91 @@ parse_SP_OPCODE() {
             load_1_ARGS $((pidx+1))
             ;;
         done_load)
-            printf -v 'GPRs[ARGA]' '0x%016X' $(( SP ))
+            GPRs[ARGA]="$SP"
             printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_SJO_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_1_ARGS $((pidx+1))
+            ;;
+        done_load)
+            JO=${GPRs[ARGA]}
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_JMPI_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]="load_word"
+            ;;
+        load_word)
+            load_Word $((pidx+1)) "MDR" "PC" 0 true true
+            ;;
+        done_store_MDR_0)
+            printf -v 'PC' '0x%016X' $(( MDR + JO ))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_BZI_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]="load_word"
+            ;;
+        load_word)
+            load_1_ARGS $((pidx+1))
+            ;;
+        done_load)
+            load_Word $((pidx+1)) "MDR" "PC" 0 true true
+            ;;
+        done_store_MDR_0)
+            if (( ${GPRs[ARGA]} == 0 )); then
+                printf -v 'PC' '0x%016X' $(( MDR + JO ))
+            else
+                printf -v 'PC' '0x%016X' $((PC + 1))
+            fi
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_BNZI_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            PROC_STATE[pidx]="load_word"
+            ;;
+        load_word)
+            load_1_ARGS $((pidx+1))
+            ;;
+        done_load)
+            load_Word $((pidx+1)) "MDR" "PC" 0 true true
+            ;;
+        done_store_MDR_0)
+            if (( ${GPRs[ARGA]} != 0 )); then
+                printf -v 'PC' '0x%016X' $(( MDR + JO ))
+            else
+                printf -v 'PC' '0x%016X' $((PC + 1))
+            fi
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
@@ -994,12 +1077,9 @@ parse_OPCODE() {
         0x01) parse_HLT_OPCODE $pidx ;;
         0x02) parse_ADD_OPCODE $pidx ;;
         0x03) parse_SUB_OPCODE $pidx ;;
-
         0x04) parse_INC_OPCODE $pidx ;;
         0x05) parse_DEC_OPCODE $pidx ;;
-
         # 0x06 UNMAPPED $pidx ;;
-
         0x07) parse_NEG_OPCODE $pidx ;;
         0x08) parse_MUL_OPCODE $pidx ;;
         0x09) parse_DIV_OPCODE $pidx ;;
@@ -1022,21 +1102,21 @@ parse_OPCODE() {
         0x15) parse_LDQ_OPCODE $pidx ;;
         0x16) parse_LDH_OPCODE $pidx ;;
         0x17) parse_LDW_OPCODE $pidx ;;
+
         0x18) parse_STB_OPCODE $pidx ;;
         0x19) parse_STQ_OPCODE $pidx ;;
         0x1A) parse_STH_OPCODE $pidx ;;
         0x1B) parse_STW_OPCODE $pidx ;;
+        
         0x1C) parse_LIB_OPCODE $pidx ;;
         0x1D) parse_LIQ_OPCODE $pidx ;;
         0x1E) parse_LIH_OPCODE $pidx ;;
         0x1F) parse_LIW_OPCODE $pidx ;;
+        
         0x20) parse_EQ_OPCODE  $pidx ;;
-
         0x21) parse_NEQ_OPCODE  $pidx ;;
         0x22) parse_LT_OPCODE  $pidx ;;
-
         0x23) parse_LTS_OPCODE $pidx ;;
-
         0x24) parse_LE_OPCODE  $pidx ;;
         0x25) parse_LES_OPCODE $pidx ;;
 
@@ -1048,6 +1128,7 @@ parse_OPCODE() {
         0x2A) parse_PSHQ_OPCODE $pidx ;;
         0x2B) parse_PSHH_OPCODE $pidx ;;
         0x2C) parse_PSHW_OPCODE $pidx ;;
+
         0x2E) parse_POPB_OPCODE $pidx ;;
         0x2F) parse_POPQ_OPCODE $pidx ;;
         0x30) parse_POPH_OPCODE $pidx ;;
@@ -1060,6 +1141,12 @@ parse_OPCODE() {
         0x35) parse_MOV_OPCODE $pidx ;;
         0x36) parse_PC_OPCODE $pidx ;;
         0x37) parse_SP_OPCODE $pidx ;;
+
+        0x38) parse_SJO_OPCODE $pidx ;;
+        0x39) parse_JMPI_OPCODE $pidx ;;
+        0x3A) parse_BZI_OPCODE $pidx ;;
+        0x3B) parse_BNZI_OPCODE $pidx ;;
+
         *) parse_HLT_OPCODE $pidx ;;
     esac
 }
