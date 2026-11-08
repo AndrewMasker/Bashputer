@@ -112,6 +112,7 @@ hex_loop:
     lsr $r_result , $r_four , $r_result         # Shift the result by one nibble right
     and $r_1 , $r_nib_mask , $r_1               # AND the working copy with the nibble mask to get the lower nibble
     liw $r_addr , :hex_table                    # Load the address of the hex_table into the address register
+    add $r_addr , $r_pc_init , $r_addr          # Add the pc_init to the address register as loads are absolute
     add $r_addr , $r_1 , $r_addr                # ADD the nibble to the address to get the correct address for a given nibble
     ldb $r_addr , $r_ascii                      # load the ascii byte from the table into the ascii register
     liw $r_addr , $CX                           # Load the cursor x address into the address register
