@@ -1079,6 +1079,7 @@ parse_SSP_OPCODE() {
             ;;
         done_load)
             printf -v 'SP' '0x%016X' $(( ${GPRs[ARGA]} ))
+            printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
@@ -1097,6 +1098,7 @@ parse_SSPI_OPCODE() {
             ;;
         done_load_MDR_0)
             printf -v 'SP' '0x%016X' $(( MDR ))
+            printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
             ;;
