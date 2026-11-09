@@ -1124,59 +1124,91 @@ parse_XSP_OPCODE() {
     esac
 }
 
+parse_RND_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_1_ARGS $((pidx+1))
+            ;;
+        done_load)
+            printf -v 'GPRs[ARGA]' '0x%016X' $RANDOM
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_SEED_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_1_ARGS $((pidx+1))
+            ;;
+        done_load)
+            RANDOM=${GPRs[ARGA]}
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
 parse_OPCODE() {
     local pidx=${1:-0}
     case $OPCODE in
-        0x00) parse_NOP_OPCODE $pidx ;;
-        0x01) parse_HLT_OPCODE $pidx ;;
-        0x02) parse_ADD_OPCODE $pidx ;;
-        0x03) parse_SUB_OPCODE $pidx ;;
-        0x04) parse_INC_OPCODE $pidx ;;
-        0x05) parse_DEC_OPCODE $pidx ;;
+        0x00) parse_NOP_OPCODE  $pidx ;;
+        0x01) parse_HLT_OPCODE  $pidx ;;
+        0x02) parse_ADD_OPCODE  $pidx ;;
+        0x03) parse_SUB_OPCODE  $pidx ;;
+        0x04) parse_INC_OPCODE  $pidx ;;
+        0x05) parse_DEC_OPCODE  $pidx ;;
         # 0x06 UNMAPPED $pidx ;;
-        0x07) parse_NEG_OPCODE $pidx ;;
-        0x08) parse_MUL_OPCODE $pidx ;;
-        0x09) parse_DIV_OPCODE $pidx ;;
-        0x0A) parse_REM_OPCODE $pidx ;;
+        0x07) parse_NEG_OPCODE  $pidx ;;
+        0x08) parse_MUL_OPCODE  $pidx ;;
+        0x09) parse_DIV_OPCODE  $pidx ;;
+        0x0A) parse_REM_OPCODE  $pidx ;;
 
-        0x0B) parse_AND_OPCODE $pidx ;;
-        0x0C) parse_OR_OPCODE  $pidx ;;
-        0x0D) parse_XOR_OPCODE $pidx ;;
-        0x0E) parse_NOT_OPCODE $pidx ;;
+        0x0B) parse_AND_OPCODE  $pidx ;;
+        0x0C) parse_OR_OPCODE   $pidx ;;
+        0x0D) parse_XOR_OPCODE  $pidx ;;
+        0x0E) parse_NOT_OPCODE  $pidx ;;
 
         # 0x0F) UNMAPPED $pidx ;;
         
-        0x10) parse_LSR_OPCODE $pidx ;;
-        0x11) parse_ASR_OPCODE $pidx ;;
-        0x12) parse_SHL_OPCODE $pidx ;;
+        0x10) parse_LSR_OPCODE  $pidx ;;
+        0x11) parse_ASR_OPCODE  $pidx ;;
+        0x12) parse_SHL_OPCODE  $pidx ;;
 
         # 0x13) UNMAPPED $pidx ;;
 
-        0x14) parse_LDB_OPCODE $pidx ;;
-        0x15) parse_LDQ_OPCODE $pidx ;;
-        0x16) parse_LDH_OPCODE $pidx ;;
-        0x17) parse_LDW_OPCODE $pidx ;;
+        0x14) parse_LDB_OPCODE  $pidx ;;
+        0x15) parse_LDQ_OPCODE  $pidx ;;
+        0x16) parse_LDH_OPCODE  $pidx ;;
+        0x17) parse_LDW_OPCODE  $pidx ;;
 
-        0x18) parse_STB_OPCODE $pidx ;;
-        0x19) parse_STQ_OPCODE $pidx ;;
-        0x1A) parse_STH_OPCODE $pidx ;;
-        0x1B) parse_STW_OPCODE $pidx ;;
+        0x18) parse_STB_OPCODE  $pidx ;;
+        0x19) parse_STQ_OPCODE  $pidx ;;
+        0x1A) parse_STH_OPCODE  $pidx ;;
+        0x1B) parse_STW_OPCODE  $pidx ;;
         
-        0x1C) parse_LIB_OPCODE $pidx ;;
-        0x1D) parse_LIQ_OPCODE $pidx ;;
-        0x1E) parse_LIH_OPCODE $pidx ;;
-        0x1F) parse_LIW_OPCODE $pidx ;;
+        0x1C) parse_LIB_OPCODE  $pidx ;;
+        0x1D) parse_LIQ_OPCODE  $pidx ;;
+        0x1E) parse_LIH_OPCODE  $pidx ;;
+        0x1F) parse_LIW_OPCODE  $pidx ;;
         
-        0x20) parse_EQ_OPCODE  $pidx ;;
+        0x20) parse_EQ_OPCODE   $pidx ;;
         0x21) parse_NEQ_OPCODE  $pidx ;;
-        0x22) parse_LT_OPCODE  $pidx ;;
-        0x23) parse_LTS_OPCODE $pidx ;;
-        0x24) parse_LE_OPCODE  $pidx ;;
-        0x25) parse_LES_OPCODE $pidx ;;
+        0x22) parse_LT_OPCODE   $pidx ;;
+        0x23) parse_LTS_OPCODE  $pidx ;;
+        0x24) parse_LE_OPCODE   $pidx ;;
+        0x25) parse_LES_OPCODE  $pidx ;;
 
-        0x26) parse_BZ_OPCODE  $pidx ;;
-        0x27) parse_BNZ_OPCODE $pidx ;;
-        0x28) parse_JMP_OPCODE $pidx ;;
+        0x26) parse_BZ_OPCODE   $pidx ;;
+        0x27) parse_BNZ_OPCODE  $pidx ;;
+        0x28) parse_JMP_OPCODE  $pidx ;;
 
         0x29) parse_PSHB_OPCODE $pidx ;;
         0x2A) parse_PSHQ_OPCODE $pidx ;;
@@ -1188,23 +1220,26 @@ parse_OPCODE() {
         0x30) parse_POPH_OPCODE $pidx ;;
         0x31) parse_POPW_OPCODE $pidx ;;
 
-        0x32) parse_CAL_OPCODE $pidx ;;
+        0x32) parse_CAL_OPCODE  $pidx ;;
         0x33) parse_CALI_OPCODE $pidx ;;
-        0x34) parse_RET_OPCODE $pidx ;;
+        0x34) parse_RET_OPCODE  $pidx ;;
 
-        0x35) parse_MOV_OPCODE $pidx ;;
-        0x36) parse_PC_OPCODE $pidx ;;
-        0x37) parse_SP_OPCODE $pidx ;;
+        0x35) parse_MOV_OPCODE  $pidx ;;
+        0x36) parse_PC_OPCODE   $pidx ;;
+        0x37) parse_SP_OPCODE   $pidx ;;
 
-        0x38) parse_SJO_OPCODE $pidx ;;
+        0x38) parse_SJO_OPCODE  $pidx ;;
         0x39) parse_JMPI_OPCODE $pidx ;;
-        0x3A) parse_BZI_OPCODE $pidx ;;
+        0x3A) parse_BZI_OPCODE  $pidx ;;
         0x3B) parse_BNZI_OPCODE $pidx ;;
 
-        0x3C) parse_SSP_OPCODE $pidx ;;
+        0x3C) parse_SSP_OPCODE  $pidx ;;
         0x3D) parse_SSPI_OPCODE $pidx ;;
-        0x3E) parse_XSP_OPCODE $pidx ;;
+        0x3E) parse_XSP_OPCODE  $pidx ;;
 
-        *) parse_HLT_OPCODE $pidx ;;
+        0x3F) parse_RND_OPCODE  $pidx ;;
+        0x40) parse_SEED_OPCODE $pidx ;;
+
+        *) parse_HLT_OPCODE     $pidx ;;
     esac
 }
