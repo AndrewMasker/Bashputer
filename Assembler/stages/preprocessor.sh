@@ -87,10 +87,10 @@ _replace_Subs__Statement_Into_Subs_And_Arguments() {
     local regex='\$([A-Za-z]\w*)\b' 
     while [[ $rest =~ $regex ]]; do
         local depth=0
-        local sub="${BASH_REMATCH}"
+        local sub="${BASH_REMATCH[1]}"
         local argument=""
         rest=${rest#*"$sub"}
-        if [[ ${rest[0]} == '[' ]]; then
+        if [[ ${rest:0:1} == '[' ]]; then
             depth=1
             argument+='['
             while (( depth != 0 )); do
@@ -99,20 +99,27 @@ _replace_Subs__Statement_Into_Subs_And_Arguments() {
                     exit 2
                 fi
                 rest=${rest:1}
-                if [[ ${rest[0]} == '[' ]]; then
+                if [[ ${rest:0:1} == '[' ]]; then
                     depth=$(( depth + 1))
-                elif [[ ${rest[0]} == ']' ]]; then
+                elif [[ ${rest:0:1} == ']' ]]; then
                     depth=$(( depth - 1 ))
                 fi
-                sub+="${rest[0]}"
-                argument+="${rest[0]}"
+                sub+="${rest:0:1}"
+                argument+="${rest:0:1}"
             done
+            argument="${argument:1:-1}"
         fi
         subs+=("$sub")
         arguments+=("$argument")
     done
 }
+expand_Subs() {
+    local line=$1
+    replace_Subs line
+    printf '%s' "$line"
+}
 _replace_Subs__Replace_Macro_With_Arguments() {
+    local regex='^[[:space:]]*([A-Za-z]\w*)[[:space:]]*=(.*)$'
     remove_Surrounding_Whitespace argument
     local rest=$argument
     while [[ $rest =~ $regex ]]; do
@@ -121,7 +128,7 @@ _replace_Subs__Replace_Macro_With_Arguments() {
         rest="${BASH_REMATCH[2]}"
         local depth=0
         while true; do
-            if [[ ${rest[0]} == ',' | $rest == "" ]] & (( depth == 0 )); then
+            if [[ ${rest:0:1} == ',' || $rest == "" ]] && (( depth == 0 )); then
                 rest="${rest:1}"
                 break
             fi
@@ -129,15 +136,16 @@ _replace_Subs__Replace_Macro_With_Arguments() {
                 printf "unbalanced parentheses in %s\n" "$sub" >&2
                 exit 2
             fi
-            if [[ ${rest[0]} == '(' ]]; then
+            if [[ ${rest:0:1} == '(' ]]; then
                 depth=$(( depth + 1 ))
-            elif [[ ${rest[0]} == ')' ]]; then
-                depth=$(( depth + 1 ))
+            elif [[ ${rest:0:1} == ')' ]]; then
+                depth=$(( depth - 1 ))
             fi
-            value+="${rest[0]}"
+            value+="${rest:0:1}"
             rest="${rest:1}"
         done
         remove_Surrounding_Whitespace value
+        value=$(expand_Subs $value) || { printf "error expanding argument substitutions for variable '%s' with value '%s'\n" "$var" "$value" >&2; exit 2; }
         map[$var]="$value"
     done
     if [[ $rest != "" ]]; then
@@ -147,13 +155,13 @@ _replace_Subs__Replace_Macro_With_Arguments() {
     local body=${SUBS[$sub]}
     local var_regex='^([^%]*)%([A-Za-z]\w*)(.*)'
     local out=""
-    while [[ body =~ $var_regex ]]; do
+    while [[ $body =~ $var_regex ]]; do
         out+="${BASH_REMATCH[1]}"
         local var=${BASH_REMATCH[2]}
-        if [[ -v ${map[$var]} ]]; then
+        if [[ -v map[$var] ]]; then
             out+="${map[$var]}"
         else
-            printf "unknown variable '%s' in macro '%s' with body'%s'\n" "$var" "${SUBS[$sub]}"
+            printf "unknown variable '%s' in macro call '%s' with body '%s'\n" "$var" "$sub" "${SUBS[$sub]}" >&2
             exit 2
         fi
         body=${BASH_REMATCH[3]}
@@ -165,11 +173,11 @@ replace_Subs() {
     local -n _statement=$1
     local subs=() arguments=()
     _replace_Subs__Statement_Into_Subs_And_Arguments
-    local regex='([A-Za-z]\w*)[:space:]*=[:space:]*([^[:space:]]+)' i
+    local i
     for i in ${!subs[@]}; do
         local sub=${subs[i]}
         local argument=${arguments[i]}
-        declare -A map
+        declare -A map=()
         if [[ -v SUBS[$sub] ]]; then
             if [[ -n $argument ]]; then
                 _replace_Subs__Replace_Macro_With_Arguments
