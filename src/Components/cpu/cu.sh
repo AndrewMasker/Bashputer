@@ -1160,6 +1160,23 @@ parse_SEED_OPCODE() {
     esac
 }
 
+parse_ENT_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_1_ARGS $((pidx+1))
+            ;;
+        done_load)
+            printf -v 'GPRs[ARGA]' '0x%016X' $(( RANDOM<<60 ^ RANDOM<<45 ^ RANDOM<<30 ^ RANDOM<<15 ^ RANDOM ))
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+
 parse_OPCODE() {
     local pidx=${1:-0}
     case $OPCODE in
@@ -1243,6 +1260,7 @@ parse_OPCODE() {
 
         0x3F) parse_RND_OPCODE  $pidx ;;
         0x40) parse_SEED_OPCODE $pidx ;;
+        0x41) parse_ENT_OPCODE  $pidx ;;
 
         *) parse_HLT_OPCODE     $pidx ;;
     esac
