@@ -23,6 +23,7 @@ parse_Reset_CLK() {
             PC="$RESET_PC"
             SP="$RESET_SP"
             JO="$RESET_JO"
+            RNG="$RESET_RNG"
             PROC_STATE[pidx]=clear_registers
             ;;
         clear_registers)

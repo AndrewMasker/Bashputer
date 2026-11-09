@@ -1131,7 +1131,10 @@ parse_RND_OPCODE() {
             load_1_ARGS $((pidx+1))
             ;;
         done_load)
-            printf -v 'GPRs[ARGA]' '0x%016X' $RANDOM
+            local x="$RNG"
+            (( x^= x << 13 , x^= ( x >> 7 ) & 0x01FFFFFFFFFFFFFF , x^= x << 17 , x*= 0x2545F4914F6CDD1D ))
+            printf -v RNG '0x%016X' "$x"
+            GPRs[ARGA]=$RNG
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
@@ -1147,7 +1150,8 @@ parse_SEED_OPCODE() {
             load_1_ARGS $((pidx+1))
             ;;
         done_load)
-            RANDOM=${GPRs[ARGA]}
+            RNG=${GPRs[ARGA]}
+            if (( RNG == 0 )); then RNG="$RESET_RNG"; fi
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
