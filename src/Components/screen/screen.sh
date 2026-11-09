@@ -10,6 +10,8 @@ source "$MY_DIR"/config.sh
 
 exec {TTY}>/dev/tty
 
+declare -A fidx_array fr_array fg_array fb_array bidx_array br_array bg_array bb_array
+
 reset() {
     writes=""
     mode=0x00
@@ -24,6 +26,7 @@ reset() {
     br=0x00
     bg=0x00
     bb=0x00
+    declare -A fidx_array fr_array fg_array fb_array bidx_array br_array bg_array bb_array
 }
 
 parse_Load() {
@@ -74,6 +77,30 @@ parse_Load() {
         "$HEIGHT_ADDR")
             echo "data $HEIGHT"
             ;;
+        "$RD_FIDX_ADDR")
+            echo "data ${fidx_array[$cx $cy]-$UNMAPPED_DATA}"
+            ;;
+        "$RD_FR_ADDR")
+            echo "data ${fr_array[$cx $cy]-$UNMAPPED_DATA}"
+            ;;
+        "$RD_FG_ADDR")
+            echo "data ${fg_array[$cx $cy]-$UNMAPPED_DATA}"
+            ;;
+        "$RD_FB_ADDR")
+            echo "data ${fb_array[$cx $cy]-$UNMAPPED_DATA}"
+            ;;
+        "$RD_BIDX_ADDR")
+            echo "data ${bidx_array[$cx $cy]-$UNMAPPED_DATA}"
+            ;;
+        "$RD_BR_ADDR")
+            echo "data ${br_array[$cx $cy]-$UNMAPPED_DATA}"
+            ;;
+        "$RD_BG_ADDR")
+            echo "data ${bg_array[$cx $cy]-$UNMAPPED_DATA}"
+            ;;
+        "$RD_BB_ADDR")
+            echo "data ${bb_array[$cx $cy]-$UNMAPPED_DATA}"
+            ;;
         *)
             echo "data $UNMAPPED_DATA"
             ;;
@@ -116,8 +143,25 @@ parse_Char() {
     writes+=$tmp
     if (( cmode == 0 )); then
         printf -v 'tmp' '\e[38;5;%d;48;5;%dm' "$fidx" "$bidx"
+        fidx_array["$cx $cy"]="$fidx"
+        unset 'fr_array['"$cx $cy"']'
+        unset 'fg_array['"$cx $cy"']'
+        unset 'fb_array['"$cx $cy"']'
+        bidx_array["$cx $cy"]="$bidx"
+        unset 'br_array['"$cx $cy"']'
+        unset 'bg_array['"$cx $cy"']'
+        unset 'bb_array['"$cx $cy"']'
+        
     else
         printf -v 'tmp' '\e[38;2;%d;%d;%d;48;2;%d;%d;%dm' "$fr" "$fg" "$fb" "$br" "$bg" "$bb"
+        unset 'fidx_array['"$cx $cy"']'
+        fr_array["$cx $cy"]="$fr"
+        fg_array["$cx $cy"]="$fg"
+        fb_array["$cx $cy"]="$fb"
+        unset 'bidx_array['"$cx $cy"']'
+        br_array["$cx $cy"]="$br"
+        bg_array["$cx $cy"]="$bg"
+        bb_array["$cx $cy"]="$bb"
     fi
     writes+=$tmp
     if (( byte < 0x20 || byte == 0x7F )); then byte=0x20; fi

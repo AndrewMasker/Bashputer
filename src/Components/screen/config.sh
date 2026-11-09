@@ -22,4 +22,14 @@ printf -v 'CELL_ADDR' '0x%016X' 14      # Writes to a cell
 printf -v 'BLIT_ADDR' '0x%016X' 15      # Blits all writes onto the screen
 printf -v 'FILL_ADDR' '0x%016X' 16     # Clears the screen to the background color
 printf -v 'RESET_ADDR' '0x%016X' 17
+
+printf -v 'RD_FIDX_ADDR' '0x%016X' 18
+printf -v 'RD_FR_ADDR' '0x%016X' 19
+printf -v 'RD_FG_ADDR' '0x%016X' 20
+printf -v 'RD_FB_ADDR' '0x%016X' 21
+printf -v 'RD_BIDX_ADDR' '0x%016X' 22
+printf -v 'RD_BR_ADDR' '0x%016X' 23
+printf -v 'RD_BG_ADDR' '0x%016X' 24
+printf -v 'RD_BB_ADDR' '0x%016X' 25
+
 UNMAPPED_DATA=0xFF
