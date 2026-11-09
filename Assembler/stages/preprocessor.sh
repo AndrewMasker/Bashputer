@@ -89,7 +89,7 @@ _replace_Subs__Statement_Into_Subs_And_Arguments() {
         local depth=0
         local sub="${BASH_REMATCH[1]}"
         local argument=""
-        rest=${rest#*"$sub"}
+        rest=${rest#*"\$$sub"}
         if [[ ${rest:0:1} == '[' ]]; then
             depth=1
             argument+='['
@@ -104,7 +104,6 @@ _replace_Subs__Statement_Into_Subs_And_Arguments() {
                 elif [[ ${rest:0:1} == ']' ]]; then
                     depth=$(( depth - 1 ))
                 fi
-                sub+="${rest:0:1}"
                 argument+="${rest:0:1}"
             done
             argument="${argument:1:-1}"
@@ -120,8 +119,8 @@ expand_Subs() {
 }
 _replace_Subs__Replace_Macro_With_Arguments() {
     local regex='^[[:space:]]*([A-Za-z]\w*)[[:space:]]*=(.*)$'
-    remove_Surrounding_Whitespace argument
     local rest=$argument
+    remove_Surrounding_Whitespace rest
     while [[ $rest =~ $regex ]]; do
         local var="${BASH_REMATCH[1]}"
         local value=""
@@ -132,7 +131,7 @@ _replace_Subs__Replace_Macro_With_Arguments() {
                 rest="${rest:1}"
                 break
             fi
-            if [[ -z $rest ]] & (( depth != 0 )); then
+            if [[ -z $rest ]] && (( depth != 0 )); then
                 printf "unbalanced parentheses in %s\n" "$sub" >&2
                 exit 2
             fi
@@ -145,7 +144,7 @@ _replace_Subs__Replace_Macro_With_Arguments() {
             rest="${rest:1}"
         done
         remove_Surrounding_Whitespace value
-        value=$(expand_Subs $value) || { printf "error expanding argument substitutions for variable '%s' with value '%s'\n" "$var" "$value" >&2; exit 2; }
+        value=$(expand_Subs "$value") || { printf "error expanding argument substitutions for variable '%s' with value '%s'\n" "$var" "$value" >&2; exit 2; }
         map[$var]="$value"
     done
     if [[ $rest != "" ]]; then
@@ -167,7 +166,7 @@ _replace_Subs__Replace_Macro_With_Arguments() {
         body=${BASH_REMATCH[3]}
     done
     out+=$body
-    _statement=${_statement/"\$$sub"/"$out"}
+    _statement=${_statement/"\$$sub[$argument]"/"$out"}
 }
 replace_Subs() {
     local -n _statement=$1
