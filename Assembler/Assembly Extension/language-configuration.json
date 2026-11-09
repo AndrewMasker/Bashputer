@@ -4,7 +4,7 @@
         "lineComment": "#" , 
         "blockComment": ["#" , "/#"]
     } , 
-    "brackets": [["(" , ")"] , ["{" , "}"]] , 
-    "autoClosingPairs": [{ "open": "(" , "close": ")" } , { "open": "{" , "close": "}" }] , 
+    "brackets": [["(" , ")"] , ["{" , "}"] , ["[" , "]"]] , 
+    "autoClosingPairs": [{ "open": "(" , "close": ")" } , { "open": "{" , "close": "}" } , { "open": "[" , "close": "]" }] , 
     "wordPattern": "[$:]?[A-Za-z_]\\w*|0[xX][0-9A-Fa-f]+|\\d+"
 }

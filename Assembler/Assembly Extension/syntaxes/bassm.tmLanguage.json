@@ -7,6 +7,7 @@
         {"include": "#assembler-command"} ,
         {"include": "#substitution-definition"} , 
         {"include": "#substitution-usage"} , 
+        {"include": "#macro-variable"} , 
         {"include": "#label-definition"} , 
         {"include": "#label-usage"} , 
         {"include": "#mnemonic"} , 
@@ -44,6 +45,14 @@
             {
                 "1": {"name": "constant.character.escape.sub-use.bassm"} , 
                 "2": {"name": "variable.other.sub-name.bassm"}
+            }
+        } ,
+        "macro-variable":
+        {
+            "match": "(%[A-Za-z_]\\w*)" , 
+            "captures":
+            {
+                "1": {"name": "support.constant.property-value.macro-variable.bassm"}
             }
         } ,
         "label-definition":

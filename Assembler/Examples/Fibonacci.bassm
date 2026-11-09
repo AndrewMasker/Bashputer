@@ -74,10 +74,7 @@ def CELL = ( $SCREEN + 14 )
 def BLIT = ( $SCREEN + 15 )
 def FILL = ( $SCREEN + 16 )
 def RESET = ( $SCREEN + 17 )
-def func = liw %a, (%b + %c)
-def r_word = r5
-def seven = 7
-$func[a = $r_word , b = 5 , c = $seven]
+
 # Since we are done with the calculation, we only care about the result register which is r3
 
 def r_1 = r32
