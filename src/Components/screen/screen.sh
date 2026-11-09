@@ -12,21 +12,34 @@ exec {TTY}>/dev/tty
 
 declare -A fidx_array fr_array fg_array fb_array bidx_array br_array bg_array bb_array
 
+reset_Arrays() {
+    fidx_array=() fr_array=() fg_array=() fb_array=() 
+    bidx_array=() br_array=() bg_array=() bb_array=()
+    rd_fidx_df=$bidx
+    rd_fr_df=$br
+    rd_fg_df=$bg
+    rd_fb_df=$bb
+    rd_bidx_df=$bidx
+    rd_br_df=$br
+    rd_bg_df=$bg
+    rd_bb_df=$bb
+}
+
 reset() {
     writes=""
     mode=0x00
     cmode=0x00
     cx=0x00
     cy=0x00
-    fidx=0x10
-    fr=0x00
-    fg=0x00
-    fb=0x00
-    bidx=0x0F
+    fidx=0x0F
+    fr=0xFF
+    fg=0xFF
+    fb=0xFF
+    bidx=0x10
     br=0x00
     bg=0x00
     bb=0x00
-    declare -A fidx_array fr_array fg_array fb_array bidx_array br_array bg_array bb_array
+    reset_Arrays
 }
 
 parse_Load() {
@@ -78,28 +91,28 @@ parse_Load() {
             echo "data $HEIGHT"
             ;;
         "$RD_FIDX_ADDR")
-            echo "data ${fidx_array[$cx $cy]-$UNMAPPED_DATA}"
+            echo "data ${fidx_array[$cx $cy]-$rd_fidx_df}"
             ;;
         "$RD_FR_ADDR")
-            echo "data ${fr_array[$cx $cy]-$UNMAPPED_DATA}"
+            echo "data ${fr_array[$cx $cy]-$rd_fr_df}"
             ;;
         "$RD_FG_ADDR")
-            echo "data ${fg_array[$cx $cy]-$UNMAPPED_DATA}"
+            echo "data ${fg_array[$cx $cy]-$rd_fg_df}"
             ;;
         "$RD_FB_ADDR")
-            echo "data ${fb_array[$cx $cy]-$UNMAPPED_DATA}"
+            echo "data ${fb_array[$cx $cy]-$rd_fb_df}"
             ;;
         "$RD_BIDX_ADDR")
-            echo "data ${bidx_array[$cx $cy]-$UNMAPPED_DATA}"
+            echo "data ${bidx_array[$cx $cy]-$rd_bidx_df}"
             ;;
         "$RD_BR_ADDR")
-            echo "data ${br_array[$cx $cy]-$UNMAPPED_DATA}"
+            echo "data ${br_array[$cx $cy]-$rd_br_df}"
             ;;
         "$RD_BG_ADDR")
-            echo "data ${bg_array[$cx $cy]-$UNMAPPED_DATA}"
+            echo "data ${bg_array[$cx $cy]-$rd_bg_df}"
             ;;
         "$RD_BB_ADDR")
-            echo "data ${bb_array[$cx $cy]-$UNMAPPED_DATA}"
+            echo "data ${bb_array[$cx $cy]-$rd_bb_df}"
             ;;
         *)
             echo "data $UNMAPPED_DATA"
@@ -137,31 +150,38 @@ parse_CY() {
     fi
 }
 
+set_Arrays_0() {
+    fidx_array["$cx $cy"]="$fidx"
+    unset 'fr_array['"$cx $cy"']'
+    unset 'fg_array['"$cx $cy"']'
+    unset 'fb_array['"$cx $cy"']'
+    bidx_array["$cx $cy"]="$bidx"
+    unset 'br_array['"$cx $cy"']'
+    unset 'bg_array['"$cx $cy"']'
+    unset 'bb_array['"$cx $cy"']'
+}
+
+set_Arrays_1() {
+    fr_array["$cx $cy"]="$fr"
+    fg_array["$cx $cy"]="$fg"
+    fb_array["$cx $cy"]="$fb"
+    unset 'bidx_array['"$cx $cy"']'
+    br_array["$cx $cy"]="$br"
+    bg_array["$cx $cy"]="$bg"
+    bb_array["$cx $cy"]="$bb"
+}
+
 parse_Char() {
     local byte=$1 tmp
     printf -v 'tmp' '\e[%d;%dH' $(( cy + 1 )) $(( cx + 1))
     writes+=$tmp
     if (( cmode == 0 )); then
         printf -v 'tmp' '\e[38;5;%d;48;5;%dm' "$fidx" "$bidx"
-        fidx_array["$cx $cy"]="$fidx"
-        unset 'fr_array['"$cx $cy"']'
-        unset 'fg_array['"$cx $cy"']'
-        unset 'fb_array['"$cx $cy"']'
-        bidx_array["$cx $cy"]="$bidx"
-        unset 'br_array['"$cx $cy"']'
-        unset 'bg_array['"$cx $cy"']'
-        unset 'bb_array['"$cx $cy"']'
+        set_Arrays_0
         
     else
         printf -v 'tmp' '\e[38;2;%d;%d;%d;48;2;%d;%d;%dm' "$fr" "$fg" "$fb" "$br" "$bg" "$bb"
-        unset 'fidx_array['"$cx $cy"']'
-        fr_array["$cx $cy"]="$fr"
-        fg_array["$cx $cy"]="$fg"
-        fb_array["$cx $cy"]="$fb"
-        unset 'bidx_array['"$cx $cy"']'
-        br_array["$cx $cy"]="$br"
-        bg_array["$cx $cy"]="$bg"
-        bb_array["$cx $cy"]="$bb"
+        set_Arrays_1
     fi
     writes+=$tmp
     if (( byte < 0x20 || byte == 0x7F )); then byte=0x20; fi
@@ -175,8 +195,10 @@ parse_Pixel() {
     writes+=$tmp
     if (( cmode == 0 )); then
         printf -v 'tmp' '\e[38;5;%d;48;5;%dm' "$fidx" "$bidx"
+        set_Arrays_0
     else
         printf -v 'tmp' '\e[38;2;%d;%d;%d;48;2;%d;%d;%dm' "$fr" "$fg" "$fb" "$br" "$bg" "$bb"
+        set_Arrays_1
     fi
     writes+=$tmp
     writes+=$'\xE2\x96\x80'
@@ -200,8 +222,18 @@ parse_Fill() {
     local tmp
     if (( cmode == 0 )); then
         printf -v 'tmp' '\e[48;5;%dm\e[2J' "$bidx"
+        reset_Arrays
+        rd_fidx_df=$bidx
+        rd_bidx_df=$bidx
     else
         printf -v 'tmp' '\e[48;2;%d;%d;%dm\e[2J' "$br" "$bg" "$bb"
+        reset_Arrays
+        rd_fr_df=$br
+        rd_fg_df=$bg
+        rd_fb_df=$bb
+        rd_br_df=$br
+        rd_bg_df=$bg
+        rd_bb_df=$bb
     fi
     writes+=$tmp
 }
