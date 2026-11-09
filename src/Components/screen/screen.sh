@@ -169,6 +169,7 @@ set_Arrays_1() {
     br_array["$cx $cy"]="$br"
     bg_array["$cx $cy"]="$bg"
     bb_array["$cx $cy"]="$bb"
+    unset 'fidx_array['"$cx $cy"']'
 }
 
 parse_Char() {
@@ -223,17 +224,9 @@ parse_Fill() {
     if (( cmode == 0 )); then
         printf -v 'tmp' '\e[48;5;%dm\e[2J' "$bidx"
         reset_Arrays
-        rd_fidx_df=$bidx
-        rd_bidx_df=$bidx
     else
         printf -v 'tmp' '\e[48;2;%d;%d;%dm\e[2J' "$br" "$bg" "$bb"
         reset_Arrays
-        rd_fr_df=$br
-        rd_fg_df=$bg
-        rd_fb_df=$bb
-        rd_br_df=$br
-        rd_bg_df=$bg
-        rd_bb_df=$bb
     fi
     writes+=$tmp
 }
