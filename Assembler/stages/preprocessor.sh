@@ -146,7 +146,7 @@ _replace_Subs__Replace_Macro_With_Arguments() {
         remove_Surrounding_Whitespace value
         local tmp="$value"
         value=$(expand_Subs "$value") || { printf "error expanding argument substitutions for variable '%s' with value '%s'\n" "$var" "$tmp" >&2; exit 2; }
-        if [[! -v map[$var] ]]; then
+        if [[ ! -v map[$var] ]]; then
             map[$var]="$value"
         else
             printf "variable '%s' defined more than once in call of macro '%s' in statement '%s'\n" "$var" "$sub" "$_statement" >&2
@@ -196,12 +196,9 @@ replace_Subs() {
     done
 }
 ensure_No_Blacklisted() {
-    state=$1
+    local state=$1
     if [[ $state =~ '$' ]]; then 
         printf "unexpanded '\$' in statement '%s'\n" "$state" >&2
-        exit 2
-    elif [[ $state =~ '%' ]]; then
-        printf "unexpanded '%' in statement '%s'. Unpassed variable?\n" "$state" >&2
         exit 2
     fi
 }
