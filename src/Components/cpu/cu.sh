@@ -1132,9 +1132,9 @@ parse_RND_OPCODE() {
             ;;
         done_load)
             local x="$RNG"
-            (( x^= x << 13 , x^= ( x >> 7 ) & 0x01FFFFFFFFFFFFFF , x^= x << 17 , x*= 0x2545F4914F6CDD1D ))
+            (( x^= x << 13 , x^= ( x >> 7 ) & 0x01FFFFFFFFFFFFFF , x^= x << 17 ))
             printf -v RNG '0x%016X' "$x"
-            GPRs[ARGA]=$RNG
+            printf -v 'GPRs[ARGA]' '0x%016X' $(( x * 0x2545F4914F6CDD1D ))
             printf -v 'PC' '0x%016X' $((PC + 1))
             if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
             PROC_STATE[pidx]=""
