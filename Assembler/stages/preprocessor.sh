@@ -144,8 +144,14 @@ _replace_Subs__Replace_Macro_With_Arguments() {
             rest="${rest:1}"
         done
         remove_Surrounding_Whitespace value
-        value=$(expand_Subs "$value") || { printf "error expanding argument substitutions for variable '%s' with value '%s'\n" "$var" "$value" >&2; exit 2; }
-        map[$var]="$value"
+        local tmp="$value"
+        value=$(expand_Subs "$value") || { printf "error expanding argument substitutions for variable '%s' with value '%s'\n" "$var" "$tmp" >&2; exit 2; }
+        if [[! -v map[$var] ]]; then
+            map[$var]="$value"
+        else
+            printf "variable '%s' defined more than once in call of macro '%s' in statement '%s'\n" "$var" "$sub" "$_statement" >&2
+            exit 2
+        fi
     done
     if [[ $rest != "" ]]; then
         printf "invalid macro arguments in '%s'\n" "$sub" >&2
@@ -188,6 +194,16 @@ replace_Subs() {
             exit 2
         fi
     done
+}
+ensure_No_Blacklisted() {
+    state=$1
+    if [[ $state =~ '$' ]]; then 
+        printf "unexpanded '\$' in statement '%s'\n" "$state" >&2
+        exit 2
+    elif [[ $state =~ '%' ]]; then
+        printf "unexpanded '%' in statement '%s'. Unpassed variable?\n" "$state" >&2
+        exit 2
+    fi
 }
 
 # Loop over each line, remove comments and surrounding whitespace, then break each line on semiolons
@@ -279,6 +295,7 @@ for statement in "${STATES[@]}"; do
         break_On_Semicolons statement SUBSTATES
         for substate in "${SUBSTATES[@]}"; do
             if [[ -n $substate ]]; then
+                ensure_No_Blacklisted "$substate"
                 echo "$substate"
             fi
         done
