@@ -165,8 +165,10 @@ def height = 15                           # Cell height of the playable area
         $pokei[addr=$BIDX , val=$background]        # Set the background id to the backround color
         $poke[addr=$FILL , reg=$r_zero]             # Fill the 
         $pokei[addr=$MODE , val = 1]                # Set the screen to pixel mode
-        def i=($width + 2)
-        for[i=$i , do=$body]
+        def body = {
+            
+        }
+        for[i=($width + 2) , do=$body]
         ret
     !endscope
 

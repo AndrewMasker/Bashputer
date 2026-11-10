@@ -128,6 +128,7 @@ _replace_Subs__Replace_Macro_With_Arguments() {
         local value=""
         rest="${BASH_REMATCH[2]}"
         local depth=0
+        local stack=()
         while true; do
             if [[ ${rest:0:1} == ',' || $rest == "" ]] && (( depth == 0 )); then
                 rest="${rest:1}"
@@ -137,10 +138,21 @@ _replace_Subs__Replace_Macro_With_Arguments() {
                 printf "unbalanced parentheses in %s\n" "$sub" >&2
                 exit 2
             fi
-            if [[ ${rest:0:1} == '(' ]]; then
+            if [[ ${rest:0:1} == '(|[|{' ]]; then
+                stack+=("${rest:0:1}")
                 depth=$(( depth + 1 ))
-            elif [[ ${rest:0:1} == ')' ]]; then
-                depth=$(( depth - 1 ))
+            elif [[ ${rest:0:1} == ')|]|}' ]]; then
+                if [[ -v stack[-1] ]]; then
+                    printf "cannot close a delimiter without opening within the statement '%s'\n" "$_statement" >&2
+                    exit 2
+                fi
+                if [[ ${stack[-1]} == ${rest:0:1} ]]; then
+                    depth=$(( depth - 1 ))
+                    stack=${stack[@]:0:-1}
+                else
+                    printf "mismatched delimiter type within the statement '%s'\n" "$_statement" >&2
+                    exit 2
+                fi
             fi
             value+="${rest:0:1}"
             rest="${rest:1}"
