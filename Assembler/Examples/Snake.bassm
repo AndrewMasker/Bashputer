@@ -29,7 +29,9 @@ def MODE  = ( $SCREEN + 0 )                 # 0 = characters, 1 = half-block pix
 def CMODE = ( $SCREEN + 1 )                 # 0 = palette index, 1 = 24-bit RGB
 def CX    = ( $SCREEN + 2 )
 def CY    = ( $SCREEN + 3 )
+def FIDX  = ( $SCREEN + 4 )
 def FR    = ( $SCREEN + 5 ) ; def FG = ( $SCREEN + 6 ) ; def FB = ( $SCREEN + 7 )
+def BIDX  = ( $SCREEN + 8 )
 def BR    = ( $SCREEN + 9 ) ; def BG = ( $SCREEN + 10 ) ; def BB = ( $SCREEN + 11 )
 def CELL  = ( $SCREEN + 14 )
 def BLIT  = ( $SCREEN + 15 )
@@ -57,6 +59,9 @@ def r_unsafe = r4                           # Dedicated scratch register
 def r_more = r5                             # Register to hold the countdown index
 def r_index = r6                            # Register to hold the current index
 def r_cond = r7                             # Register to hold the condition
+def r_one = r6                              # Register which will hold one
+
+lib $r_one , 1
 
 # ==================================================================================
 # CONSTANTS
@@ -158,24 +163,60 @@ def height = 15                           # Cell height of the playable area
     pc $r_origin
     sjo $r_origin
 
-    jmpi :END_INIT
+    jmpi :END_FUNCTIONS
 
     !scope reset_screen 
         $pokei[addr=$CMODE , val = 0]               # Set the screen to id based color mode
         $pokei[addr=$BIDX , val=$background]        # Set the background id to the backround color
         $poke[addr=$FILL , reg=$r_zero]             # Fill the 
         $pokei[addr=$MODE , val = 1]                # Set the screen to pixel mode
+
+        $pokei[addr=$CY , val = 0]
         def body = {
-            
+            $poke[addr=$CX , reg=$r_index]
+            $pokei[addr=$FIDX , val=$background]
+            $pokei[addr=$BIDX , val=$walls]
+            $poke[addr=$CELL , reg=$r_zero]
         }
-        for[i=($width + 2) , do=$body]
+        $for[i=($width + 2) , do=$body]
+
+        $pokei[addr=$CY , val = ($height + 1)]
+        def body = {
+            $poke[addr=$CX , reg=$r_index]
+            $pokei[addr=$FIDX , val=$walls]
+            $pokei[addr=$BIDX , val=$background]
+            $poke[addr=$CELL , reg=$r_zero]
+        }
+        $for[i=($width + 2) , do=$body]
+
+        $pokei[addr=$CX , val = 1]
+        def body = {
+            add $r_index , $r_one , $r_unsafe
+            $poke[addr=$CY , reg=$r_unsafe]
+            $pokei[addr=$FIDX , val=$walls]
+            $pokei[addr=$BIDX , val=$walls]
+            $poke[addr=$CELL , reg=$r_zero]
+        }
+        $for[i=($height) , do=$body]
+
+        $pokei[addr=$CX , val = ($width + 1)]
+        def body = {
+            add $r_index , $r_one , $r_unsafe
+            $poke[addr=$CY , reg=$r_unsafe]
+            $pokei[addr=$FIDX , val=$walls]
+            $pokei[addr=$BIDX , val=$walls]
+            $poke[addr=$CELL , reg=$r_zero]
+        }
+        $for[i=($height) , do=$body]
+        $poke[addr=$BLIT , reg=$r_zero]
         ret
     !endscope
 
-    END_INIT:
+    END_FUNCTIONS:
 
 # ==================================================================================
 # PROGRAM
 # ==================================================================================
 #
-
+cali :reset_screen
+hlt
