@@ -18,40 +18,162 @@
 # ==================================================================================
 #
 # MEMORY MAPPED IO: This section was in part taken from the Showcase.bassm
-        # Memory map
-        def SCREEN   = ( 1 * 64 * 1000 )
-        def KEYBOARD = ( 3 * 64 * 1000 )
-        def TIMER    = ( 4 * 64 * 1000 )
-        def RAM      = ( 6 * 64 * 1000 )
+# Memory map
+def SCREEN   = ( 1 * 64 * 1000 )
+def KEYBOARD = ( 3 * 64 * 1000 )
+def TIMER    = ( 4 * 64 * 1000 )
+def RAM      = ( 6 * 64 * 1000 )
 
-        # Screen registers 
-        def MODE  = ( $SCREEN + 0 )                 # 0 = characters, 1 = half-block pixels
-        def CMODE = ( $SCREEN + 1 )                 # 0 = palette index, 1 = 24-bit RGB
-        def CX    = ( $SCREEN + 2 )
-        def CY    = ( $SCREEN + 3 )
-        def FR    = ( $SCREEN + 5 ) ; def FG = ( $SCREEN + 6 ) ; def FB = ( $SCREEN + 7 )
-        def BR    = ( $SCREEN + 9 ) ; def BG = ( $SCREEN + 10 ) ; def BB = ( $SCREEN + 11 )
-        def CELL  = ( $SCREEN + 14 )
-        def BLIT  = ( $SCREEN + 15 )
-        def FILL  = ( $SCREEN + 16 )
+# Screen registers 
+def MODE  = ( $SCREEN + 0 )                 # 0 = characters, 1 = half-block pixels
+def CMODE = ( $SCREEN + 1 )                 # 0 = palette index, 1 = 24-bit RGB
+def CX    = ( $SCREEN + 2 )
+def CY    = ( $SCREEN + 3 )
+def FR    = ( $SCREEN + 5 ) ; def FG = ( $SCREEN + 6 ) ; def FB = ( $SCREEN + 7 )
+def BR    = ( $SCREEN + 9 ) ; def BG = ( $SCREEN + 10 ) ; def BB = ( $SCREEN + 11 )
+def CELL  = ( $SCREEN + 14 )
+def BLIT  = ( $SCREEN + 15 )
+def FILL  = ( $SCREEN + 16 )
 
-        # Keyboard registers
-        def KB_STATUS = ( $KEYBOARD + 0 )           # 1 while a key is waiting
-        def KB_DATA   = ( $KEYBOARD + 1 )           # reading pops one byte
-        def KB_CLEAR  = ( $KEYBOARD + 2 )           # reading flushes the buffer
+# Keyboard registers
+def KB_STATUS = ( $KEYBOARD + 0 )           # 1 while a key is waiting
+def KB_DATA   = ( $KEYBOARD + 1 )           # reading pops one byte
+def KB_CLEAR  = ( $KEYBOARD + 2 )           # reading flushes the buffer
 
-        # Timer registers
-        def TIMER_RESET = ( $TIMER + 0 )            # any write restarts the count
-        def TIMER_LATCH = ( $TIMER + 1 )            # any write captures the count
-        def TIMER_TICKS = ( $TIMER + 2 )            # 8 bytes, 1 tick = 1 ms
+# Timer registers
+def TIMER_RESET = ( $TIMER + 0 )            # any write restarts the count
+def TIMER_LATCH = ( $TIMER + 1 )            # any write captures the count
+def TIMER_TICKS = ( $TIMER + 2 )            # 8 bytes, 1 tick = 1 ms
+
+# ==================================================================================
+# REGISTERS
+# ==================================================================================
+#
+def r_addr = r0                             # The address register
+def r_timer = r1                            # The timer register
+def r_zero = r2                             # Dedicated empty register
+def r_origin = r3                           # The register that holds 
+def r_unsafe = r4                           # Dedicated scratch register
+def r_more = r5                             # Register to hold the countdown index
+def r_index = r6                            # Register to hold the current index
+def r_cond = r7                             # Register to hold the condition
+
+# ==================================================================================
+# CONSTANTS
+# ==================================================================================
+#
+def background = 0x10
+def snake = 0x0A
+def apples = 0x09
+def walls = 0x0F
+def width = 30                            # Cell width of the playable area
+def height = 15                           # Cell height of the playable area
 
 # ==================================================================================
 # MACROS
 # ==================================================================================
 #
 # DATA HANDLING:
-        def peek = 
-        {
-            liw $r_addr , @addr
-            
-        }
+    # peek[addr= , reg= ] - sets register to the value stored in the address
+    def peek = 
+    {
+        liw $r_addr , @addr
+        ldb $r_addr , @reg
+    }
+
+    # poke[addr= , reg= ] - sets the address to the value stored in the low byte of the register
+    def poke = 
+    {
+        liw $r_addr , @addr
+        stb @reg , $r_addr
+    }
+
+    # pokei[addr= , val= ] - sets the address to the value (byte only)
+    def pokei = 
+    {
+        liw $r_addr , @addr
+        lib $r_unsafe , @val
+        stb $r_unsafe , $r_addr
+    }
+
+# TIMER READING:
+    # reset_timer - resets the timer 
+    def reset_timer = 
+    {
+        poke[addr = $TIMER_RESET , reg = $r_zero]
+    }
+
+    # read_timer - reads the timer 
+    def read_timer = 
+    {
+        poke[addr = $TIMER_LATCH , reg = $r_zero]
+        liw $r_addr , $TIMER_TICKS
+        ldw $r_addr , $r_timer
+    }
+
+# GENERAL:
+    # for[i= do= ] - does do i times i is limited to a quarter
+    def for = 
+    {
+        pshq $r_index
+        pshq $r_more
+        liq $r_more , @i
+        lib $r_index , 0
+        bzi $r_more , :.endfor
+        loop:
+            !scope
+                @do
+            !endscope
+        next:
+            dec $r_more
+            inc $r_index
+            bnzi $r_more , :.loop
+        endfor:
+            popq $r_more
+            popq $r_index
+    }
+
+    # if[reg= , is= , do= , elsedo=] - does @do if @reg is equal to @is else does @elsedo @is is limited to a half
+    def if = 
+    {
+        liq $r_cond , @is
+        eq $r_cond , @reg , $r_cond
+        bzi $r_cond , :.else
+        !scope
+            @do
+        !endscope
+        jmpi :.endif
+        else:
+            !scope
+                @elsedo
+            !endscope
+        endif:
+    }
+
+# ==================================================================================
+# INITIALIZATION AND FUNCTIONS
+# ==================================================================================
+#
+    !label_origin
+    pc $r_origin
+    sjo $r_origin
+
+    jmpi :END_INIT
+
+    !scope reset_screen 
+        $pokei[addr=$CMODE , val = 0]               # Set the screen to id based color mode
+        $pokei[addr=$BIDX , val=$background]        # Set the background id to the backround color
+        $poke[addr=$FILL , reg=$r_zero]             # Fill the 
+        $pokei[addr=$MODE , val = 1]                # Set the screen to pixel mode
+        def i=($width + 2)
+        for[i=$i , do=$body]
+        ret
+    !endscope
+
+    END_INIT:
+
+# ==================================================================================
+# PROGRAM
+# ==================================================================================
+#
+
