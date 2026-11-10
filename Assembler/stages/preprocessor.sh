@@ -138,17 +138,21 @@ _replace_Subs__Replace_Macro_With_Arguments() {
                 printf "unbalanced parentheses in %s\n" "$sub" >&2
                 exit 2
             fi
-            if [[ ${rest:0:1} == '(|[|{' ]]; then
-                stack+=("${rest:0:1}")
+            if [[ ${rest:0:1} =~ "(|[|{" ]]; then
+                case ${rest:0:1} in
+                    '(') stack+=(')') ;;
+                    '[') stack+=(']') ;;
+                    '{') stack+=('}') ;;
+                esac
                 depth=$(( depth + 1 ))
-            elif [[ ${rest:0:1} == ')|]|}' ]]; then
-                if [[ -v stack[-1] ]]; then
+            elif [[ ${rest:0:1} =~ ")|]|}" ]]; then
+                if [[ ! -v stack[-1] ]]; then
                     printf "cannot close a delimiter without opening within the statement '%s'\n" "$_statement" >&2
                     exit 2
                 fi
                 if [[ ${stack[-1]} == ${rest:0:1} ]]; then
                     depth=$(( depth - 1 ))
-                    stack=${stack[@]:0:-1}
+                    unset stack[-1]
                 else
                     printf "mismatched delimiter type within the statement '%s'\n" "$_statement" >&2
                     exit 2
@@ -158,6 +162,7 @@ _replace_Subs__Replace_Macro_With_Arguments() {
             rest="${rest:1}"
         done
         remove_Surrounding_Whitespace value
+        if [[ $value == \{*\} ]]; then value=${value:1:-1}; fi
         local tmp="$value"
         value=$(expand_Subs "$value") || { printf "error expanding argument substitutions for variable '%s' with value '%s'\n" "$var" "$tmp" >&2; exit 2; }
         if [[ ! -v map[$var] ]]; then
