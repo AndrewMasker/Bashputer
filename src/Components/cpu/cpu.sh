@@ -67,18 +67,18 @@ parse_Ready_CLK() {
 
 parse_CLK() {
     case $CPU_STATE in
-        reset) 
+        reset) while [[ $CPU_STATE == reset ]]; do parse_Reset_CLK; done ;;
+        ready)
             local steps=0
             BUS_USED=false
             while [[ $CPU_STATE == ready ]] && ! $BUS_USED; do
-                parse_Reset_CLK
+                parse_Ready_CLK
                 steps=$(( steps + 1 ))
                 if (( steps > 100 )); then
                     die "no bus activity in 100 steps"
                 fi
             done
             ;;
-        ready) parse_Ready_CLK ;;
         stalled) echo "$COMPONENT_NAME stalled" ;;
         halted) echo "$COMPONENT_NAME halted" ;;
         *) die "unknown CPU_STATE '$CPU_STATE'" ;;
