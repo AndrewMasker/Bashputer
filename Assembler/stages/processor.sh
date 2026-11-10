@@ -16,6 +16,13 @@ elif [[ ! -e $INP || ! -f $INP || ! -r $INP ]]; then
     exit 1
 fi
 
+ANON_ID=0
+
+remove_Surrounding_Whitespace() {
+    local -n _line=$1
+    _line="${_line##*([[:space:]])}"
+    _line="${_line%%*([[:space:]])}"
+}
 do_Assembler_Command() {
     local line=$1
     if [[ ! $line == '!'* ]]; then return 1; fi
@@ -30,7 +37,12 @@ do_Assembler_Command() {
             return 0
             ;;
         !SCOPE)
-            do_Label_Assignment "$arg:" || true
+            remove_Surrounding_Whitespace arg
+            if [[ -z $arg ]]; then
+                arg="ANON_$ANON_ID"
+                ANON_ID=$(( ANON_ID + 1 ))
+            fi
+            do_Label_Assignment "$arg:"
             SCOPES+=("$arg")
             ;;
         !ENDSCOPE)
@@ -116,12 +128,16 @@ do_Label_Replacement() {
                     fi
                     unset 'parents[-1]'
                 done    
-                if [[ ! $resolved ]]; then
+                label_key=$label
+                if [[ -v LABELS[$label_key] ]]; then
+                    resolved=true
+                fi
+                if ! $resolved; then
                     printf "label '%s' in statement '%s' could not be resolved\n" "$dot$label" "${_STATES[i]}" >&2
                     exit 2
                 fi
             fi
-            _STATES[i]=${_STATES[i]/"${BASH_REMATCH[0]}"/$((${LABELS[$label_key]} - ${STATE_ORIGINS[i]}))"${BASH_REMATCH[3]}"}
+            _STATES[i]=${_STATES[i]/"${BASH_REMATCH[0]}"/$((${LABELS[$label_key]} - ${STATE_ORIGINS[i]}))"${BASH_REMATCH[4]}"}
         done
     done
 }
@@ -202,6 +218,11 @@ while read -r line || [[ -n $line ]]; do
         continue
     fi
 done < "$INP"
+
+if [[ -n ${SCOPES[0]} ]]; then
+    printf "unclosed scopes '%s'\n" "${SCOPES[*]}" >&2
+    exit 2
+fi
 
 do_Label_Replacement STATES
 do_Arithmetic STATES
