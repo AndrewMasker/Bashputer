@@ -19,26 +19,41 @@ fi
 do_Assembler_Command() {
     local line=$1
     if [[ ! $line == '!'* ]]; then return 1; fi
-    local label_origin_regex='^!LABEL_ORIGIN([[:space:]]|$)'
-    local scope_push_regex='^!SCOPE[[:space:]]+([[A-Za-z_]\w*])[[:space:]]*(;|$)'
-    local scope_pop_regex='^!ENDSCOPE[[:space:]]*(;|$)'
-    if ( shopt -s nocasematch; [[ $line =~ $label_origin_regex ]] ); then
-        ORIGIN=$ADDR
-        return 0
-    elif ( shopt -s nocasematch; [[ $line =~ $scope_push_regex ]] ); then
-        scopes+=("${BASH_REMATCH[1]}")
-        do_Label_Assignment "${BASH_REMATCH[1]}:" || true
-    elif ( shopt -s nocasematch; [[ $line =~ $scope_pop_regex ]] ); then
-        scopes=${scopes[@]:0:-1}
-    else
-        printf "unknown assembler command '%s'\n" "$line" >&2
-        exit 2
-    fi
+    local cmd=${line%%[[:space:]]*} arg=${line#"${line%%[[:space:]]*}"}
+    
+    # local label_origin_regex='^!LABEL_ORIGIN([[:space:]]|$)'
+    # local scope_push_regex='^!SCOPE[[:space:]]+([[A-Za-z_]\w*])[[:space:]]*(;|$)'
+    # local scope_pop_regex='^!ENDSCOPE[[:space:]]*(;|$)'
+    case ${cmd^^} in
+        !LABEL_ORIGIN)
+            ORIGIN=$ADDR
+            return 0
+            ;;
+        !SCOPE)
+            do_Label_Assignment "$arg:" || true
+            SCOPES+=("$arg")
+            ;;
+        !ENDSCOPE)
+            if [[ -z ${SCOPES[0]} ]]; then
+                printf "no scope exists to end on line '%s'\n" "$line" >&2
+                exit 2
+            fi
+            unset 'SCOPES[-1]'
+            ;;
+        *)
+            printf "unknown assembler command '%s'\n" "$line" >&2
+            exit 2
+            ;;
+    esac
 }
 do_Label_Assignment() {
-    local line=$1 dots label scope regex='^([A-Za-z_][A-Za-z0-9_]*):$'
+    local line=$1 label regex='^([A-Za-z_][A-Za-z0-9_]*):$'
     if [[ ! $line =~ $regex ]]; then return 1; fi
-    label=$(IFS=.; printf '%s' "${SCOPES[*]}")."${BASH_REMATCH[1]}"
+    if [[ -z ${SCOPES[0]} ]]; then
+        label=${BASH_REMATCH[1]}
+    else
+        label=$(IFS=.; printf '%s' "${SCOPES[*]}")."${BASH_REMATCH[1]}"
+    fi
     if [[ -n ${LABELS[$label]} ]]; then
         printf "label '%s' was defined more than once at address '%s' and at address '%s'\n" "$label" "${LABELS[$label]}" "$ADDR" >&2
         exit 2
@@ -83,11 +98,11 @@ advance_ADDR() {
 }
 do_Label_Replacement() {
     local -n _STATES=$1
-    local regex=':(\.?)([A-Za-z_][A-Za-z0-9_]*)([^A-Za-z0-9_]|$)' i dot label label_key local_regex parents resolved
+    local regex=':(\.?)([A-Za-z_]\w*(\.[A-Za-z_]\w*)*)([^A-Za-z0-9_]|$)' i dot label label_key local_regex parents resolved
     for i in "${!_STATES[@]}"; do
         while [[ ${_STATES[i]} =~ $regex ]]; do
-            dot=${BASH_REMATCH[2]}
-            label=${BASH_REMATCH[3]}
+            dot=${BASH_REMATCH[1]}
+            label=${BASH_REMATCH[2]}
             if [[ $dot == "" ]]; then # Global label or pathed from global
                 label_key=$label
             else
@@ -99,13 +114,14 @@ do_Label_Replacement() {
                         resolved=true
                         break
                     fi
+                    unset 'parents[-1]'
                 done    
-                if [[ ! resolved ]]; then
+                if [[ ! $resolved ]]; then
                     printf "label '%s' in statement '%s' could not be resolved\n" "$dot$label" "${_STATES[i]}" >&2
                     exit 2
                 fi
-                _STATES[i]=${_STATES[i]/"${BASH_REMATCH[0]}"/$((${LABELS[$label_key]} - ${STATE_ORIGINS[i]}))"${BASH_REMATCH[3]}"}
             fi
+            _STATES[i]=${_STATES[i]/"${BASH_REMATCH[0]}"/$((${LABELS[$label_key]} - ${STATE_ORIGINS[i]}))"${BASH_REMATCH[3]}"}
         done
     done
 }
