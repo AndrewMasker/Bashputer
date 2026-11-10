@@ -130,7 +130,7 @@ _replace_Subs__Replace_Macro_With_Arguments() {
         local depth=0
         local stack=()
         local open_regex='[([{]'
-        local close_regex='[)]}]'
+        local close_regex='[])}]'
         while true; do
             if [[ ${rest:0:1} == ',' || $rest == "" ]] && (( depth == 0 )); then
                 rest="${rest:1}"
@@ -154,7 +154,7 @@ _replace_Subs__Replace_Macro_With_Arguments() {
                 fi
                 if [[ ${stack[-1]} == ${rest:0:1} ]]; then
                     depth=$(( depth - 1 ))
-                    unset stack[-1]
+                    unset 'stack[-1]'
                 else
                     printf "mismatched delimiter type within the statement '%s'\n" "$_statement" >&2
                     exit 2
@@ -279,19 +279,21 @@ for (( i = 0; i < n; i++)); do
         statement+=" ${STATES[j]}"
         unset 'STATES[j]'
     fi
-    if [[ $statement =~ \{ ]]; then 
-        while [[ ! $statement =~ \} ]]; do
-            (( ++j ))
-            if (( j >= n )); then
-                printf "no closing brace for statement '%s'\n" "${STATES[i]}" >&2
-                exit 2
-            fi
-            statement+="; ${STATES[j]}"
-            unset 'STATES[j]'
-        done
-        STATES[i]=$statement
-        i=$j
-    fi
+    opens=${statement//[^\{]/}
+    closes=${statement//[^\}]/}
+    while (( ${#opens} > ${#closes} )); do
+        (( ++j ))
+        if (( j >= n )); then
+            printf "no closing brace for statement '%s'\n" "${STATES[i]}" >&2
+            exit 2
+        fi
+        statement+="; ${STATES[j]}"
+        unset 'STATES[j]'
+        opens=${statement//[^\{]/}
+        closes=${statement//[^\}]/}
+    done
+    STATES[i]=$statement
+    i=$j
 done
 STATES=("${STATES[@]}")
 
