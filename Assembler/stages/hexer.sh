@@ -7,6 +7,8 @@
 MY_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source "$MY_DIR"/../opcodes.sh
 
+set -o posix
+
 shopt -s extglob
 
 INP=${1:-}
@@ -43,16 +45,20 @@ parse_Number() {
     local -n _num=$2
     local hex_regex='^(-?)0[xX]([[:xdigit:]]+)$'
     local bin_regex='^(-?)0[bB]([01]+)$'
-    local oct_regex='^(-?)0([0-7]+)$'
+    local oct_regex='^(-?)0([0-9]+)$'
     local dec_regex='^(-?)([0-9]+)$'
     if [[ $arg =~ $hex_regex ]]; then
-        _num=$(( ${BASH_REMATCH[1]16#${BASH_REMATCH[2]}}))
+        _num=$(( ${BASH_REMATCH[1]}16#${BASH_REMATCH[2]}))
     elif [[ $arg =~ $bin_regex ]]; then
-        _num=$(( ${BASH_REMATCH[1]2#${BASH_REMATCH[2]}}))
+        _num=$(( ${BASH_REMATCH[1]}2#${BASH_REMATCH[2]}))
     elif [[ $arg =~ $oct_regex ]]; then
-        _num=$(( ${BASH_REMATCH[1]8#${BASH_REMATCH[2]}}))
+        _num=$(( ${BASH_REMATCH[1]}8#${BASH_REMATCH[2]}))
+        if [[ ${BASH_REMATCH[2]} =~ '[89]' ]]; then
+            printf "octal number '%s' cannot contain 8 or 9\n" "$arg" >&2
+            exit 2
+        fi
     elif [[ $arg =~ $dec_regex ]]; then
-        _num=$(( ${BASH_REMATCH[1]10#${BASH_REMATCH[2]}}))
+        _num=$(( ${BASH_REMATCH[1]}10#${BASH_REMATCH[2]}))
     else
         return 1
     fi
@@ -60,11 +66,10 @@ parse_Number() {
 translate_Pseudo_Mnemonic() {
     local mnemonic=$1 args=$2 ARGS=() arg byte val
     local -n __BYTES=$3
-    local num_regex='^-?([0-9]+|0[xX][[:xdigit:]]+)$'
     if [[ $mnemonic == DB ]]; then
         break_On_Commas args ARGS
         for arg in "${ARGS[@]}"; do
-            if ! parse_Number $arg val; then
+            if ! parse_Number "$arg" val; then
                 printf "db item '%s' is not a number\n" "$arg" >&2
                 exit 2
             fi
@@ -82,7 +87,6 @@ translate_Line() {
     local -n _BYTES=$2
     local regex='^([A-Za-z_][[:alnum:]_]*)'
     local reg_regex='^[rR]([0-9]+)$'
-    local num_regex='^-?([0-9]+|0[xX][[:xdigit:]]+)$'
     if [[ ! $line =~ $regex ]]; then
         printf "line '%s' does not start with a mnemonic'\n" "$line" >&2
         exit 2
@@ -126,7 +130,7 @@ translate_Line() {
         n_bytes=${num_bytes[i]}
         if [[ $arg =~ $reg_regex ]]; then
             val=${BASH_REMATCH[1]}
-        elif parse_Number $arg val; then
+        elif parse_Number "$arg" val; then
             :
         else
             printf "line '%s' contains an argument '%s' with unknown type\n" "$line" "$arg" >&2

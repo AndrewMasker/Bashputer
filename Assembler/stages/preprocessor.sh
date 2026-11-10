@@ -158,7 +158,7 @@ _replace_Subs__Replace_Macro_With_Arguments() {
         exit 2
     fi
     local body=${SUBS[$sub]}
-    local var_regex='^([^@]*)%([A-Za-z]\w*)(.*)'
+    local var_regex='^([^@]*)@([A-Za-z]\w*)(.*)'
     local out=""
     while [[ $body =~ $var_regex ]]; do
         out+="${BASH_REMATCH[1]}"
@@ -201,7 +201,7 @@ ensure_No_Blacklisted() {
         printf "unexpanded '\$' in statement '%s'\n" "$state" >&2
         exit 2
     elif [[ $state =~ '@' ]]; then 
-        printf "unexpanded '\$' in statement '%s'\n" "$state" >&2
+        printf "unexpanded '@' in statement '%s'\n" "$state" >&2
         exit 2
     fi
 }

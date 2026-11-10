@@ -108,6 +108,10 @@
                     "name": "constant.numeric.binary.bassm"
                 } ,
                 {
+                    "match": "\\b0[0-7]+\\b" , 
+                    "name": "constant.numeric.octal.bassm"
+                } ,
+                {
                     "match": "\\b\\d+\\b" , 
                     "name": "constant.numeric.decimal.bassm"
                 } ,
