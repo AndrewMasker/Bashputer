@@ -1,0 +1,490 @@
+# Showcase.bassm - a guided tour of every Bashputer assembly feature
+# Author: Claude Opus 5.5
+# Written by claude so I didn't have to keep all of this in my head 
+#
+# When run it:
+#   * prints a centred title, then one line per demo: a label and a result in hex
+#   * paints a strip of random RGB pixels
+#   * reports how many milliseconds the tour took
+#   * echoes your keypresses until you press q
+#
+# Expected output (RND is fixed because the generator is re-seeded with 0, MS varies):
+#
+#                  BASHPUTER TOUR
+#
+#   GCD  0x15                  gcd(1071, 462) = 21
+#   SQRT 0x3E8                 isqrt(1000000) = 1000
+#   ABS  0x4D2                 |-1234| = 1234
+#   10!  0x375F00              10! = 3628800
+#   ZERO 0x8                   zero bits in 0xFFFFFFFFFFFFFF00
+#   ROL  0x18                  0x8000000000000001 rotated left by 4
+#   CMP  0x2A                  one bit per comparison opcode, see the compare demo
+#   MEM  0xCAFEF00DBEEF7742 OK  mixed-width stores read back with mixed-width loads
+#   STK  0xF                   bytes on the scratch stack after pushing 1+2+4+8
+#   POP  0x44444444777799AA    sum of everything popped back off it
+#   RND  0x...                 first value after `seed 0`
+#   <random pixel strip>
+#   MS   0x...
+#   TYPE, q QUITS: ...
+#
+# Feature index (search for the tag to find each one):
+#   [comments]   whole-line comments, and inline comments closed by a slash-hash
+#   [semicolon]  several statements on one line
+#   [def]        plain substitutions, substitutions built from other substitutions
+#   [arith]      ( ... ) arithmetic: decimal, hex, binary, ~ << >> ?: and friends
+#   [multiline]  ( ... ) arithmetic spread over several lines, with local variables
+#   [block]      one-line `{ a ; b }` blocks and multi-line blocks
+#   [macro]      @parameters, macros that call macros, a mnemonic passed as an argument
+#   [autoscope]  macros that define labels are wrapped in their own anonymous scope
+#   [undef]      removing a substitution once it is no longer needed
+#   [scope]      named scopes, anonymous scopes, nesting, :.local and :dotted.path refs
+#   [origin]     !label_origin + pc + sjo for position-independent code
+#   [db]         raw data bytes in decimal, hex, binary, octal and arithmetic
+#   [case]       mnemonics, registers and assembler commands are case-insensitive
+
+# ======================================================================
+# Substitutions                                                   [def]
+# ======================================================================
+
+# Memory map, from src/Components/bus_interconnect/config.sh        [arith]
+def SCREEN   = ( 1 * 64 * 1000 )
+def KEYBOARD = ( 3 * 64 * 1000 )
+def TIMER    = ( 4 * 64 * 1000 )
+def RAM      = ( 6 * 64 * 1000 )
+
+# Screen registers (built from other substitutions)
+def MODE  = ( $SCREEN + 0 )                 # 0 = characters, 1 = half-block pixels
+def CMODE = ( $SCREEN + 1 )                 # 0 = palette index, 1 = 24-bit RGB
+def CX    = ( $SCREEN + 2 )
+def CY    = ( $SCREEN + 3 )
+def FR    = ( $SCREEN + 5 ) ; def FG = ( $SCREEN + 6 ) ; def FB = ( $SCREEN + 7 )     # [semicolon]
+def BR    = ( $SCREEN + 9 ) ; def BG = ( $SCREEN + 10 ) ; def BB = ( $SCREEN + 11 )
+def CELL  = ( $SCREEN + 14 )
+def BLIT  = ( $SCREEN + 15 )
+def FILL  = ( $SCREEN + 16 )
+
+# Keyboard and timer registers
+def KB_STATUS   = ( $KEYBOARD + 0 )         # 1 while a key is waiting
+def KB_DATA     = ( $KEYBOARD + 1 )         # reading pops one byte
+def KB_CLEAR    = ( $KEYBOARD + 2 )         # reading flushes the buffer
+def TIMER_RESET = ( $TIMER + 0 )            # any write restarts the count
+def TIMER_LATCH = ( $TIMER + 1 )            # any write captures the count
+def TIMER_TICKS = ( $TIMER + 2 )            # 8 bytes, 1 tick = 1 ms
+
+# A scratch area in RAM, worked out in a multi-line expression.   [multiline]
+# The lines are joined with commas, so `page` is a variable local to this expression.
+def SCRATCH = (
+    page = 0x100                            # stay clear of the very start of RAM
+    $RAM + page
+)
+def STACK2 = ( $SCRATCH + 0x400 )           # a second stack, grows upward from here
+
+# Tunables
+def LEFT = 0                                # left margin column
+def WIDE = 0                                # set to 1 for a wider pixel strip
+def COLS = ( $WIDE ? 24 : 16 )              # ternary                   [arith]
+
+# Registers. The assembler accepts r or R.                         [case]
+def r_base = r1                             # absolute address of the origin; also the JO
+def r_addr = r2                             # scratch address used by POKE and PEEK
+def r_ch   = r3                             # putc: character to draw
+def r_col  = r4                             # putc: column
+def r_row  = r5                             # current row
+def r_val  = r6                             # print_hex: value to print
+def r_str  = r7                             # puts: origin-relative string address
+def r_cx   = r8                             # holds the CX address (putc is hot)
+def r_cell = r9                             # holds the CELL address
+def r_nl   = r10                            # function pointer to newline
+def r_a    = R16                            # demo scratch registers
+def r_b    = R17
+def r_c    = R18
+def r_d    = R19
+def r_e    = R20
+def r_f    = R21
+def r_s    = r24                            # private to puts
+def r_p0   = r25                            # private to print_hex
+def r_p1   = r26
+def r_p2   = r27
+def r_p3   = r28
+
+# Text. There are no string literals, so the bytes are spelled out.
+def T_GCD    = 0x47, 0x43, 0x44, 0x20, 0x20             # "GCD  "
+def T_SQRT   = 0x53, 0x51, 0x52, 0x54, 0x20             # "SQRT "
+def T_ABS    = 0x41, 0x42, 0x53, 0x20, 0x20             # "ABS  "
+def T_FACT   = 0x31, 0x30, 0x21, 0x20, 0x20             # "10!  "
+def T_ZERO   = 0x5A, 0x45, 0x52, 0x4F, 0x20             # "ZERO "
+def T_ROL    = 0x52, 0x4F, 0x4C, 0x20, 0x20             # "ROL  "
+def T_CMP    = 0x43, 0x4D, 0x50, 0x20, 0x20             # "CMP  "
+def T_MEM    = 0x4D, 0x45, 0x4D, 0x20, 0x20             # "MEM  "
+def T_OK     = 0x20, 0x4F, 0x4B                         # " OK"
+def T_BAD    = 0x20, 0x42, 0x41, 0x44                   # " BAD"
+def T_STK    = 0x53, 0x54, 0x4B, 0x20, 0x20             # "STK  "
+def T_POP    = 0x50, 0x4F, 0x50, 0x20, 0x20             # "POP  "
+def T_RND    = 0x52, 0x4E, 0x44, 0x20, 0x20             # "RND  "
+def T_MS     = 0x4D, 0x53, 0x20, 0x20, 0x20             # "MS   "
+def T_PROMPT = 0x54, 0x59, 0x50, 0x45, 0x2C, 0x20, 0x71, 0x20, 0x51, 0x55, 0x49, 0x54, 0x53, 0x3A, 0x20   # "TYPE, q QUITS: "
+
+# ======================================================================
+# Macros                                                  [block] [macro]
+# ======================================================================
+
+# One-line blocks. @name is filled in by the caller: $POKE[addr=..., reg=...]
+def POKE = { liw $r_addr , @addr ; stb @reg , $r_addr }    # mem[addr] = low byte of reg
+def PEEK = { liw $r_addr , @addr ; ldb $r_addr , @reg }    # reg = mem[addr]
+def NL = cal $r_nl                                          # newline through a function pointer
+
+# A macro that defines labels. The preprocessor wraps it in an anonymous
+# scope, so every use gets its own `text` and `over`.            [autoscope]
+def SAY = {
+    jmpi :.over                             # hop over the string stored inline
+    text:
+        db @text , 0
+    over:
+    liw $r_str , :.text                     # :.text finds this copy's own label
+    cali :puts
+}
+
+# A multi-line block whose `{` sits on the next line, built from another macro.
+def REPORT =
+{
+    $SAY[text=@text]
+    mov @val , $r_val
+    cali :print_hex
+    $NL
+}
+
+# ======================================================================
+# Program
+# ======================================================================
+
+nop                                         # address 0: execution starts here
+jmpi :boot                                  # JO is 0 and no origin is set yet, so this is absolute
+
+# Read-only data, placed before the origin. Code after the origin reaches it through
+# negative offsets, which the assembler works out for you.
+!scope header                               # [scope] named scope: labels become header.*
+    hex_digits:                             # [db] the same kinds of bytes, written several ways
+        db 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39       # "0123456789"
+        db 65 , 0x42 , 0b1000011 , (0x40 + 4) , (5 * 14 - 1) , 0106      # "ABCDEF": dec, hex, bin, sums, octal
+    title:
+        db 0x42, 0x41, 0x53, 0x48, 0x50, 0x55, 0x54, 0x45, 0x52             # "BASHPUTER"
+        db 0x20, 0x54, 0x4F, 0x55, 0x52, 0                                  # " TOUR" + terminator
+    title_end:
+!endscope
+
+boot:
+!label_origin                               # [origin] from here on, :label means label - boot
+    pc $r_base                              # r_base = absolute address of this instruction (= boot)
+    sjo $r_base                             # jumps, branches and calls now add r_base
+
+!scope init
+    $POKE[addr=$TIMER_RESET, reg=$r_base]   # start timing the tour
+    $PEEK[addr=$KB_CLEAR, reg=$r_ch]        # drop any keys pressed before boot
+    liw $r_cx , $CX ; liw $r_cell , $CELL   # keep putc's two addresses in registers
+    liw $r_nl , :newline                    # origin-relative, because CAL adds the JO
+    $POKE[addr=$FILL, reg=$r_base]          # clear the screen
+    lib $r_row , 0
+    $POKE[addr=$CY, reg=$r_row]
+    lib $r_col , ( ( 40 - ( :header.title_end - :header.title - 1 ) ) / 2 )  # centre in 40 columns
+    liw $r_str , :header.title              # a negative offset: header is before the origin
+    cali :puts
+    $NL ; $NL
+!endscope
+
+# ----------------------------------------------------------------------
+# Arithmetic: each demo sits in an anonymous scope so `loop` and `done` can be reused
+# ----------------------------------------------------------------------
+!scope math
+    !scope                                  # gcd(1071, 462) by Euclid's algorithm
+        liq $r_a , 1071                     # LIQ: 2-byte immediate
+        liq $r_b , 462
+        liw $r_e , :.loop ; liw $r_f , :.done   # register targets are 3-byte branches
+        loop:
+            bz $r_b , $r_f
+            rem $r_a , $r_b , $r_c          # c = a % b
+            mov $r_b , $r_a
+            mov $r_c , $r_b
+            jmp $r_e
+        done:
+        $REPORT[text=$T_GCD, val=$r_a]
+    !endscope
+
+    !SCOPE                                  # [case] isqrt(1000000) by Newton's method
+        lih $r_a , 1000000                  # LIH: 4-byte immediate
+        mov $r_a , $r_b                     # x = n
+        lib $r_d , 1
+        loop:
+            div $r_a , $r_b , $r_c          # n / x
+            add $r_c , $r_b , $r_c          # + x
+            lsr $r_c , $r_d , $r_c          # / 2
+            lt $r_c , $r_b , $r_e           # still shrinking?
+            bzi $r_e , :.done
+            mov $r_c , $r_b
+            jmpi :.loop
+        done:
+        $REPORT[text=$T_SQRT, val=$r_b]
+    !ENDSCOPE
+
+    !scope                                  # |-1234| without branching
+        liq $r_a , 1234
+        neg $r_a , $r_a                     # a = -1234
+        lib $r_d , 63
+        asr $r_a , $r_d , $r_b              # m = sign bit copied everywhere (all ones here)
+        xor $r_a , $r_b , $r_c
+        sub $r_c , $r_b , $r_c              # (a ^ m) - m
+        $REPORT[text=$T_ABS, val=$r_c]
+    !endscope
+
+    !scope                                  # 10!
+        lib $r_a , 10 # n /# ; lib $r_b , 1 # product. [comments] an unclosed comment runs to the end of the line
+        loop:
+            mul $r_b , $r_a , $r_b
+            dec $r_a
+            bnzi $r_a , :.loop
+        $REPORT[text=$T_FACT, val=$r_b]
+    !endscope
+!endscope
+
+# ----------------------------------------------------------------------
+# Bit twiddling
+# ----------------------------------------------------------------------
+!scope bits
+    !scope                                  # count the zero bits of ~0xFF
+        liw $r_a , ( ~0xFF )                # 0xFFFFFFFFFFFFFF00
+        not $r_a , $r_a                     # zeros become ones: 0xFF
+        lib $r_b , 0
+        loop:                               # Kernighan: a &= a - 1 clears the lowest set bit
+            mov $r_a , $r_c
+            dec $r_c
+            and $r_a , $r_c , $r_a
+            inc $r_b
+            bnzi $r_a , :.loop
+        $REPORT[text=$T_ZERO, val=$r_b]
+    !endscope
+
+    !scope                                  # rotate left by 4: (x << 4) | (x >> 60)
+        liw $r_a , 0x8000000000000001
+        lib $r_d , ( 1 << 2 )
+        shl $r_a , $r_d , $r_b
+        lib $r_c , 64
+        sub $r_c , $r_d , $r_c              # 64 - 4
+        lsr $r_a , $r_c , $r_c              # logical: zeros shift in from the top
+        or $r_b , $r_c , $r_b
+        $REPORT[text=$T_ROL, val=$r_b]
+    !endscope
+!endscope
+
+# ----------------------------------------------------------------------
+# Comparisons: run each one on (-1, 1) and pack the answers into one byte
+# ----------------------------------------------------------------------
+# The mnemonic itself is a macro argument.                                 [macro]
+def FLAG = { @op $r_a , $r_b , $r_c ; lib $r_d , @bit ; shl $r_c , $r_d , $r_c ; or $r_e , $r_c , $r_e }
+
+!scope compare
+    lib $r_b , 1
+    neg $r_b , $r_a                         # a = -1, which is 0xFFFFFFFFFFFFFFFF unsigned
+    lib $r_e , 0
+    $FLAG[op=lt , bit=0]                    # unsigned  huge < 1    -> 0
+    $FLAG[op=lts, bit=1]                    # signed    -1 < 1      -> 1
+    $FLAG[op=le , bit=2]                    # unsigned  huge <= 1   -> 0
+    $FLAG[op=les, bit=3]                    # signed    -1 <= 1     -> 1
+    $FLAG[op=eq , bit=4]                    #                       -> 0
+    $FLAG[op=neq, bit=5]                    #                       -> 1
+    $REPORT[text=$T_CMP, val=$r_e]          # 0b101010 = 0x2A
+!endscope
+
+undef FLAG                                  # [undef] FLAG is not needed past this point
+
+# ----------------------------------------------------------------------
+# Memory: loads and stores use absolute addresses (the JO does not apply)
+# ----------------------------------------------------------------------
+!scope memory
+    liw $r_a , $SCRATCH
+    liw $r_b , 0x1122334455667788
+    stw $r_b , $r_a                         # bytes: 88 77 66 55 44 33 22 11  (little-endian)
+    lib $r_c , 2 ; add $r_a , $r_c , $r_c
+    liq $r_b , 0xBEEF
+    stq $r_b , $r_c                         # bytes: 88 77 EF BE 44 33 22 11
+    lib $r_c , 4 ; add $r_a , $r_c , $r_c
+    lih $r_b , 0xCAFEF00D
+    sth $r_b , $r_c                         # bytes: 88 77 EF BE 0D F0 FE CA
+    lib $r_b , 0x42
+    stb $r_b , $r_a                         # bytes: 42 77 EF BE 0D F0 FE CA
+    ldw $r_a , $r_val                       # the whole word: 0xCAFEF00DBEEF7742
+
+    # Read the pieces back with narrower loads; r_f stays 0 only if all of them match.
+    lib $r_c , 1 ; add $r_a , $r_c , $r_c ; ldb $r_c , $r_d
+    lib $r_e , 0x77 ; xor $r_d , $r_e , $r_f
+    lib $r_c , 2 ; add $r_a , $r_c , $r_c ; ldq $r_c , $r_d
+    liq $r_e , 0xBEEF ; xor $r_d , $r_e , $r_d ; or $r_d , $r_f , $r_f
+    lib $r_c , 4 ; add $r_a , $r_c , $r_c ; ldh $r_c , $r_d
+    lih $r_e , 0xCAFEF00D ; xor $r_d , $r_e , $r_d ; or $r_d , $r_f , $r_f
+
+    $SAY[text=$T_MEM]
+    cali :print_hex
+    bnzi $r_f , :.bad
+        $SAY[text=$T_OK]
+        jmpi :.shown
+    bad:
+        $SAY[text=$T_BAD]
+    shown:
+    $NL
+!endscope
+
+# ----------------------------------------------------------------------
+# Stacks: push and pop every width on a second stack, switching back and forth
+# ----------------------------------------------------------------------
+!scope stack
+    sp $r_e                                 # remember the main stack pointer
+    sspi $STACK2                            # SSPI: switch to the scratch stack (absolute)
+    lib $r_a , 0x11 ; pshb $r_a
+    liq $r_a , 0x2222 ; pshq $r_a
+    lih $r_a , 0x33333333 ; pshh $r_a
+    liw $r_a , 0x4444444444444444 ; pshw $r_a
+    sp $r_b
+    liw $r_c , $STACK2
+    sub $r_b , $r_c , $r_b                  # bytes in use: 1 + 2 + 4 + 8 = 15
+    xsp $r_e                                # main stack again (r_e now keeps the scratch SP)
+    $REPORT[text=$T_STK, val=$r_b]          # REPORT makes calls, so it needs the main stack
+    xsp $r_e                                # scratch stack again (r_e back to the main SP)
+    popw $r_a ; poph $r_b ; popq $r_c ; popb $r_d
+    add $r_a , $r_b , $r_a
+    add $r_a , $r_c , $r_a
+    add $r_a , $r_d , $r_a                  # 0x4444444444444444 + 0x33333333 + 0x2222 + 0x11
+    ssp $r_e                                # SSP: set the main stack pointer back outright
+    $REPORT[text=$T_POP, val=$r_a]
+!endscope
+
+# ----------------------------------------------------------------------
+# Randomness and pixels
+# ----------------------------------------------------------------------
+# Shift a random word and store one byte of it into a colour register. Calls POKE.
+def CHANNEL = { lib $r_f , @shift ; lsr $r_val , $r_f , $r_f ; $POKE[addr=@reg, reg=$r_f] }
+
+!scope random
+    lib $r_a , 0
+    seed $r_a                               # seed 0 restores the reset seed, so this is repeatable
+    rnd $r_val
+    $REPORT[text=$T_RND, val=$r_val]
+
+    ent $r_a                                # host entropy...
+    seed $r_a                               # ...so the strip differs each run
+
+    lib $r_a , 1
+    $POKE[addr=$MODE, reg=$r_a]             # half-block pixels
+    $POKE[addr=$CMODE, reg=$r_a]            # 24-bit colour
+    lib $r_b , $COLS
+    paint:                                  # each cell = a top pixel (FG) over a bottom pixel (BG)
+        rnd $r_val
+        $CHANNEL[reg=$FR, shift=8]
+        $CHANNEL[reg=$FG, shift=16]
+        $CHANNEL[reg=$FB, shift=24]
+        $CHANNEL[reg=$BR, shift=32]
+        $CHANNEL[reg=$BG, shift=40]
+        $CHANNEL[reg=$BB, shift=48]
+        cali :putc                          # the character is ignored in pixel mode
+        dec $r_b
+        bnzi $r_b , :.paint
+    lib $r_a , 0
+    $POKE[addr=$MODE, reg=$r_a]             # back to text...
+    $POKE[addr=$CMODE, reg=$r_a]            # ...in palette colours
+    $NL
+!endscope
+
+undef CHANNEL
+
+# ----------------------------------------------------------------------
+# Timer
+# ----------------------------------------------------------------------
+!scope timing
+    $POKE[addr=$TIMER_LATCH, reg=$r_a]      # capture the elapsed ticks
+    liw $r_addr , $TIMER_TICKS
+    ldw $r_addr , $r_val                    # 8 bytes, little-endian
+    $REPORT[text=$T_MS, val=$r_val]
+!endscope
+
+# ----------------------------------------------------------------------
+# Keyboard: poll for keys (there are no interrupts), echo them, stop on q
+# ----------------------------------------------------------------------
+!scope keys
+    $SAY[text=$T_PROMPT]
+    $POKE[addr=$BLIT, reg=$r_a]
+    liw $r_a , $KB_STATUS ; liw $r_b , $KB_DATA
+    liw $r_e , :.wait ; liw $r_f , :.quit
+    lib $r_d , 0x71                         # 'q'
+    wait:
+        ldb $r_a , $r_c                     # 1 when a key is buffered
+        bz $r_c , $r_e                      # nothing yet: keep polling
+        ldb $r_b , $r_ch                    # take one byte
+        eq $r_ch , $r_d , $r_c
+        bnz $r_c , $r_f
+        cali :putc
+        $POKE[addr=$BLIT, reg=$r_ch]
+        jmp $r_e
+    quit:
+    $NL
+    hlt
+!endscope
+
+# ======================================================================
+# Subroutines. Each lives in a named scope, which also defines its entry label.
+# ======================================================================
+
+# putc: draw r_ch at (r_col, current row), then advance r_col
+!scope putc
+    stb $r_col , $r_cx
+    stb $r_ch , $r_cell
+    inc $r_col
+    ret
+!endscope
+
+# puts: draw the 0-terminated string at origin-relative address r_str
+!scope puts
+    pshw $r_s                               # callee-saved
+    add $r_str , $r_base , $r_s             # loads are absolute, so add the origin back in
+    next:
+        ldb $r_s , $r_ch
+        bzi $r_ch , :.done
+        cali :putc
+        inc $r_s
+        jmpi :.next
+    done:
+    popw $r_s
+    ret
+!endscope
+
+# print_hex: draw r_val as 0x... with no leading zeros (r_val is preserved)
+!scope print_hex
+    pshw $r_val
+    lib $r_p0 , 0                           # digit count
+    lib $r_p2 , 4
+    lib $r_p3 , 0xF
+    split:                                  # push nibbles, least significant first...
+        and $r_val , $r_p3 , $r_p1
+        pshb $r_p1
+        inc $r_p0
+        lsr $r_val , $r_p2 , $r_val
+        bnzi $r_val , :.split
+    lib $r_ch , 0x30 ; cali :putc           # '0'
+    lib $r_ch , 0x78 ; cali :putc           # 'x'
+    liw $r_p3 , :header.hex_digits          # a dotted path into another scope
+    add $r_p3 , $r_base , $r_p3
+    emit:                                   # ...then pop them, most significant first
+        popb $r_p1
+        add $r_p3 , $r_p1 , $r_p1
+        ldb $r_p1 , $r_ch
+        cali :putc
+        dec $r_p0
+        bnzi $r_p0 , :.emit
+    popw $r_val
+    ret
+!endscope
+
+# newline: flush the frame and move to the start of the next row (called as `cal $r_nl`)
+!scope newline
+    $POKE[addr=$BLIT, reg=$r_row]           # any value written to BLIT draws the frame
+    lib $r_col , $LEFT
+    inc $r_row
+    $POKE[addr=$CY, reg=$r_row]
+    ret
+!endscope
