@@ -7,6 +7,8 @@
 MY_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source "$MY_DIR"/../opcodes.sh
 
+set -o posix
+
 shopt -s extglob
 
 INP=${1:-}

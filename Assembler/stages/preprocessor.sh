@@ -6,6 +6,8 @@
 # It then replaces all substitutions with their value and removes their definitions
 # from the file.
 
+set -o posix
+
 shopt -s extglob
 
 INP=${1:-}

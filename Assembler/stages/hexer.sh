@@ -52,11 +52,11 @@ parse_Number() {
     elif [[ $arg =~ $bin_regex ]]; then
         _num=$(( ${BASH_REMATCH[1]}2#${BASH_REMATCH[2]}))
     elif [[ $arg =~ $oct_regex ]]; then
-        _num=$(( ${BASH_REMATCH[1]}8#${BASH_REMATCH[2]}))
-        if [[ ${BASH_REMATCH[2]} =~ '[89]' ]]; then
+        if [[ ${BASH_REMATCH[2]} == *[89]* ]]; then
             printf "octal number '%s' cannot contain 8 or 9\n" "$arg" >&2
             exit 2
         fi
+        _num=$(( ${BASH_REMATCH[1]}8#${BASH_REMATCH[2]}))
     elif [[ $arg =~ $dec_regex ]]; then
         _num=$(( ${BASH_REMATCH[1]}10#${BASH_REMATCH[2]}))
     else
