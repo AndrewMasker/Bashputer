@@ -4,7 +4,7 @@
         "lineComment": "#" , 
         "blockComment": ["#" , "/#"]
     } , 
-    "brackets": [["(" , ")"] , ["{" , "}"] , ["[" , "]"]] , 
-    "autoClosingPairs": [{ "open": "(" , "close": ")" } , { "open": "{" , "close": "}" } , { "open": "[" , "close": "]" }] , 
+    "brackets": [["(" , ")"] , ["{" , "}"] , ["[" , "]"] , ["!scope" , "!endscope"] , ["!SCOPE" , "!ENDSCOPE"]] , 
+    "autoClosingPairs": [{ "open": "(" , "close": ")" } , { "open": "{" , "close": "}" } , { "open": "[" , "close": "]" } , { "open": "!scope" , "close": "!endscope" } , { "open": "!SCOPE" , "close": "!ENDSCOPE" }] , 
     "wordPattern": "[$:]?[A-Za-z_]\\w*|0[xX][0-9A-Fa-f]+|\\d+"
 }
