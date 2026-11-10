@@ -23,7 +23,7 @@ sjo $r_pc_init                                  # Set the jump origin to r_pc_in
 
 liw $r_addr , :prep_screen                     
 jmp $r_addr 
-done_prep:
+done_prep: 
 
 liw $r_loop , :loop                             # Load the relative loop address into the loop register
 
