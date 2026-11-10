@@ -12,6 +12,7 @@ store_Byte() {
     local byte
     printf -v "byte" '0x%02X' $(( (${!from} >> data_offset) & 0xFF ))
     echo store "$to_address" "$byte"
+    BUS_USED=true
     if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_store_${to}_${addr_offset}"; fi
 }
 
@@ -103,6 +104,7 @@ load_Byte() {
         "")
             if $increment; then printf -v "$from" '0x%016X' $((${!from} + 1)); fi
             echo load "${!from}"
+            BUS_USED=true
             DATA_VALID=false
             if $clear; then printf -v "$to" '0x%016X' 0; fi
             PROC_STATE[pidx]="load_byte"

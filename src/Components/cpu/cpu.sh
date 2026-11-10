@@ -38,6 +38,7 @@ parse_Reset_CLK() {
             DATA_VALID=false
             printf -v 'MAR' '0x%016X' 0
             printf -v 'MDR' '0x%016X' 0
+            BUS_USED=false
             PROC_STATE[pidx]=done
             ;;
         done)
@@ -66,7 +67,17 @@ parse_Ready_CLK() {
 
 parse_CLK() {
     case $CPU_STATE in
-        reset) parse_Reset_CLK ;;
+        reset) 
+            local steps=0
+            BUS_USED=false
+            while [[ $CPU_STATE == ready ]] && ! $BUS_USED; do
+                parse_Reset_CLK
+                steps=$(( steps + 1 ))
+                if (( steps > 100 )); then
+                    die "no bus activity in 100 steps"
+                fi
+            done
+            ;;
         ready) parse_Ready_CLK ;;
         stalled) echo "$COMPONENT_NAME stalled" ;;
         halted) echo "$COMPONENT_NAME halted" ;;
