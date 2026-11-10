@@ -38,18 +38,37 @@ break_On_Commas() {
         fi
     done
 }
+parse_Number() {
+    local arg=$1
+    local -n _num=$2
+    local hex_regex='^(-?)0[xX]([[:xdigit:]]+)$'
+    local bin_regex='^(-?)0[bB]([01]+)$'
+    local oct_regex='^(-?)0([0-7]+)$'
+    local dec_regex='^(-?)([0-9]+)$'
+    if [[ $arg =~ $hex_regex ]]; then
+        _num=$(( ${BASH_REMATCH[1]16#${BASH_REMATCH[2]}}))
+    elif [[ $arg =~ $bin_regex ]]; then
+        _num=$(( ${BASH_REMATCH[1]2#${BASH_REMATCH[2]}}))
+    elif [[ $arg =~ $oct_regex ]]; then
+        _num=$(( ${BASH_REMATCH[1]8#${BASH_REMATCH[2]}}))
+    elif [[ $arg =~ $dec_regex ]]; then
+        _num=$(( ${BASH_REMATCH[1]10#${BASH_REMATCH[2]}}))
+    else
+        return 1
+    fi
+}
 translate_Pseudo_Mnemonic() {
-    local mnemonic=$1 args=$2 ARGS=() arg byte
+    local mnemonic=$1 args=$2 ARGS=() arg byte val
     local -n __BYTES=$3
     local num_regex='^-?([0-9]+|0[xX][[:xdigit:]]+)$'
     if [[ $mnemonic == DB ]]; then
         break_On_Commas args ARGS
         for arg in "${ARGS[@]}"; do
-            if [[ ! $arg =~ $num_regex ]]; then
+            if ! parse_Number $arg val; then
                 printf "db item '%s' is not a number\n" "$arg" >&2
                 exit 2
             fi
-            printf -v byte '0x%02X' $(( arg & 0xFF ))
+            printf -v byte '0x%02X' $(( val & 0xFF ))
             __BYTES+=("$byte")
         done
         return 0
@@ -107,8 +126,8 @@ translate_Line() {
         n_bytes=${num_bytes[i]}
         if [[ $arg =~ $reg_regex ]]; then
             val=${BASH_REMATCH[1]}
-        elif [[ $arg =~ $num_regex ]]; then
-            val=$(( arg ))
+        elif parse_Number $arg val; then
+            :
         else
             printf "line '%s' contains an argument '%s' with unknown type\n" "$line" "$arg" >&2
             exit 2
