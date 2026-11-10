@@ -15,8 +15,6 @@ elif [[ ! -e $INP || ! -f $INP || ! -r $INP ]]; then
     exit 1
 fi
 
-MACRO_ID=0
-
 remove_Comments() {
     local -n _line=$1
     local regex='#([^/]|/+[^/#])*(/+#|/*$)'
@@ -118,29 +116,6 @@ expand_Subs() {
     replace_Subs line
     printf '%s' "$line"
 }
-rename_Body_Labels(){
-    local _body=$1 scan=$1 name defs=() name_regex
-    local -n _out=$2
-    local def_regex='(^|;)[[:space:]]*(\.*[A-Za-z_]\w*):[[:space:]]*(;|$)'
-    while [[ $scan =~ $def_regex ]]; do
-        defs+=("${BASH_REMATCH[2]}")
-        scan=${scan#*"${BASH_REMATCH[2]}"}
-    done
-    MACRO_ID=$(( MACRO_ID + 1 ))
-    for name in "${defs[@]}"; do
-        name_regex='((^|;)[[:space:]]*)('"$name"'):'
-        while [[ $_body =~ $name_regex ]]; do
-            _body=${_body/"${BASH_REMATCH[0]}"/"${BASH_REMATCH[1]}${name}_MACROLOCAL_${MACRO_ID}:"}
-        done
-    done
-    for name in "${defs[@]}"; do
-        name_regex=':'"$name"'([^A-Za-z0-9_]|$)'
-        while [[ $_body =~ $name_regex ]]; do
-            _body=${_body/"${BASH_REMATCH[0]}"/":${name}_MACROLOCAL_${MACRO_ID}${BASH_REMATCH[1]}"}
-        done
-    done
-    _out="$_body"
-}
 _replace_Subs__Replace_Macro_With_Arguments() {
     local regex='^[[:space:]]*([A-Za-z]\w*)[[:space:]]*=(.*)$'
     local rest=$argument
@@ -181,8 +156,7 @@ _replace_Subs__Replace_Macro_With_Arguments() {
         printf "invalid macro arguments in '%s'\n" "$sub" >&2
         exit 2
     fi
-    local body
-    rename_Body_Labels "${SUBS[$sub]}" body
+    local body=${SUBS[$sub]}
     local var_regex='^([^%]*)%([A-Za-z]\w*)(.*)'
     local out=""
     while [[ $body =~ $var_regex ]]; do
@@ -306,6 +280,9 @@ for statement in "${STATES[@]}"; do
     val=""
     if is_Def_Statement "$statement" name val; then
         replace_Subs val
+        local regex='(^|;)[[:space:]]*([A-Za-z_]\w*:|![Ss][Cc][Oo][Pp][Ee])([[:space:]]|;|$)'
+        if [[ $val =~ $regex ]]; then
+            val="!scope;$val;!endscope"
         SUBS[$name]=$val
     elif is_Undef_Statement "$statement" name; then
         if [[ -v SUBS[$name] ]]; then

@@ -117,6 +117,10 @@ do_Label_Replacement() {
             label=${BASH_REMATCH[2]}
             if [[ $dot == "" ]]; then # Global label or pathed from global
                 label_key=$label
+                if [[ ! -v LABELS[$label_key] ]]; then
+                    printf "label '%s' in statement '%s' could not be resolved\n" "$dot$label" "${_STATES[i]}" >&2
+                    exit 2
+                fi
             else
                 IFS=. read -ra parents <<< "${STATE_SCOPES[i]}"
                 resolved=false
@@ -128,9 +132,11 @@ do_Label_Replacement() {
                     fi
                     unset 'parents[-1]'
                 done    
-                label_key=$label
-                if [[ -v LABELS[$label_key] ]]; then
-                    resolved=true
+                if ! resolved; then
+                    label_key=$label
+                    if [[ -v LABELS[$label_key] ]]; then
+                        resolved=true
+                    fi
                 fi
                 if ! $resolved; then
                     printf "label '%s' in statement '%s' could not be resolved\n" "$dot$label" "${_STATES[i]}" >&2
