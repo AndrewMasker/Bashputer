@@ -120,7 +120,7 @@ expand_Subs() {
     printf '%s' "$line"
 }
 rename_Body_Labels(){
-    local body=$1 scan=$1 name defs=() name_regex
+    local _body=$1 scan=$1 name defs=() name_regex
     local -n _out=$2
     local def_regex='(^|;)[[:space:]]*(\.*[A-Za-z_]\w*):[[:space:]]*(;|$)' I AM HERE
     while [[ $scan =~ $def_regex ]]; do
@@ -130,17 +130,17 @@ rename_Body_Labels(){
     MACRO_ID=$(( MACRO_ID + 1 ))
     for name in "${defs[@]}"; do
         name_regex='((^|;)[[:space:]]*)('"$name"'):'
-        while [[ $body =~ $name_regex ]]; do
-            body=${body/"${BASH_REMATCH[0]}"/"${BASH_REMATCH[1]}${name}_macro_local_${MACRO_ID}:"}
+        while [[ $_body =~ $name_regex ]]; do
+            _body=${_body/"${BASH_REMATCH[0]}"/"${BASH_REMATCH[1]}${name}_MACROLOCAL_${MACRO_ID}:"}
         done
     done
     for name in "${defs[@]}"; do
-        name_regex=':'"$name"'[^A-Za-z0-9_]'
-        while [[ $body =~ $name_regex ]]; do
-            body=${body/"${BASH_REMATCH[0]}"/":${name}_macro_local_${MACRO_ID}:"}
+        name_regex=':'"$name"'([^A-Za-z0-9_]|$)'
+        while [[ $_body =~ $name_regex ]]; do
+            _body=${_body/"${BASH_REMATCH[0]}"/":${name}_MACROLOCAL_${MACRO_ID}${BASH_REMATCH[1]}"}
         done
     done
-    _out="$body"
+    _out="$_body"
 }
 _replace_Subs__Replace_Macro_With_Arguments() {
     local regex='^[[:space:]]*([A-Za-z]\w*)[[:space:]]*=(.*)$'
