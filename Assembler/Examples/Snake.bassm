@@ -59,7 +59,7 @@ def r_unsafe = r4                           # Dedicated scratch register
 def r_more = r5                             # Register to hold the countdown index
 def r_index = r6                            # Register to hold the current index
 def r_cond = r7                             # Register to hold the condition
-def r_one = r6                              # Register which will hold one
+def r_one = r8                              # Register which will hold one
 
 lib $r_one , 1
 
@@ -189,7 +189,7 @@ def height = 15                           # Cell height of the playable area
         }
         $for[i=($width + 2) , do=$body]
 
-        $pokei[addr=$CX , val = 1]
+        $pokei[addr=$CX , val = 0]
         def body = {
             add $r_index , $r_one , $r_unsafe
             $poke[addr=$CY , reg=$r_unsafe]
@@ -219,4 +219,6 @@ def height = 15                           # Cell height of the playable area
 # ==================================================================================
 #
 cali :reset_screen
-hlt
+
+stall:
+jmpi :stall
