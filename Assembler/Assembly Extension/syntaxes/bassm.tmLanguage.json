@@ -4,6 +4,7 @@
     "patterns": 
     [
         {"include": "#comment"} , 
+        {"include": "#scope-push"} ,
         {"include": "#assembler-command"} ,
         {"include": "#substitution-definition"} , 
         {"include": "#substitution-usage"} , 
@@ -22,11 +23,20 @@
             "end": "/#|$" , 
             "name": "comment.inline.bassm"
         } ,
+        "scope-push":
+        {
+            "match": "(![Ss][Cc][Oo][Pp][Ee])[[:space:]]+([A-Za-z_]\\w*)?\\b" , 
+            "captures":
+            {
+                "1": {"name": "markup.changed.scope-push.bassm"} , 
+                "2": {"name": "entity.name.type.scope-push.bassm"}
+            }
+        } ,
         "assembler-command":
         {
             "begin": "!" ,
-            "end": "(?=;)|$",
-            "name": "support.class.assm-cmd.bassm" , 
+            "end": "(?=;)|$|[[:space:]]",
+            "name": "markup.changed.assm-cmd.bassm" , 
             "patterns": [{ "include": "#comment" }]
         } ,
         "substitution-definition":

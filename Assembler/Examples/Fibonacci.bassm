@@ -17,7 +17,7 @@ def r_addr = r31
 def fib_index = 20                              # The Fibonacci number to compute. Must be greater than or equal to 1
 liw $r_fib_index , $fib_index
 
-!LABEL_ORIGIN
+!LABEL_ORIGIN 
 pc $r_pc_init                                   # Put the initial pc into pc_init
 sjo $r_pc_init                                  # Set the jump origin to r_pc_init
 
