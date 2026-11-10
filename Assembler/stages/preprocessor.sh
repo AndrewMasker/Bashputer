@@ -108,7 +108,6 @@ _replace_Subs__Statement_Into_Subs_And_Arguments() {
                 fi
                 argument+="${rest:0:1}"
             done
-            argument="${argument:1:-1}"
         fi
         subs+=("$sub")
         arguments+=("$argument")
@@ -122,7 +121,7 @@ expand_Subs() {
 rename_Body_Labels(){
     local _body=$1 scan=$1 name defs=() name_regex
     local -n _out=$2
-    local def_regex='(^|;)[[:space:]]*(\.*[A-Za-z_]\w*):[[:space:]]*(;|$)' I AM HERE
+    local def_regex='(^|;)[[:space:]]*(\.*[A-Za-z_]\w*):[[:space:]]*(;|$)'
     while [[ $scan =~ $def_regex ]]; do
         defs+=("${BASH_REMATCH[2]}")
         scan=${scan#*"${BASH_REMATCH[2]}"}
@@ -211,9 +210,12 @@ replace_Subs() {
         declare -A map=()
         if [[ -v SUBS[$sub] ]]; then
             if [[ -n $argument ]]; then
+                argument="${argument:1:-1}"
                 _replace_Subs__Replace_Macro_With_Arguments
             else
-                _statement=${_statement/"\$$sub"/"${SUBS[$sub]}"}
+                local body
+                rename_Body_Labels "${SUBS[$sub]}" body
+                _statement=${_statement/"\$$sub"/"$body"}
             fi
         else
             printf "Unknown substitution name '%s'\n" "$sub" >&2
