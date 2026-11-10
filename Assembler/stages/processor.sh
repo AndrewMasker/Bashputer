@@ -27,10 +27,6 @@ do_Assembler_Command() {
     local line=$1
     if [[ ! $line == '!'* ]]; then return 1; fi
     local cmd=${line%%[[:space:]]*} arg=${line#"${line%%[[:space:]]*}"}
-    
-    # local label_origin_regex='^!LABEL_ORIGIN([[:space:]]|$)'
-    # local scope_push_regex='^!SCOPE[[:space:]]+([[A-Za-z_]\w*])[[:space:]]*(;|$)'
-    # local scope_pop_regex='^!ENDSCOPE[[:space:]]*(;|$)'
     case ${cmd^^} in
         !LABEL_ORIGIN)
             ORIGIN=$ADDR
@@ -110,7 +106,7 @@ advance_ADDR() {
 }
 do_Label_Replacement() {
     local -n _STATES=$1
-    local regex=':(\.?)([A-Za-z_]\w*(\.[A-Za-z_]\w*)*)([^A-Za-z0-9_]|$)' i dot label label_key local_regex parents resolved
+    local regex=':(\.?)([A-Za-z_]\w*(\.[A-Za-z_]\w*)*)([^A-Za-z0-9_]|$)' i dot label label_key parents resolved
     for i in "${!_STATES[@]}"; do
         while [[ ${_STATES[i]} =~ $regex ]]; do
             dot=${BASH_REMATCH[1]}

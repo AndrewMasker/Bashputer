@@ -119,6 +119,7 @@ expand_Subs() {
 _replace_Subs__Replace_Macro_With_Arguments() {
     local regex='^[[:space:]]*([A-Za-z]\w*)[[:space:]]*=(.*)$'
     local rest=$argument
+    local -A map=()
     remove_Surrounding_Whitespace rest
     while [[ $rest =~ $regex ]]; do
         local var="${BASH_REMATCH[1]}"
@@ -181,7 +182,6 @@ replace_Subs() {
     for i in ${!subs[@]}; do
         local sub=${subs[i]}
         local argument=${arguments[i]}
-        declare -A map=()
         if [[ -v SUBS[$sub] ]]; then
             if [[ -n $argument ]]; then
                 argument="${argument:1:-1}"
