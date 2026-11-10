@@ -187,9 +187,7 @@ replace_Subs() {
                 argument="${argument:1:-1}"
                 _replace_Subs__Replace_Macro_With_Arguments
             else
-                local body
-                rename_Body_Labels "${SUBS[$sub]}" body
-                _statement=${_statement/"\$$sub"/"$body"}
+                _statement=${_statement/"\$$sub"/"${SUBS[$sub]}"}
             fi
         else
             printf "Unknown substitution name '%s'\n" "$sub" >&2
@@ -280,9 +278,10 @@ for statement in "${STATES[@]}"; do
     val=""
     if is_Def_Statement "$statement" name val; then
         replace_Subs val
-        local regex='(^|;)[[:space:]]*([A-Za-z_]\w*:|![Ss][Cc][Oo][Pp][Ee])([[:space:]]|;|$)'
+        regex='(^|;)[[:space:]]*([A-Za-z_]\w*:|![Ss][Cc][Oo][Pp][Ee])([[:space:]]|;|$)'
         if [[ $val =~ $regex ]]; then
             val="!scope;$val;!endscope"
+        fi
         SUBS[$name]=$val
     elif is_Undef_Statement "$statement" name; then
         if [[ -v SUBS[$name] ]]; then

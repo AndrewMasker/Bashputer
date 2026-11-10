@@ -132,7 +132,7 @@ do_Label_Replacement() {
                     fi
                     unset 'parents[-1]'
                 done    
-                if ! resolved; then
+                if ! $resolved; then
                     label_key=$label
                     if [[ -v LABELS[$label_key] ]]; then
                         resolved=true
