@@ -145,7 +145,7 @@ do_Label_Replacement() {
 }
 check_Arithmetic() {
     local expr=$1
-    local bad_chars='([^-[:alnum:][:blank:]_+*/%<>=!&|^~?,()#@:])'
+    local bad_chars='([^-[:alnum:][:blank:]_+*/%<>=!&|^~?,():])'
     if [[ $expr =~ $bad_chars ]]; then
         printf "Expression '%s' may not contain the character '%s'\n" "$expr" "${BASH_REMATCH[1]}" >&2
         exit 2

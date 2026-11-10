@@ -59,7 +59,7 @@
         } ,
         "macro-variable":
         {
-            "match": "(%[A-Za-z_]\\w*)" , 
+            "match": "(@[A-Za-z_]\\w*)" , 
             "captures":
             {
                 "1": {"name": "support.constant.property-value.macro-variable.bassm"}
