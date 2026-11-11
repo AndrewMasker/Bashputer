@@ -77,6 +77,59 @@ def height = 15                           # Cell height of the playable area
 # MACROS
 # ==================================================================================
 #
+# GENERAL:
+    # for[i= , to= , do= ] - does @do @to-@i times starting at @i. @i is limited to a quarter
+    def for = 
+    {
+        pshq $r_index
+        pshq $r_more
+        liq $r_more , ( @to - @i )
+        lib $r_index , @i
+        bzi $r_more , :.endfor
+        loop:
+            !scope
+                @do
+            !endscope
+        next:
+            dec $r_more
+            inc $r_index
+            bnzi $r_more , :.loop
+        endfor:
+            popq $r_more
+            popq $r_index
+    }
+
+    # while[reg= , is= , to= , do= ] - does @do while @reg is @is to @to. @to is limited to a quarter
+    def while = 
+    {
+        loop:
+            liq $r_cond , @to
+            @is $r_cond , @reg , $r_cond
+            bzi $r_cond , :.endwhile
+            !scope
+                @do
+            !endscope
+            jmpi :.loop
+        endwhile:
+    }
+
+    # if[reg= , is= , to= , do= , elsedo=] - does @do if @reg is @is to @to else does @elsedo. @to is limited to a half
+    def if = 
+    {
+        liq $r_cond , @to
+        @is $r_cond , @reg , $r_cond
+        bzi $r_cond , :.else
+        !scope
+            @do
+        !endscope
+        jmpi :.endif
+        else:
+            !scope
+                @elsedo
+            !endscope
+        endif:
+    }
+
 # DATA HANDLING:
     # peek[addr= , reg= ] - sets register to the value stored in the address
     def peek = 
@@ -115,61 +168,6 @@ def height = 15                           # Cell height of the playable area
         ldw $r_addr , $r_timer
     }
 
-# GENERAL:
-    # for[i= , to= , do= ] - does @do @to-@i times starting at @i. @i is limited to a quarter
-    def for = 
-    {
-        pshq $r_index
-        pshq $r_more
-        liq $r_more , ( @to - @i )
-        lib $r_index , @i
-        bzi $r_more , :.endfor
-        loop:
-            !scope
-                @do
-            !endscope
-        next:
-            dec $r_more
-            inc $r_index
-            bnzi $r_more , :.loop
-        endfor:
-            popq $r_more
-            popq $r_index
-    }
-
-    # while[reg= , is= , do= ] - does @do while @reg is equal to @is. @is is limited to a quarter
-    def while = 
-    {
-        loop:
-            liq $r_cond , @is
-            eq $r_cond , @reg , $r_cond
-            bzi $r_cond , :.endwhile
-            !scope
-                @do
-            !endscope
-            jmpi :.loop
-        endwhile:
-    }
-
-    # if[reg= , is= , do= , elsedo=] - does @do if @reg is equal to @is else does @elsedo @is is limited to a half
-    def if = 
-    {
-        liq $r_cond , @is
-        eq $r_cond , @reg , $r_cond
-        bzi $r_cond , :.else
-        !scope
-            @do
-        !endscope
-        jmpi :.endif
-        else:
-            !scope
-                @elsedo
-            !endscope
-        endif:
-    }
-
-
-
 # ==================================================================================
 # INITIALIZATION AND FUNCTIONS
 # ==================================================================================
@@ -196,6 +194,7 @@ def height = 15                           # Cell height of the playable area
             $pokei[addr=$FIDX , val=$background]
             $pokei[addr=$BIDX , val=$walls]
             $poke[addr=$CELL , reg=$r_zero]
+            $poke[addr=$BLIT , reg=$r_zero]
         }
         $for[i=0 , to=($width + 2) , do=$body]
 
@@ -205,6 +204,7 @@ def height = 15                           # Cell height of the playable area
             $pokei[addr=$FIDX , val=$walls]
             $pokei[addr=$BIDX , val=$background]
             $poke[addr=$CELL , reg=$r_zero]
+            $poke[addr=$BLIT , reg=$r_zero]
         }
         $for[i=0 , to=($width + 2) , do=$body]
 
@@ -214,6 +214,7 @@ def height = 15                           # Cell height of the playable area
             $pokei[addr=$FIDX , val=$walls]
             $pokei[addr=$BIDX , val=$walls]
             $poke[addr=$CELL , reg=$r_zero]
+            $poke[addr=$BLIT , reg=$r_zero]
         }
         $for[i=1 , to=($height+1) , do=$body]
 
@@ -223,6 +224,7 @@ def height = 15                           # Cell height of the playable area
             $pokei[addr=$FIDX , val=$walls]
             $pokei[addr=$BIDX , val=$walls]
             $poke[addr=$CELL , reg=$r_zero]
+            $poke[addr=$BLIT , reg=$r_zero]
         }
         $for[i=1 , to=($height+1) , do=$body]
         $poke[addr=$BLIT , reg=$r_zero]
@@ -230,7 +232,9 @@ def height = 15                           # Cell height of the playable area
     !endscope
 
     !scope game_step
-        
+        $read_timer
+        $if[reg=$r_timer , is=]
+        ret
     !endscope
 
     END_FUNCTIONS:
@@ -240,7 +244,8 @@ def height = 15                           # Cell height of the playable area
 # ==================================================================================
 #
 cali :reset_screen
-while[reg=$r_should_go , is=1 , do = $game_step]
+$reset_timer
+$while[reg=$r_should_go , is=eq , to=1 , do = cali :game_step]
 
 stall:
 jmpi :stall
