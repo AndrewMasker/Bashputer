@@ -1328,8 +1328,8 @@ parse_OPCODE() {
 
         0x42) parse_GT_OPCODE   $pidx ;;
         0x43) parse_GTS_OPCODE  $pidx ;;
-        0x45) parse_GE_OPCODE   $pidx ;;
-        0x46) parse_GES_OPCODE  $pidx ;;
+        0x44) parse_GE_OPCODE   $pidx ;;
+        0x45) parse_GES_OPCODE  $pidx ;;
 
         *) parse_HLT_OPCODE     $pidx ;;
     esac
