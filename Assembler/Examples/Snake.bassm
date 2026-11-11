@@ -36,6 +36,8 @@ def BR    = ( $SCREEN + 9 ) ; def BG = ( $SCREEN + 10 ) ; def BB = ( $SCREEN + 1
 def CELL  = ( $SCREEN + 14 )
 def BLIT  = ( $SCREEN + 15 )
 def FILL  = ( $SCREEN + 16 )
+def R_FIDX= ( $SCREEN + 18 )
+def R_BIDX= ( $SCREEN + 22 )
 
 # Keyboard registers
 def KB_STATUS = ( $KEYBOARD + 0 )           # 1 while a key is waiting
@@ -88,6 +90,9 @@ def r_ys_addr = r33
 def r_ye_addr = r34
 def r_x = r35
 def r_y = r36
+def r_two = r37
+def r_color = r38
+def r_growth = r39
 
 # ==================================================================================
 # CONSTANTS
@@ -115,12 +120,12 @@ def d = 0x64
 def q = 0x71
 
 # SNAKE RING BUFFERS
-def xs_addr = $RAM                                    # Inclusive
-def xe_addr = ( $x_start + ( $width * $p_height ) )     # Exclusive
-def ys_addr = $x_end                                  # Inclusive
-def ye_addr = ( $x_end + ( $width * $p_height ) )       # Exclusive
+def xs_addr = $RAM                                         # Inclusive
+def xe_addr = ( $xs_addr + ( $width * $p_height ) + 1)     # Exclusive (one is added so we don't have to worry about write order)
+def ys_addr = $xe_addr                                       # Inclusive
+def ye_addr = ( $xe_addr + ( $width * $p_height ) + 1)       # Exclusive (one is added so we don't have to worry about write order)
 
-def default_snake_len = 3
+def snake_init_len = 3
 
 # ==================================================================================
 # MACROS
@@ -302,6 +307,8 @@ def default_snake_len = 3
     pc $r_origin
     sjo $r_origin
 
+    RESET:
+
     # REGISTER INITIALIZATION
     lib $r_one , 1
     lib $r_should_go , 1
@@ -322,6 +329,7 @@ def default_snake_len = 3
     lib $r_xe_addr , $xs_addr
     lib $r_ys_addr , $ys_addr
     lib $r_ye_addr , $ye_addr
+    lib $r_two , 2
 
     jmpi :END_FUNCTIONS
 
@@ -364,28 +372,82 @@ def default_snake_len = 3
         ret
     !endscope
 
+    !scope draw_pixel
+        rem $r_y , $r_two , $r_unsafe
+        def is_top_pixel = {
+            $poke[addr=$FIDX , reg=$r_color]
+            $peek[addr=$R_BIDX , reg=$r_unsafe]
+            $poke[addr=$BIDX , reg=$r_unsafe]
+        }
+        def is_bottom_pixel = {
+            $poke[addr=$BIDX , reg=$r_color]
+            $peek[addr=$R_FIDX , reg=$r_unsafe]
+            $poke[addr=$FIDX , reg=$r_unsafe]
+        }
+        $if[reg=$r_unsafe , is=eq , val=$r_zero , do=$is_bottom_pixel , elsedo=$is_top_pixel]
+        $poke[addr=$CELL , reg=$r_zero]
+
+        undef is_top_pixel
+        undef is_bottom_pixel
+
+        ret
+    !endscope
+
+    !scope check_collisions
+        $poke[addr = $CX , reg=$r_x]
+        div $r_y , $r_two , $r_unsafe
+        $poke[addr = $CY , reg=$r_unsafe]
+        rem $r_y , $r_two , $r_unsafe
+        $if[reg=$r_unsafe , is=eq , val=$r_zero , do=$peek[addr=$R_FIDX , reg=$r_color] , elsedo=$peek[addr=$R_BIDX , reg=$r_color]]
+        $when[reg=$r_color , is=eq , val=$r_apples , do={inc $r_growth ; jmp :.skip}]
+        $when[reg=$r_color , is=eq , val=$r_walls , do={jmpi :RESET}]
+        $when[reg=$r_color , is=eq , val=$r_snake , do={jmpi :RESET}]
+        skip:
+
+        ret
+    !endscope
+
     !scope push_head
         ldb $r_hx_addr , $r_x
         ldb $r_hx_addr , $r_y
         inc $r_hx_addr
         inc $r_hy_addr
-        when[reg=$r_hx_addr , is=eq , val=$r_xe_addr , do={mov $r_xs_addr , $r_hx_addr}]
-        when[reg=$r_hy_addr , is=eq , val=$r_ye_addr , do={mov $r_ys_addr , $r_hy_addr}]
-        when[reg=$r_dir , is=eq , val=$r_up ,   do={dec $r_x; jmpi :.skip}]
-        when[reg=$r_dir , is=eq , val=$r_left,  do={dec $r_y; jmpi :.skip}]
-        when[reg=$r_dir , is=eq , val=$r_down,  do={inc $r_y; jmpi :.skip}]
-        when[reg=$r_dir , is=eq , val=$r_right, do={inc $r_x; jmpi :.skip}]
+        $when[reg=$r_hx_addr , is=eq , val=$r_xe_addr , do={mov $r_xs_addr , $r_hx_addr}]
+        $when[reg=$r_hy_addr , is=eq , val=$r_ye_addr , do={mov $r_ys_addr , $r_hy_addr}]
+        $when[reg=$r_dir , is=eq , val=$r_up ,   do={dec $r_x; jmpi :.skip}]
+        $when[reg=$r_dir , is=eq , val=$r_left,  do={dec $r_y; jmpi :.skip}]
+        $when[reg=$r_dir , is=eq , val=$r_down,  do={inc $r_y; jmpi :.skip}]
+        $when[reg=$r_dir , is=eq , val=$r_right, do={inc $r_x; jmpi :.skip}]
         skip:
+        cali :check_collisions
+        mov $r_snake , $r_color
+        cali :draw_pixel
+        stb $r_x , $r_hx_addr
+        stb $r_y , $r_hy_addr
 
+        ret
+    !endscope
+
+    !scope pop_tail
+        ldb $r_tx_addr , $r_x
+        ldb $r_tx_addr , $r_y
+        inc $r_tx_addr
+        inc $r_ty_addr
+        $when[reg=$r_tx_addr , is=eq , val=$r_xe_addr , do={mov $r_xs_addr , $r_tx_addr}]
+        $when[reg=$r_ty_addr , is=eq , val=$r_ye_addr , do={mov $r_ys_addr , $r_ty_addr}]
+        mov $r_background , $r_color
+        cali :draw_pixel
 
         ret
     !endscope
 
     !scope reset_snake
-        ldb $r_tx_addr , $r_x_start
-        ldb $r_ty_addr , $r_y_start
-        lib $r_hx_addr , ( $x_start - 1 )
-        lib $r_hy_addr , ( $y_start - 1 )
+        ldb $r_tx_addr , $r_xs_addr
+        ldb $r_ty_addr , $r_ys_addr
+        lib $r_hx_addr , ( $xs_addr - 1 )
+        lib $r_hy_addr , ( $ys_addr - 1 )
+        mov $r_right , $r_dir
+        $fori[i=0 , to=$snake_init_len , do={cali :push_head}]
 
         ret
     !endscope
@@ -411,20 +473,8 @@ def default_snake_len = 3
     !endscope
 
     !scope step_snake
-        $poke[addr=$FIDX , reg=$r_background]
-        $poke[addr=$BIDX , reg=$r_background]
-        $poke[addr=$CX , reg=$r_head_x]
-        $poke[addr=$CY , reg=$r_head_y]
-        $poke[addr=$CELL , reg = $r_zero]
-        $when[reg=$r_dir , is=eq , val=$r_up , do={dec $r_head_y}]
-        $when[reg=$r_dir , is=eq , val=$r_left , do={dec $r_head_x}]
-        $when[reg=$r_dir , is=eq , val=$r_down , do={inc $r_head_y}]
-        $when[reg=$r_dir , is=eq , val=$r_right , do={inc $r_head_x}]
-        $poke[addr=$FIDX , reg=$r_snake]
-        $poke[addr=$BIDX , reg=$r_snake]
-        $poke[addr=$CX , reg=$r_head_x]
-        $poke[addr=$CY , reg=$r_head_y]
-        $poke[addr=$CELL , reg = $r_zero]
+        cali :push_head
+        $if[reg=$r_growth , is=gt , val=$r_zero , do= {dec $r_growth} , elsedo={cali :pop_tail}]
 
         ret
     !endscope
@@ -452,6 +502,7 @@ def default_snake_len = 3
 # ==================================================================================
 
     cali :reset_screen
+    cali :reset_snake
     $reset_timer
     $whilei[reg=$r_should_go , is=eq , val=1 , do = cali :game_step]
 
