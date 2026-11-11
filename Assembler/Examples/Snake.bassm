@@ -376,7 +376,7 @@ def default_snake_len = 3
         when[reg=$r_dir , is=eq , val=$r_down,  do={inc $r_y; jmpi :.skip}]
         when[reg=$r_dir , is=eq , val=$r_right, do={inc $r_x; jmpi :.skip}]
         skip:
-        
+
 
         ret
     !endscope
