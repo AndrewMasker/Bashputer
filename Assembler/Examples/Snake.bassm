@@ -65,10 +65,10 @@ def r_kb_status = r10                       # Register holding the status of the
 def r_kb_data = r11                         # Register holding the keyboard data
 def r_dir = r12                             # Direction register 0b00 = up , 0b01 = left , 0b10 = down , 0b11 = right
 def r_op_dir = r13                          # For holding the opposite of the current direction
-def r_head_x = r14
-def r_head_y = r15
-def r_tail_x = r16
-def r_tail_y = r17
+def r_hx_addr = r14
+def r_hy_addr = r15
+def r_tx_addr = r16
+def r_ty_addr = r17
 def r_up = r18
 def r_left = r19
 def r_down = r20
@@ -77,11 +77,17 @@ def r_w = r22
 def r_a = r23
 def r_s = r24
 def r_d = r25
-def r_q = r25
-def r_background = r26
-def r_snake = r27
-def r_apples = r28
-def r_walls = r29
+def r_q = r26
+def r_background = r27
+def r_snake = r28
+def r_apples = r29
+def r_walls = r30
+def r_xs_addr = r31
+def r_xe_addr = r32
+def r_ys_addr = r33
+def r_ye_addr = r34
+def r_x = r35
+def r_y = r36
 
 # ==================================================================================
 # CONSTANTS
@@ -107,6 +113,14 @@ def a = 0x61
 def s = 0x73
 def d = 0x64
 def q = 0x71
+
+# SNAKE RING BUFFERS
+def xs_addr = $RAM                                    # Inclusive
+def xe_addr = ( $x_start + ( $width * $p_height ) )     # Exclusive
+def ys_addr = $x_end                                  # Inclusive
+def ye_addr = ( $x_end + ( $width * $p_height ) )       # Exclusive
+
+def default_snake_len = 3
 
 # ==================================================================================
 # MACROS
@@ -284,10 +298,13 @@ def q = 0x71
 # INITIALIZATION AND FUNCTIONS
 # ==================================================================================
 
+    !label_origin
+    pc $r_origin
+    sjo $r_origin
+
+    # REGISTER INITIALIZATION
     lib $r_one , 1
     lib $r_should_go , 1
-    lib $r_head_x , (($width / 2) + 1)
-    lib $r_head_y , (($height / 2) + 1)
     lib $r_up , 0b00
     lib $r_left , 0b01
     lib $r_down , 0b10
@@ -301,10 +318,10 @@ def q = 0x71
     lib $r_snake , $snake
     lib $r_apples , $apples
     lib $r_walls , $walls
-
-    !label_origin
-    pc $r_origin
-    sjo $r_origin
+    lib $r_xs_addr , $xs_addr
+    lib $r_xe_addr , $xs_addr
+    lib $r_ys_addr , $ys_addr
+    lib $r_ye_addr , $ye_addr
 
     jmpi :END_FUNCTIONS
 
@@ -343,6 +360,32 @@ def q = 0x71
 
         undef line_init
         undef line_body
+
+        ret
+    !endscope
+
+    !scope push_head
+        ldb $r_hx_addr , $r_x
+        ldb $r_hx_addr , $r_y
+        inc $r_hx_addr
+        inc $r_hy_addr
+        when[reg=$r_hx_addr , is=eq , val=$r_xe_addr , do={mov $r_xs_addr , $r_hx_addr}]
+        when[reg=$r_hy_addr , is=eq , val=$r_ye_addr , do={mov $r_ys_addr , $r_hy_addr}]
+        when[reg=$r_dir , is=eq , val=$r_up ,   do={dec $r_x; jmpi :.skip}]
+        when[reg=$r_dir , is=eq , val=$r_left,  do={dec $r_y; jmpi :.skip}]
+        when[reg=$r_dir , is=eq , val=$r_down,  do={inc $r_y; jmpi :.skip}]
+        when[reg=$r_dir , is=eq , val=$r_right, do={inc $r_x; jmpi :.skip}]
+        skip:
+        
+
+        ret
+    !endscope
+
+    !scope reset_snake
+        ldb $r_tx_addr , $r_x_start
+        ldb $r_ty_addr , $r_y_start
+        lib $r_hx_addr , ( $x_start - 1 )
+        lib $r_hy_addr , ( $y_start - 1 )
 
         ret
     !endscope
