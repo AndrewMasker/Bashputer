@@ -61,6 +61,14 @@ def r_index = r6                            # Register to hold the current index
 def r_cond = r7                             # Register to hold the condition
 def r_one = r8                              # Register which will hold one
 def r_should_go = r9                        # Register holding the should_go bool
+def r_kb_status = r10                       # Register holding the status of the keyboard 
+def r_kb_data = r11                         # Register holding the keyboard data
+def r_dir = r12                             # Direction register 0b00 = up , 0b01 = left , 0b10 = down , 0b11 = right
+def r_op_dir = r13                          # For holding the opposite of the current direction
+def r_head_x = r14
+def r_head_y = r15
+def r_tail_x = r16
+def r_tail_y = r17
 
 # ==================================================================================
 # CONSTANTS
@@ -80,13 +88,20 @@ def p_height = ( $height * 2 )
 # TIMING:
 def time_step = 100
 
+# KEYS:
+def w = 0x77
+def a = 0x61
+def s = 0x73
+def d = 0x64
+def q = 0x71
+
 # ==================================================================================
 # MACROS
 # ==================================================================================
 #
 # GENERAL:
-    # for[i= , to= , do= ] - does @do @to-@i times starting at @i. @i is limited to a quarter
-    def for = 
+    # fori[i= , to= , do= ] - does @do @to-@i times starting at @i. @i and @to are limited to a quarter
+    def fori = 
     {
         pshq $r_index
         pshq $r_more
@@ -106,8 +121,8 @@ def time_step = 100
             popq $r_index
     }
 
-    # while[reg= , is= , val= , do= ] - does @do while @reg is @is to @val. @val is limited to a quarter
-    def while = 
+    # whilei[reg= , is= , val= , do= ] - does @do while @reg is @is to @val. @val is limited to a quarter
+    def whilei = 
     {
         loop:
             liq $r_cond , @val
@@ -120,8 +135,8 @@ def time_step = 100
         endwhile:
     }
 
-    # if[reg= , is= , val= , do= , elsedo=] - does @do if @reg is @is to @val else does @elsedo. @val is limited to a quarter
-    def if = 
+    # ifi[reg= , is= , val= , do= , elsedo=] - does @do if @reg is @is to @val else does @elsedo. @val is limited to a quarter
+    def ifi = 
     {
         liq $r_cond , @val
         @is $r_cond , @reg , $r_cond
@@ -137,11 +152,22 @@ def time_step = 100
         endif:
     }
 
-    # when[reg= , is= , val= , do=] - does @do if @reg is @is to @val else does nothing. @val is limited to a quarter
-    def when = 
+    # wheni[reg= , is= , val= , do=] - does @do if @reg is @is to @val else does nothing. @val is limited to a quarter
+    def wheni = 
     {
         liq $r_cond , @val
         @is $r_cond , @reg , $r_cond
+        bzi $r_cond , :.endif
+        !scope
+            @do
+        !endscope
+        endif:
+    }
+
+    # when[reg= , is= , val= , do=] - does @do if @reg is @is to the value in @val else does nothing
+    def wheni = 
+    {
+        @is @val , @reg , $r_cond
         bzi $r_cond , :.endif
         !scope
             @do
@@ -172,6 +198,14 @@ def time_step = 100
         stb $r_unsafe , $r_addr
     }
 
+    def bid_table_readi = 
+    {
+        lib $r_unsafe , @offset
+        liw $r_addr , @table
+        add $r_addr , $r_unsafe , $r_addr
+        ldb $r_addr , @reg
+    }
+
 # TIMER READING:
     # reset_timer - resets the timer 
     def reset_timer = 
@@ -187,12 +221,22 @@ def time_step = 100
         ldw $r_addr , $r_timer
     }
 
+# GLOBAL GAME MACROS:
+    def change_dir = {
+        $bid_table_readi[reg=$r_op_dir , offset=@todir , table=:OP_DIR_TABLE] # Read the opposite direction of the way we are trying to turn
+        $wheni[reg=$r_dir , is=eq , val=@todir , do=jmpi :.endchange_dir ] # Skip if our current direction is th eopposite of the way we are trying to turn
+        lib $r_dir , @todir
+        endchange_dir:
+    }
+
 # ==================================================================================
 # INITIALIZATION AND FUNCTIONS
 # ==================================================================================
-#
+
     lib $r_one , 1
     lib $r_should_go , 1
+    lib $r_head_x , (($width / 2) + 1)
+    lib $r_head_y , (($height / 2) + 1)
 
     !label_origin
     pc $r_origin
@@ -220,17 +264,61 @@ def time_step = 100
         }
 
         $line_init[axis=$CY , where = 0 , top=$background , bottom=$walls]
-        $for[i=0 , to=($width + 2) , do=$line_body[axis=$CX]]
+        $fori[i=0 , to=($width + 2) , do=$line_body[axis=$CX]]
 
         $line_init[axis=$CY , where = ($height + 1) , top=$walls , bottom=$background]
-        $for[i=0 , to=($width + 2) , do=$line_body[axis=$CX]]
+        $fori[i=0 , to=($width + 2) , do=$line_body[axis=$CX]]
 
         $line_init[axis=$CX , where = 0 , top=$walls , bottom=$walls]
-        $for[i=1 , to=($height+1) , do=$line_body[axis=$CY]]
+        $fori[i=1 , to=($height+1) , do=$line_body[axis=$CY]]
 
         $line_init[axis=$CX , where = ($width + 1) , top=$walls , bottom=$walls]
-        $for[i=1 , to=($height+1) , do=$line_body[axis=$CY]]
+        $fori[i=1 , to=($height+1) , do=$line_body[axis=$CY]]
+
         $poke[addr=$BLIT , reg=$r_zero]
+
+        undef line_init
+        undef line_body
+
+        ret
+    !endscope
+
+    !scope handle_keys
+        def key_body = {
+            $peek[addr = $KB_DATA , reg=$r_kb_data]
+            $wheni[reg=$r_kb_data , is=eq , val=$w , do={$change_dir[todir=0b00] ; $poke[addr=$KB_CLEAR , reg=$r_zero] ; ret}]
+            $wheni[reg=$r_kb_data , is=eq , val=$a , do={$change_dir[todir=0b01] ; $poke[addr=$KB_CLEAR , reg=$r_zero]; ret}]
+            $wheni[reg=$r_kb_data , is=eq , val=$s , do={$change_dir[todir=0b10] ; $poke[addr=$KB_CLEAR , reg=$r_zero]; ret}]
+            $wheni[reg=$r_kb_data , is=eq , val=$d , do={$change_dir[todir=0b11] ; $poke[addr=$KB_CLEAR , reg=$r_zero]; ret}]
+            $wheni[reg=$r_kb_data , is=eq , val=$q , do={$poke[addr=$KB_CLEAR , reg=$r_zero] ; hlt}]
+
+            $peek[addr = $KB_STATUS , reg=$r_kb_status]
+        }
+
+        $peek[addr = $KB_STATUS , reg=$r_kb_status]
+        $whilei[reg=$r_kb_status , is=eq , val=1 , do=$key_body]
+        
+        undef key_body
+
+        ret
+    !endscope
+
+    !scope step_snake
+        $pokei[addr=$FIDX , val=$background]
+        $pokei[addr=$BIDX , val=$background]
+        $poke[addr=$CX , reg=$r_head_x]
+        $poke[addr=$CY , reg=$r_head_y]
+        $poke[addr=$CELL , reg = $r_zero]
+        $wheni[reg=$r_dir , is=eq , val=0b00 , do={dec $r_head_y}]
+        $wheni[reg=$r_dir , is=eq , val=0b01 , do={dec $r_head_x}]
+        $wheni[reg=$r_dir , is=eq , val=0b10 , do={inc $r_head_y}]
+        $wheni[reg=$r_dir , is=eq , val=0b11 , do={inc $r_head_x}]
+        $pokei[addr=$FIDX , val=$snake]
+        $pokei[addr=$BIDX , val=$snake]
+        $poke[addr=$CX , reg=$r_head_x]
+        $poke[addr=$CY , reg=$r_head_y]
+        $poke[addr=$CELL , reg = $r_zero]
+
         ret
     !endscope
 
@@ -239,21 +327,33 @@ def time_step = 100
         def step_body = 
         {
             $reset_timer
-
+            cali :handle_keys
+            cali :step_snake
+            $poke[addr=$BLIT , reg=$r_zero]
         }
-        $when[reg=$r_timer , is=gt , val=$time_step , do=$step_body]
+        $wheni[reg=$r_timer , is=ge , val=0 , do=$step_body]
+
+        undef step_body
+
         ret
     !endscope
 
     END_FUNCTIONS:
 
 # ==================================================================================
+# TABLES
+# ==================================================================================
+
+    OP_DIR_TABLE:
+        db 0b10 , 0b11 , 0b10 , 0b00
+
+# ==================================================================================
 # PROGRAM
 # ==================================================================================
-#
-cali :reset_screen
-$reset_timer
-$while[reg=$r_should_go , is=eq , val=1 , do = cali :game_step]
 
-stall:
-jmpi :stall
+    cali :reset_screen
+    $reset_timer
+    $whilei[reg=$r_should_go , is=eq , val=1 , do = cali :game_step]
+
+    stall:
+    jmpi :stall
