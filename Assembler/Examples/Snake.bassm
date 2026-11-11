@@ -126,7 +126,7 @@ def q = 0x71
     {
         loop:
             liq $r_cond , @val
-            @is $r_cond , @reg , $r_cond
+            @is @reg , $r_cond , $r_cond
             bzi $r_cond , :.endwhile
             !scope
                 @do
@@ -139,7 +139,7 @@ def q = 0x71
     def ifi = 
     {
         liq $r_cond , @val
-        @is $r_cond , @reg , $r_cond
+        @is @reg , $r_cond , $r_cond
         bzi $r_cond , :.else
         !scope
             @do
@@ -156,7 +156,7 @@ def q = 0x71
     def wheni = 
     {
         liq $r_cond , @val
-        @is $r_cond , @reg , $r_cond
+        @is @reg , $r_cond , $r_cond
         bzi $r_cond , :.endif
         !scope
             @do
@@ -165,9 +165,9 @@ def q = 0x71
     }
 
     # when[reg= , is= , val= , do=] - does @do if @reg is @is to the value in @val else does nothing
-    def wheni = 
+    def when = 
     {
-        @is @val , @reg , $r_cond
+        @is @reg , @val , $r_cond
         bzi $r_cond , :.endif
         !scope
             @do
@@ -224,7 +224,7 @@ def q = 0x71
 # GLOBAL GAME MACROS:
     def change_dir = {
         $bid_table_readi[reg=$r_op_dir , offset=@todir , table=:OP_DIR_TABLE] # Read the opposite direction of the way we are trying to turn
-        $wheni[reg=$r_dir , is=eq , val=@todir , do=jmpi :.endchange_dir ] # Skip if our current direction is th eopposite of the way we are trying to turn
+        $when[reg=$r_dir , is=eq , val=$r_op_dir , do=jmpi :.endchange_dir ] # Skip if our current direction is the opposite of the way we are trying to turn
         lib $r_dir , @todir
         endchange_dir:
     }
@@ -341,13 +341,6 @@ def q = 0x71
     END_FUNCTIONS:
 
 # ==================================================================================
-# TABLES
-# ==================================================================================
-
-    OP_DIR_TABLE:
-        db 0b10 , 0b11 , 0b10 , 0b00
-
-# ==================================================================================
 # PROGRAM
 # ==================================================================================
 
@@ -357,3 +350,10 @@ def q = 0x71
 
     stall:
     jmpi :stall
+
+# ==================================================================================
+# TABLES
+# ==================================================================================
+
+    OP_DIR_TABLE:
+        db 0b10 , 0b11 , 0b00 , 0b01
