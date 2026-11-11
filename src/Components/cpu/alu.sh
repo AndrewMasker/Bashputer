@@ -105,3 +105,21 @@ le() {
     printf -v "$1" '0x%016X' $(( ( $2 ^ mask ) <= ( $3 ^ mask ) ))
 }
 
+gts() {
+    printf -v "$1" '0x%016X' $(( $2 > $3))
+}
+
+gt() {
+    local mask=$(( 1 << 63 ))
+    printf -v "$1" '0x%016X' $(( ( $2 ^ mask ) > ( $3 ^ mask ) ))
+}
+
+ges() {
+    printf -v "$1" '0x%016X' $(( $2 >= $3))
+}
+
+ge() {
+    local mask=$(( 1 << 63 ))
+    printf -v "$1" '0x%016X' $(( ( $2 ^ mask ) >= ( $3 ^ mask ) ))
+}
+

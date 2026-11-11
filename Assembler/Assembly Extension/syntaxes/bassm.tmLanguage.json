@@ -87,7 +87,7 @@
         } , 
         "mnemonic":
         {
-            "match": "(?i)\\b(nop|hlt|add|sub|inc|dec|neg|mul|div|rem|and|or|xor|not|lsr|asr|shl|ldb|ldq|ldh|ldw|stb|stq|sth|stw|lib|liq|lih|liw|eq|neq|lt|lts|le|les|bz|bnz|jmp|pshb|pshq|pshh|pshw|popb|popq|poph|popw|cal|cali|ret|mov|pc|sp|sjo|jmpi|bzi|bnzi|ssp|sspi|xsp|rnd|seed|ent|db)\\b" ,
+            "match": "(?i)\\b(nop|hlt|add|sub|inc|dec|neg|mul|div|rem|and|or|xor|not|lsr|asr|shl|ldb|ldq|ldh|ldw|stb|stq|sth|stw|lib|liq|lih|liw|eq|neq|lt|lts|le|les|bz|bnz|jmp|pshb|pshq|pshh|pshw|popb|popq|poph|popw|cal|cali|ret|mov|pc|sp|sjo|jmpi|bzi|bnzi|ssp|sspi|xsp|rnd|seed|ent|gt|gts|ge|ges|db)\\b" ,
             "captures": {"1": {"name": "keyword.other.instruction.bassm"}}
         } , 
         "register":

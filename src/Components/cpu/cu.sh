@@ -1176,6 +1176,70 @@ parse_ENT_OPCODE() {
     esac
 }
 
+parse_GT_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_3_ARGS $((pidx+1))
+            ;;
+        done_load)
+            gt 'GPRs[ARGC]' "${GPRs[$ARGA]}" "${GPRs[$ARGB]}"
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_GTS_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_3_ARGS $((pidx+1))
+            ;;
+        done_load)
+            gts 'GPRs[ARGC]' "${GPRs[$ARGA]}" "${GPRs[$ARGB]}"
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_GE_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_3_ARGS $((pidx+1))
+            ;;
+        done_load)
+            ge 'GPRs[ARGC]' "${GPRs[$ARGA]}" "${GPRs[$ARGB]}"
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
+parse_GES_OPCODE() {
+    local pidx=${1:-0}
+    case ${PROC_STATE[pidx]-} in
+        "")
+            load_3_ARGS $((pidx+1))
+            ;;
+        done_load)
+            ges 'GPRs[ARGC]' "${GPRs[$ARGA]}" "${GPRs[$ARGB]}"
+            printf -v 'PC' '0x%016X' $((PC + 1))
+            if (( pidx > 0 )); then PROC_STATE[pidx-1]="done_parse"; fi
+            PROC_STATE[pidx]=""
+            ;;
+        *) bad_State $pidx ;;
+    esac
+}
+
 
 parse_OPCODE() {
     local pidx=${1:-0}
@@ -1261,6 +1325,11 @@ parse_OPCODE() {
         0x3F) parse_RND_OPCODE  $pidx ;;
         0x40) parse_SEED_OPCODE $pidx ;;
         0x41) parse_ENT_OPCODE  $pidx ;;
+
+        0x42) parse_GT_OPCODE   $pidx ;;
+        0x43) parse_GTS_OPCODE  $pidx ;;
+        0x45) parse_GE_OPCODE   $pidx ;;
+        0x46) parse_GES_OPCODE  $pidx ;;
 
         *) parse_HLT_OPCODE     $pidx ;;
     esac
