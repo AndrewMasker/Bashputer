@@ -50,7 +50,7 @@ def TIMER_TICKS = ( $TIMER + 2 )            # 8 bytes, 1 tick = 1 ms
 # ==================================================================================
 # REGISTERS
 # ==================================================================================
-#
+
 def r_addr = r0                             # The address register
 def r_timer = r1                            # The timer register
 def r_zero = r2                             # Dedicated empty register
@@ -69,6 +69,19 @@ def r_head_x = r14
 def r_head_y = r15
 def r_tail_x = r16
 def r_tail_y = r17
+def r_up = r18
+def r_left = r19
+def r_down = r20
+def r_right = r21
+def r_w = r22
+def r_a = r23
+def r_s = r24
+def r_d = r25
+def r_q = r25
+def r_background = r26
+def r_snake = r27
+def r_apples = r28
+def r_walls = r29
 
 # ==================================================================================
 # CONSTANTS
@@ -135,11 +148,40 @@ def q = 0x71
         endwhile:
     }
 
+    # while[reg= , is= , val= , do= ] - does @do while @reg is @is to the value in @val.
+    def while = 
+    {
+        loop:
+            @is @reg , @val , $r_cond
+            bzi $r_cond , :.endwhile
+            !scope
+                @do
+            !endscope
+            jmpi :.loop
+        endwhile:
+    }
+
     # ifi[reg= , is= , val= , do= , elsedo=] - does @do if @reg is @is to @val else does @elsedo. @val is limited to a quarter
     def ifi = 
     {
         liq $r_cond , @val
         @is @reg , $r_cond , $r_cond
+        bzi $r_cond , :.else
+        !scope
+            @do
+        !endscope
+        jmpi :.endif
+        else:
+            !scope
+                @elsedo
+            !endscope
+        endif:
+    }
+
+    # if[reg= , is= , val= , do= , elsedo=] - does @do if @reg is @is to the value in @val else does @elsedo
+    def if = 
+    {
+        @is @reg , @val , $r_cond
         bzi $r_cond , :.else
         !scope
             @do
@@ -198,10 +240,19 @@ def q = 0x71
         stb $r_unsafe , $r_addr
     }
 
+    def bid_table_read = 
+    {
+        liw $r_addr , @table
+        add $r_addr , $r_origin , $r_addr
+        add $r_addr , @offset , $r_addr
+        ldb $r_addr , @reg
+    }
+
     def bid_table_readi = 
     {
         lib $r_unsafe , @offset
         liw $r_addr , @table
+        add $r_addr , $r_origin , $r_addr
         add $r_addr , $r_unsafe , $r_addr
         ldb $r_addr , @reg
     }
@@ -223,9 +274,9 @@ def q = 0x71
 
 # GLOBAL GAME MACROS:
     def change_dir = {
-        $bid_table_readi[reg=$r_op_dir , offset=@todir , table=:OP_DIR_TABLE] # Read the opposite direction of the way we are trying to turn
+        $bid_table_read[reg=$r_op_dir , offset=@todir , table=:OP_DIR_TABLE] # Read the opposite direction of the way we are trying to turn
         $when[reg=$r_dir , is=eq , val=$r_op_dir , do=jmpi :.endchange_dir ] # Skip if our current direction is the opposite of the way we are trying to turn
-        lib $r_dir , @todir
+        mov @todir , $r_dir
         endchange_dir:
     }
 
@@ -237,6 +288,19 @@ def q = 0x71
     lib $r_should_go , 1
     lib $r_head_x , (($width / 2) + 1)
     lib $r_head_y , (($height / 2) + 1)
+    lib $r_up , 0b00
+    lib $r_left , 0b01
+    lib $r_down , 0b10
+    lib $r_right , 0b11
+    lib $r_w , $w
+    lib $r_a , $a
+    lib $r_s , $s
+    lib $r_d , $d
+    lib $r_q , $q
+    lib $r_background , $background
+    lib $r_snake , $snake
+    lib $r_apples , $apples
+    lib $r_walls , $walls
 
     !label_origin
     pc $r_origin
@@ -245,16 +309,16 @@ def q = 0x71
     jmpi :END_FUNCTIONS
 
     !scope reset_screen 
-        $pokei[addr=$CMODE , val = 0]               # Set the screen to id based color mode
-        $pokei[addr=$BIDX , val=$background]        # Set the background id to the backround color
-        $poke[addr=$FILL , reg=$r_zero]             # Fill the 
-        $pokei[addr=$MODE , val = 1]                # Set the screen to pixel mode
+        $poke[addr=$CMODE , reg=$r_zero]               # Set the screen to id based color mode
+        $poke[addr=$BIDX , reg=$r_background]          # Set the background id to the backround color
+        $poke[addr=$FILL , reg=$r_zero]                # Fill the 
+        $poke[addr=$MODE , reg=$r_one]                 # Set the screen to pixel mode
         $poke[addr=$BLIT , reg=$r_zero]
 
         def line_init = {
-            $pokei[addr=@axis , val = @where]
-            $pokei[addr=$FIDX , val=@top]
-            $pokei[addr=$BIDX , val=@bottom]
+            $pokei[addr=@axis , val=@where]
+            $poke[addr=$FIDX , reg=@top]
+            $poke[addr=$BIDX , reg=@bottom]
         }
 
         def line_body = {
@@ -263,16 +327,16 @@ def q = 0x71
             $poke[addr=$BLIT , reg=$r_zero]
         }
 
-        $line_init[axis=$CY , where = 0 , top=$background , bottom=$walls]
+        $line_init[axis=$CY , where = 0 , top=$r_background , bottom=$r_walls]
         $fori[i=0 , to=($width + 2) , do=$line_body[axis=$CX]]
 
-        $line_init[axis=$CY , where = ($height + 1) , top=$walls , bottom=$background]
+        $line_init[axis=$CY , where = ($height + 1) , top=$r_walls , bottom=$r_background]
         $fori[i=0 , to=($width + 2) , do=$line_body[axis=$CX]]
 
-        $line_init[axis=$CX , where = 0 , top=$walls , bottom=$walls]
+        $line_init[axis=$CX , where = 0 , top=$r_walls , bottom=$r_walls]
         $fori[i=1 , to=($height+1) , do=$line_body[axis=$CY]]
 
-        $line_init[axis=$CX , where = ($width + 1) , top=$walls , bottom=$walls]
+        $line_init[axis=$CX , where = ($width + 1) , top=$r_walls , bottom=$r_walls]
         $fori[i=1 , to=($height+1) , do=$line_body[axis=$CY]]
 
         $poke[addr=$BLIT , reg=$r_zero]
@@ -286,17 +350,17 @@ def q = 0x71
     !scope handle_keys
         def key_body = {
             $peek[addr = $KB_DATA , reg=$r_kb_data]
-            $wheni[reg=$r_kb_data , is=eq , val=$w , do={$change_dir[todir=0b00] ; $poke[addr=$KB_CLEAR , reg=$r_zero] ; ret}]
-            $wheni[reg=$r_kb_data , is=eq , val=$a , do={$change_dir[todir=0b01] ; $poke[addr=$KB_CLEAR , reg=$r_zero]; ret}]
-            $wheni[reg=$r_kb_data , is=eq , val=$s , do={$change_dir[todir=0b10] ; $poke[addr=$KB_CLEAR , reg=$r_zero]; ret}]
-            $wheni[reg=$r_kb_data , is=eq , val=$d , do={$change_dir[todir=0b11] ; $poke[addr=$KB_CLEAR , reg=$r_zero]; ret}]
-            $wheni[reg=$r_kb_data , is=eq , val=$q , do={$poke[addr=$KB_CLEAR , reg=$r_zero] ; hlt}]
+            $when[reg=$r_kb_data , is=eq , val=$r_w , do={$change_dir[todir=$r_up] ; $poke[addr=$KB_CLEAR , reg=$r_zero] ; ret}]
+            $when[reg=$r_kb_data , is=eq , val=$r_a , do={$change_dir[todir=$r_left] ; $poke[addr=$KB_CLEAR , reg=$r_zero]; ret}]
+            $when[reg=$r_kb_data , is=eq , val=$r_s , do={$change_dir[todir=$r_down] ; $poke[addr=$KB_CLEAR , reg=$r_zero]; ret}]
+            $when[reg=$r_kb_data , is=eq , val=$r_d , do={$change_dir[todir=$r_right] ; $poke[addr=$KB_CLEAR , reg=$r_zero]; ret}]
+            $when[reg=$r_kb_data , is=eq , val=$r_q , do={$poke[addr=$KB_CLEAR , reg=$r_zero] ; hlt}]
 
             $peek[addr = $KB_STATUS , reg=$r_kb_status]
         }
 
         $peek[addr = $KB_STATUS , reg=$r_kb_status]
-        $whilei[reg=$r_kb_status , is=eq , val=1 , do=$key_body]
+        $while[reg=$r_kb_status , is=eq , val=$r_one , do=$key_body]
         
         undef key_body
 
@@ -304,17 +368,17 @@ def q = 0x71
     !endscope
 
     !scope step_snake
-        $pokei[addr=$FIDX , val=$background]
-        $pokei[addr=$BIDX , val=$background]
+        $poke[addr=$FIDX , reg=$r_background]
+        $poke[addr=$BIDX , reg=$r_background]
         $poke[addr=$CX , reg=$r_head_x]
         $poke[addr=$CY , reg=$r_head_y]
         $poke[addr=$CELL , reg = $r_zero]
-        $wheni[reg=$r_dir , is=eq , val=0b00 , do={dec $r_head_y}]
-        $wheni[reg=$r_dir , is=eq , val=0b01 , do={dec $r_head_x}]
-        $wheni[reg=$r_dir , is=eq , val=0b10 , do={inc $r_head_y}]
-        $wheni[reg=$r_dir , is=eq , val=0b11 , do={inc $r_head_x}]
-        $pokei[addr=$FIDX , val=$snake]
-        $pokei[addr=$BIDX , val=$snake]
+        $when[reg=$r_dir , is=eq , val=$r_up , do={dec $r_head_y}]
+        $when[reg=$r_dir , is=eq , val=$r_left , do={dec $r_head_x}]
+        $when[reg=$r_dir , is=eq , val=$r_down , do={inc $r_head_y}]
+        $when[reg=$r_dir , is=eq , val=$r_right , do={inc $r_head_x}]
+        $poke[addr=$FIDX , reg=$r_snake]
+        $poke[addr=$BIDX , reg=$r_snake]
         $poke[addr=$CX , reg=$r_head_x]
         $poke[addr=$CY , reg=$r_head_y]
         $poke[addr=$CELL , reg = $r_zero]
