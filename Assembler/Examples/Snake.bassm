@@ -390,7 +390,7 @@ def len_per_apple = 3
     liw $r_pop_tail_addr , :pop_tail
     liw $r_snake_init_addr , :snake_init
     liw $r_reset_snake_addr , :reset_snake
-    liw $r_handle_keys_addr , :handle_keys
+    # liw $r_handle_keys_addr , :handle_keys
     liw $r_step_snake_addr , :step_snake
     liw $r_spawn_apple_addr , :spawn_apple
     liw $r_game_step_addr , :game_step
@@ -560,7 +560,7 @@ def len_per_apple = 3
         ret
     !endscope
 
-    !scope handle_keys
+    !scope key_stuff 
         def key_body = {
             ldb $r_kb_data_addr , $r_kb_data
             $when[reg=$r_kb_data , is=eq , val=$r_w , do={$change_dir[todir=$r_up , dx=$r_zero , dy=$r_neg_one]; ret}]
@@ -572,12 +572,12 @@ def len_per_apple = 3
             ldb $r_kb_status_addr , $r_kb_status
         }
 
-        ldb $r_kb_status_addr , $r_kb_status
-        $while[reg=$r_kb_status , is=eq , val=$r_one , do=$key_body]
-        
-        undef key_body
+        def handle_keys = {
+            ldb $r_kb_status_addr , $r_kb_status
+            $while[reg=$r_kb_status , is=eq , val=$r_one , do=$key_body]
+        }
 
-        ret
+        undef key_body
     !endscope
 
     !scope step_snake
@@ -609,7 +609,7 @@ def len_per_apple = 3
     !endscope
 
     !scope game_step
-        cal $r_handle_keys_addr
+        $handle_keys
         cal $r_step_snake_addr
         stb $r_zero , $r_blit_addr
 
