@@ -11,544 +11,535 @@
 #       s: turn downwards if traveling left or right
 #       d: turn right (screen relative) if traveling up or down
 #       q: quit the game
-#
-#
+
+
 # ==================================================================================
-# SUBSTITUTIONS
+# MEMORY MAPPED IO
 # ==================================================================================
-#
-# MEMORY MAPPED IO: This section was in part taken from the Showcase.bassm
-# Memory map
-def SCREEN   = ( 1 * 64 * 1000 )
-def KEYBOARD = ( 3 * 64 * 1000 )
-def TIMER    = ( 4 * 64 * 1000 )
-def RAM      = ( 6 * 64 * 1000 )
 
-# Screen registers 
-def MODE  = ( $SCREEN + 0 )                 # 0 = characters, 1 = half-block pixels
-def CMODE = ( $SCREEN + 1 )                 # 0 = palette index, 1 = 24-bit RGB
-def CX    = ( $SCREEN + 2 )
-def CY    = ( $SCREEN + 3 )
-def FIDX  = ( $SCREEN + 4 )
-def FR    = ( $SCREEN + 5 ) ; def FG = ( $SCREEN + 6 ) ; def FB = ( $SCREEN + 7 )
-def BIDX  = ( $SCREEN + 8 )
-def BR    = ( $SCREEN + 9 ) ; def BG = ( $SCREEN + 10 ) ; def BB = ( $SCREEN + 11 )
-def CELL  = ( $SCREEN + 14 )
-def BLIT  = ( $SCREEN + 15 )
-def FILL  = ( $SCREEN + 16 )
-def R_FIDX= ( $SCREEN + 18 )
-def R_BIDX= ( $SCREEN + 22 )
+    # MEMORY MAP:
+    def SCREEN   = ( 1 * 64 * 1000 )
+    def KEYBOARD = ( 3 * 64 * 1000 )
+    def TIMER    = ( 4 * 64 * 1000 )
+    def RAM      = ( 6 * 64 * 1000 )
 
-# Keyboard registers
-def KB_STATUS = ( $KEYBOARD + 0 )           # 1 while a key is waiting
-def KB_DATA   = ( $KEYBOARD + 1 )           # reading pops one byte
-def KB_CLEAR  = ( $KEYBOARD + 2 )           # reading flushes the buffer
+    # SCREEN REGISTERS:
+    def MODE  = ( $SCREEN + 0 )                 # 0 = characters, 1 = half-block pixels
+    def CMODE = ( $SCREEN + 1 )                 # 0 = palette index, 1 = 24-bit RGB
+    def CX    = ( $SCREEN + 2 )
+    def CY    = ( $SCREEN + 3 )
+    def FIDX  = ( $SCREEN + 4 )
+    def FR    = ( $SCREEN + 5 ) ; def FG = ( $SCREEN + 6 ) ; def FB = ( $SCREEN + 7 )
+    def BIDX  = ( $SCREEN + 8 )
+    def BR    = ( $SCREEN + 9 ) ; def BG = ( $SCREEN + 10 ) ; def BB = ( $SCREEN + 11 )
+    def CELL  = ( $SCREEN + 14 )
+    def BLIT  = ( $SCREEN + 15 )
+    def FILL  = ( $SCREEN + 16 )
+    def R_FIDX= ( $SCREEN + 18 )
+    def R_BIDX= ( $SCREEN + 22 )
 
-# Timer registers
-def TIMER_RESET = ( $TIMER + 0 )            # any write restarts the count
-def TIMER_LATCH = ( $TIMER + 1 )            # any write captures the count
-def TIMER_TICKS = ( $TIMER + 2 )            # 8 bytes, 1 tick = 1 ms
+    # KEYBOARD REGISTERS:
+    def KB_STATUS = ( $KEYBOARD + 0 )           # 1 while a key is waiting
+    def KB_DATA   = ( $KEYBOARD + 1 )           # reading pops one byte
+    def KB_CLEAR  = ( $KEYBOARD + 2 )           # reading flushes the buffer
 
-def RESET_SP = ( 22*64*1000 )
+    # TIMER REGISTERS:
+    def TIMER_RESET = ( $TIMER + 0 )            # any write restarts the count
+    def TIMER_LATCH = ( $TIMER + 1 )            # any write captures the count
+    def TIMER_TICKS = ( $TIMER + 2 )            # 8 bytes, 1 tick = 1 ms
+
+    # STACK RESET VALUE:
+    def RESET_SP = ( 22*64*1000 )
 
 # ==================================================================================
 # REGISTERS
 # ==================================================================================
 
-def r_addr = r0                             # The address register
-def r_timer = r1                            # The timer register
-def r_zero = r2                             # Dedicated empty register
-def r_origin = r3                           # The register that holds 
-def r_unsafe = r4                           # Dedicated scratch register
-def r_more = r5                             # Register to hold the countdown index
-def r_index = r6                            # Register to hold the current index
-def r_cond = r7                             # Register to hold the condition
-def r_one = r8                              # Register which will hold one
-def r_should_go = r9                        # Register holding the should_go bool
-def r_kb_status = r10                       # Register holding the status of the keyboard 
-def r_kb_data = r11                         # Register holding the keyboard data
-def r_dir = r12                             # Direction register 0b00 = up , 0b01 = left , 0b10 = down , 0b11 = right
-def r_op_dir = r13                          # For holding the opposite of the current direction
-def r_hx_addr = r14
-def r_hy_addr = r15
-def r_tx_addr = r16
-def r_ty_addr = r17
-def r_up = r18
-def r_left = r19
-def r_down = r20
-def r_right = r21
-def r_w = r22
-def r_a = r23
-def r_s = r24
-def r_d = r25
-def r_q = r26
-def r_background = r27
-def r_snake = r28
-def r_apples = r29
-def r_walls = r30
-def r_xs_addr = r31
-def r_xe_addr = r32
-def r_ys_addr = r33
-def r_ye_addr = r34
-def r_x = r35
-def r_y = r36
-def r_two = r37
-def r_color = r38
-def r_growth = r39
-def r_rem = r40
-def r_width = r41
-def r_height = r42
-def r_p_height = r43
-def r_no_apple = r44
-def r_dx = r45
-def r_dy = r46
-def r_neg_one = r47
-def r_len_per_apple = r48
+    def r_addr = r0                             # The address register
+    def r_timer = r1                            # The timer register
+    def r_zero = r2                             # Dedicated empty register
+    def r_origin = r3                           # The register that holds 
+    def r_unsafe = r4                           # Dedicated scratch register
+    def r_more = r5                             # Register to hold the countdown index
+    def r_index = r6                            # Register to hold the current index
+    def r_cond = r7                             # Register to hold the condition
+    def r_one = r8                              # Register which will hold one
+    def r_should_go = r9                        # Register holding the should_go bool
+    def r_kb_status = r10                       # Register holding the status of the keyboard 
+    def r_kb_data = r11                         # Register holding the keyboard data
+    def r_dir = r12                             # Direction register 0b00 = up , 0b01 = left , 0b10 = down , 0b11 = right
+    def r_op_dir = r13                          # For holding the opposite of the current direction
+    def r_hx_addr = r14
+    def r_hy_addr = r15
+    def r_tx_addr = r16
+    def r_ty_addr = r17
+    def r_up = r18
+    def r_left = r19
+    def r_down = r20
+    def r_right = r21
+    def r_w = r22
+    def r_a = r23
+    def r_s = r24
+    def r_d = r25
+    def r_q = r26
+    def r_background = r27
+    def r_snake = r28
+    def r_apples = r29
+    def r_walls = r30
+    def r_xs_addr = r31
+    def r_xe_addr = r32
+    def r_ys_addr = r33
+    def r_ye_addr = r34
+    def r_x = r35
+    def r_y = r36
+    def r_two = r37
+    def r_color = r38
+    def r_growth = r39
+    def r_rem = r40
+    def r_width = r41
+    def r_height = r42
+    def r_p_height = r43
+    def r_no_apple = r44
+    def r_dx = r45
+    def r_dy = r46
+    def r_neg_one = r47
+    def r_len_per_apple = r48
 
-def r_reset_screen_addr = r255
-def r_set_seed_addr = r254
-def r_draw_pixel_addr = r253
-def r_check_collisions_addr = r252
-def r_push_head_addr = r251
-def r_pop_tail_addr = r250
-def r_snake_init_addr = r249
-def r_reset_snake_addr = r248
-def r_handle_keys_addr = r247
-def r_step_snake_addr = r246
-def r_spawn_apple_addr = r245
-def r_game_step_addr = r244
+    def r_reset_screen_addr = r255
+    def r_set_seed_addr = r254
 
-def r_cell_addr = r243
-def r_blit_addr = r242
-def r_cx_addr = r241
-def r_cy_addr = r240
-def r_fidx_addr = r239
-def r_bidx_addr = r238
-def r_r_fidx_addr = r227
-def r_r_bidx_addr = r226
+    def r_snake_init_addr = r249
+    def r_reset_snake_addr = r248
 
-def r_kb_status_addr = r225
-def r_kb_data_addr = r224
+    def r_cell_addr = r243
+    def r_blit_addr = r242
+    def r_cx_addr = r241
+    def r_cy_addr = r240
+    def r_fidx_addr = r239
+    def r_bidx_addr = r238
+    def r_r_fidx_addr = r227
+    def r_r_bidx_addr = r226
 
-def r_game_loop_addr = r223
+    def r_kb_status_addr = r225
+    def r_kb_data_addr = r224
+
+    def r_game_loop_addr = r223
 
 # ==================================================================================
 # CONSTANTS
 # ==================================================================================
-#
-# COLORS:
-def background = 0x10
-def snake = 0x0A
-def apples = 0x09
-def walls = 0x0F
 
-# PLAY AREA:
-def width = 30                            # Cell width of the playable area
-def height = 15                           # Cell height of the playable area
-def p_height = ( $height * 2 )
+    # COLORS:
+    def background = 0x10
+    def snake = 0x0A
+    def apples = 0x09
+    def walls = 0x0F
 
-# TIMING:
-def time_step = 1
+    # PLAY AREA:
+    def width = 30                            # Cell width of the playable area
+    def height = 15                           # Cell height of the playable area
+    def p_height = ( $height * 2 )
 
-# KEYS:
-def w = 0x77
-def a = 0x61
-def s = 0x73
-def d = 0x64
-def q = 0x71
+    # TIMING:
+    def time_step = 1
 
-# SNAKE RING BUFFERS
-def xs_addr = $RAM                                         # Inclusive
-def xe_addr = ( $xs_addr + ( $width * $p_height ) + 1)     # Exclusive (one is added so we don't have to worry about write order)
-def ys_addr = $xe_addr                                       # Inclusive
-def ye_addr = ( $xe_addr + ( $width * $p_height ) + 1)       # Exclusive (one is added so we don't have to worry about write order)
+    # KEYS:
+    def w = 0x77
+    def a = 0x61
+    def s = 0x73
+    def d = 0x64
+    def q = 0x71
 
-def snake_init_len = 3
-def len_per_apple = 3
+    # SNAKE RING BUFFERS:
+    def xs_addr = $RAM                                         # Inclusive
+    def xe_addr = ( $xs_addr + ( $width * $p_height ) + 1)     # Exclusive (one is added so we don't have to worry about write order)
+    def ys_addr = $xe_addr                                       # Inclusive
+    def ye_addr = ( $xe_addr + ( $width * $p_height ) + 1)       # Exclusive (one is added so we don't have to worry about write order)
+
+    # SNAKE LENGTHS:
+    def snake_init_len = 3
+    def len_per_apple = 3
 
 # ==================================================================================
 # MACROS
 # ==================================================================================
-#
-# GENERAL:
-    # fori[i= , to= , do= ] - does @do @to-@i times starting at @i. @i and @to are limited to a quarter
-    def fori = 
-    {
-        pshq $r_index
-        pshq $r_more
-        liq $r_more , ( @to - @i )
-        lib $r_index , @i
-        bzi $r_more , :.endfor
-        loop:
-            !scope
-                @do
-            !endscope
-        next:
-            dec $r_more
-            inc $r_index
-            bnzi $r_more , :.loop
-        endfor:
-            popq $r_more
-            popq $r_index
-    }
 
-    # whilei[reg= , is= , val= , do= ] - does @do while @reg is @is to @val. @val is limited to a quarter
-    def whilei = 
-    {
-        loop:
+    # GENERAL:
+        # fori[i= , to= , do= ] - does @do @to-@i times starting at @i. @i and @to are limited to a quarter
+        def fori = 
+        {
+            pshq $r_index
+            pshq $r_more
+            liq $r_more , ( @to - @i )
+            lib $r_index , @i
+            bzi $r_more , :.endfor
+            loop:
+                !scope
+                    @do
+                !endscope
+            next:
+                dec $r_more
+                inc $r_index
+                bnzi $r_more , :.loop
+            endfor:
+                popq $r_more
+                popq $r_index
+        }
+
+        # whilei[reg= , is= , val= , do= ] - does @do while @reg is @is to @val. @val is limited to a quarter
+        def whilei = 
+        {
+            loop:
+                liq $r_cond , @val
+                @is @reg , $r_cond , $r_cond
+                bzi $r_cond , :.endwhile
+                !scope
+                    @do
+                !endscope
+                jmpi :.loop
+            endwhile:
+        }
+
+        # while[reg= , is= , val= , do= ] - does @do while @reg is @is to the value in @val.
+        def while = 
+        {
+            loop:
+                @is @reg , @val , $r_cond
+                bzi $r_cond , :.endwhile
+                !scope
+                    @do
+                !endscope
+                jmpi :.loop
+            endwhile:
+        }
+
+        # ifi[reg= , is= , val= , do= , elsedo=] - does @do if @reg is @is to @val else does @elsedo. @val is limited to a quarter
+        def ifi = 
+        {
             liq $r_cond , @val
             @is @reg , $r_cond , $r_cond
-            bzi $r_cond , :.endwhile
+            bzi $r_cond , :.else
             !scope
                 @do
             !endscope
-            jmpi :.loop
-        endwhile:
-    }
+            jmpi :.endif
+            else:
+                !scope
+                    @elsedo
+                !endscope
+            endif:
+        }
 
-    # while[reg= , is= , val= , do= ] - does @do while @reg is @is to the value in @val.
-    def while = 
-    {
-        loop:
+        # if[reg= , is= , val= , do= , elsedo=] - does @do if @reg is @is to the value in @val else does @elsedo
+        def if = 
+        {
             @is @reg , @val , $r_cond
-            bzi $r_cond , :.endwhile
+            bzi $r_cond , :.else
             !scope
                 @do
             !endscope
-            jmpi :.loop
-        endwhile:
-    }
+            jmpi :.endif
+            else:
+                !scope
+                    @elsedo
+                !endscope
+            endif:
+        }
 
-    # ifi[reg= , is= , val= , do= , elsedo=] - does @do if @reg is @is to @val else does @elsedo. @val is limited to a quarter
-    def ifi = 
-    {
-        liq $r_cond , @val
-        @is @reg , $r_cond , $r_cond
-        bzi $r_cond , :.else
-        !scope
-            @do
-        !endscope
-        jmpi :.endif
-        else:
+        # wheni[reg= , is= , val= , do=] - does @do if @reg is @is to @val else does nothing. @val is limited to a quarter
+        def wheni = 
+        {
+            liq $r_cond , @val
+            @is @reg , $r_cond , $r_cond
+            bzi $r_cond , :.endif
             !scope
-                @elsedo
+                @do
             !endscope
-        endif:
-    }
+            endif:
+        }
 
-    # if[reg= , is= , val= , do= , elsedo=] - does @do if @reg is @is to the value in @val else does @elsedo
-    def if = 
-    {
-        @is @reg , @val , $r_cond
-        bzi $r_cond , :.else
-        !scope
-            @do
-        !endscope
-        jmpi :.endif
-        else:
+        # when[reg= , is= , val= , do=] - does @do if @reg is @is to the value in @val else does nothing
+        def when = 
+        {
+            @is @reg , @val , $r_cond
+            bzi $r_cond , :.endif
             !scope
-                @elsedo
+                @do
             !endscope
-        endif:
-    }
+            endif:
+        }
 
-    # wheni[reg= , is= , val= , do=] - does @do if @reg is @is to @val else does nothing. @val is limited to a quarter
-    def wheni = 
-    {
-        liq $r_cond , @val
-        @is @reg , $r_cond , $r_cond
-        bzi $r_cond , :.endif
-        !scope
-            @do
+    # DATA HANDLING:
+        # peek[addr= , reg= ] - sets register to the value stored in the address
+        def peek = 
+        {
+            liw $r_addr , @addr
+            ldb $r_addr , @reg
+        }
+
+        # poke[addr= , reg= ] - sets the address to the value stored in the low byte of the register
+        def poke = 
+        {
+            liw $r_addr , @addr
+            stb @reg , $r_addr
+        }
+
+        # pokei[addr= , val= ] - sets the address to the value (byte only)
+        def pokei = 
+        {
+            liw $r_addr , @addr
+            lib $r_unsafe , @val
+            stb $r_unsafe , $r_addr
+        }
+
+        def bid_table_read = 
+        {
+            liw $r_addr , @table
+            add $r_addr , $r_origin , $r_addr
+            add $r_addr , @offset , $r_addr
+            ldb $r_addr , @reg
+        }
+
+        def bid_table_readi = 
+        {
+            lib $r_unsafe , @offset
+            liw $r_addr , @table
+            add $r_addr , $r_origin , $r_addr
+            add $r_addr , $r_unsafe , $r_addr
+            ldb $r_addr , @reg
+        }
+
+    # TIMER READING:
+        # reset_timer - resets the timer 
+        def reset_timer = 
+        {
+            $poke[addr = $TIMER_RESET , reg = $r_zero]
+        }
+
+        # read_timer - reads the timer 
+        def read_timer = 
+        {
+            $poke[addr = $TIMER_LATCH , reg = $r_zero]
+            liw $r_addr , $TIMER_TICKS
+            ldw $r_addr , $r_timer
+        }
+
+    # GAME MACROS:
+        !scope # DIRECTION CHANGING
+            def change_dir = {
+                $bid_table_read[reg=$r_op_dir , offset=@todir , table=:OP_DIR_TABLE] # Read the opposite direction of the way we are trying to turn
+                $when[reg=$r_dir , is=eq , val=$r_op_dir , do=jmpi :.endchange_dir ] # Skip if our current direction is the opposite of the way we are trying to turn
+                mov @todir , $r_dir
+                mov @dx , $r_dx
+                mov @dy , $r_dy
+                endchange_dir:
+            }
         !endscope
-        endif:
-    }
 
-    # when[reg= , is= , val= , do=] - does @do if @reg is @is to the value in @val else does nothing
-    def when = 
-    {
-        @is @reg , @val , $r_cond
-        bzi $r_cond , :.endif
-        !scope
-            @do
+        !scope # CURSOR SETTING
+            def set_cursor = {
+                stb $r_x , $r_cx_addr
+                div $r_y , $r_two , $r_unsafe
+                stb $r_unsafe , $r_cy_addr
+                rem $r_y , $r_two , $r_rem
+            }
         !endscope
-        endif:
-    }
 
-# DATA HANDLING:
-    # peek[addr= , reg= ] - sets register to the value stored in the address
-    def peek = 
-    {
-        liw $r_addr , @addr
-        ldb $r_addr , @reg
-    }
+        !scope # PIXEL DRAWING
+            def is_top_pixel = {
+                stb $r_color , $r_fidx_addr
+                ldb $r_r_bidx_addr , $r_unsafe
+                stb $r_unsafe , $r_bidx_addr
+            }
+            def is_bottom_pixel = {
+                stb $r_color , $r_bidx_addr
+                ldb $r_r_fidx_addr , $r_unsafe
+                stb $r_unsafe , $r_fidx_addr
+            }
 
-    # poke[addr= , reg= ] - sets the address to the value stored in the low byte of the register
-    def poke = 
-    {
-        liw $r_addr , @addr
-        stb @reg , $r_addr
-    }
+            def draw_pixel = {
+                $set_cursor
+                $if[reg=$r_rem , is=eq , val=$r_zero , do=$is_top_pixel , elsedo=$is_bottom_pixel]
+                stb $r_zero , $r_cell_addr
+            }
+            undef is_top_pixel
+            undef is_bottom_pixel
+        !endscope
 
-    # pokei[addr= , val= ] - sets the address to the value (byte only)
-    def pokei = 
-    {
-        liw $r_addr , @addr
-        lib $r_unsafe , @val
-        stb $r_unsafe , $r_addr
-    }
+        !scope # COLLISION CHECKING
+            def check_non_empty = {
+                $when[reg=$r_color , is=eq , val=$r_apples , do={add $r_growth , $r_len_per_apple , $r_growth; mov $r_one , $r_no_apple ; jmpi :.skip}]
+                $when[reg=$r_color , is=eq , val=$r_walls , do={jmpi :RESET}]
+                $when[reg=$r_color , is=eq , val=$r_snake , do={jmpi :RESET}]
+            }
 
-    def bid_table_read = 
-    {
-        liw $r_addr , @table
-        add $r_addr , $r_origin , $r_addr
-        add $r_addr , @offset , $r_addr
-        ldb $r_addr , @reg
-    }
-
-    def bid_table_readi = 
-    {
-        lib $r_unsafe , @offset
-        liw $r_addr , @table
-        add $r_addr , $r_origin , $r_addr
-        add $r_addr , $r_unsafe , $r_addr
-        ldb $r_addr , @reg
-    }
-
-# TIMER READING:
-    # reset_timer - resets the timer 
-    def reset_timer = 
-    {
-        $poke[addr = $TIMER_RESET , reg = $r_zero]
-    }
-
-    # read_timer - reads the timer 
-    def read_timer = 
-    {
-        $poke[addr = $TIMER_LATCH , reg = $r_zero]
-        liw $r_addr , $TIMER_TICKS
-        ldw $r_addr , $r_timer
-    }
-
-# GLOBAL GAME MACROS:
-    def change_dir = {
-        $bid_table_read[reg=$r_op_dir , offset=@todir , table=:OP_DIR_TABLE] # Read the opposite direction of the way we are trying to turn
-        $when[reg=$r_dir , is=eq , val=$r_op_dir , do=jmpi :.endchange_dir ] # Skip if our current direction is the opposite of the way we are trying to turn
-        mov @todir , $r_dir
-        mov @dx , $r_dx
-        mov @dy , $r_dy
-        endchange_dir:
-    }
-
-    def set_cursor = {
-        stb $r_x , $r_cx_addr
-        div $r_y , $r_two , $r_unsafe
-        stb $r_unsafe , $r_cy_addr
-        rem $r_y , $r_two , $r_rem
-    }
-
-# GAME LOOP MACROS:
-    !scope # PIXEL DRAWING
-        def is_top_pixel = {
-            stb $r_color , $r_fidx_addr
-            ldb $r_r_bidx_addr , $r_unsafe
-            stb $r_unsafe , $r_bidx_addr
-        }
-        def is_bottom_pixel = {
-            stb $r_color , $r_bidx_addr
-            ldb $r_r_fidx_addr , $r_unsafe
-            stb $r_unsafe , $r_fidx_addr
-        }
-
-        def draw_pixel = {
-            $set_cursor
-            $if[reg=$r_rem , is=eq , val=$r_zero , do=$is_top_pixel , elsedo=$is_bottom_pixel]
-            stb $r_zero , $r_cell_addr
-        }
-        undef is_top_pixel
-        undef is_bottom_pixel
-    !endscope
-
-    !scope # COLLISION CHECKING
-        def check_non_empty = {
-            $when[reg=$r_color , is=eq , val=$r_apples , do={add $r_growth , $r_len_per_apple , $r_growth; mov $r_one , $r_no_apple ; jmpi :.skip}]
-            $when[reg=$r_color , is=eq , val=$r_walls , do={jmpi :RESET}]
-            $when[reg=$r_color , is=eq , val=$r_snake , do={jmpi :RESET}]
-        }
-
-        def check_collisions = {
-            $set_cursor
-            $if[reg=$r_rem , is=eq , val=$r_zero , do={ldb $r_r_fidx_addr , $r_color} , elsedo={ldb $r_r_bidx_addr , $r_color}]
-
-            $when[reg=$r_color , is=neq , val=$r_background , do=$check_non_empty]
-            skip:
-        }
-
-        undef check_non_empty
-    !endscope
-
-    !scope # HEAD PUSHING
-        def push_head = {
-            ldb $r_hx_addr , $r_x
-            ldb $r_hy_addr , $r_y
-            inc $r_hx_addr
-            inc $r_hy_addr
-            $when[reg=$r_hx_addr , is=eq , val=$r_xe_addr , do={mov $r_xs_addr , $r_hx_addr ; mov $r_ys_addr , $r_hy_addr}]
-            add $r_x , $r_dx , $r_x
-            add $r_y , $r_dy , $r_y
-            skip:
-            $check_collisions
-            mov $r_snake , $r_color
-            $draw_pixel
-            stb $r_x , $r_hx_addr
-            stb $r_y , $r_hy_addr
-        }
-    !endscope
-
-    !scope # TAIL POPPING
-        def pop_tail = {
-            ldb $r_tx_addr , $r_x
-            ldb $r_ty_addr , $r_y
-            inc $r_tx_addr
-            inc $r_ty_addr
-            $when[reg=$r_tx_addr , is=eq , val=$r_xe_addr , do={mov $r_xs_addr , $r_tx_addr ; mov $r_ys_addr , $r_ty_addr}]
-            mov $r_background , $r_color
-            $draw_pixel
-        }
-    !endscope
-
-    !scope # KEY PRESSING
-        def key_body = {
-            ldb $r_kb_data_addr , $r_kb_data
-            $when[reg=$r_kb_data , is=eq , val=$r_w , do={$change_dir[todir=$r_up , dx=$r_zero , dy=$r_neg_one]; jmpi :.keys_done}]
-            $when[reg=$r_kb_data , is=eq , val=$r_a , do={$change_dir[todir=$r_left , dx=$r_neg_one , dy=$r_zero]; jmpi :.keys_done}]
-            $when[reg=$r_kb_data , is=eq , val=$r_s , do={$change_dir[todir=$r_down , dx=$r_zero , dy=$r_one]; jmpi :.keys_done}]
-            $when[reg=$r_kb_data , is=eq , val=$r_d , do={$change_dir[todir=$r_right , dx=$r_one , dy=$r_zero]; jmpi :.keys_done}]
-            $when[reg=$r_kb_data , is=eq , val=$r_q , do={$peek[addr=$KB_CLEAR , reg=$r_unsafe] ; hlt}]
-
-            ldb $r_kb_status_addr , $r_kb_status
-        }
-
-        def handle_keys = {
-            ldb $r_kb_status_addr , $r_kb_status
-            $while[reg=$r_kb_status , is=eq , val=$r_one , do=$key_body]
-            keys_done:
-        }
-
-        undef key_body
-    !endscope
-
-    !scope # APPLE SPAWNING
-        def spawn_apple = {
-            !scope try
-                rnd $r_x
-                lsr $r_x , $r_one , $r_x
-                rem $r_x , $r_width , $r_x
-                add $r_x , $r_one , $r_x
-
-                rnd $r_y
-                lsr $r_y , $r_one , $r_y
-                rem $r_y , $r_p_height , $r_y
-                add $r_y , $r_two , $r_y
-                
+            def check_collisions = {
                 $set_cursor
                 $if[reg=$r_rem , is=eq , val=$r_zero , do={ldb $r_r_fidx_addr , $r_color} , elsedo={ldb $r_r_bidx_addr , $r_color}]
 
-                $if[reg=$r_color , is=eq , val=$r_snake , do={jmpi :.try} , elsedo={mov $r_apples , $r_color ; $draw_pixel}]
-            !endscope
-        }
-    !endscope
+                $when[reg=$r_color , is=neq , val=$r_background , do=$check_non_empty]
+                skip:
+            }
 
-    !scope # SNAKE STEPPING
-        def step_snake = {
-            $push_head
-            $if[reg=$r_growth , is=gt , val=$r_zero , do= {dec $r_growth} , elsedo={$pop_tail}]
-            $when[reg=$r_no_apple , is=eq , val=$r_one , do={$spawn_apple; mov $r_zero , $r_no_apple}]
-        }
-    !endscope
+            undef check_non_empty
+        !endscope
 
-    !scope # GAME STEPPING
-        def game_step = {
-            $handle_keys
-            $step_snake
-            stb $r_zero , $r_blit_addr
-        }
-    !endscope
+        !scope # HEAD PUSHING
+            def push_head = {
+                ldb $r_hx_addr , $r_x
+                ldb $r_hy_addr , $r_y
+                inc $r_hx_addr
+                inc $r_hy_addr
+                $when[reg=$r_hx_addr , is=eq , val=$r_xe_addr , do={mov $r_xs_addr , $r_hx_addr ; mov $r_ys_addr , $r_hy_addr}]
+                add $r_x , $r_dx , $r_x
+                add $r_y , $r_dy , $r_y
+                skip:
+                $check_collisions
+                mov $r_snake , $r_color
+                $draw_pixel
+                stb $r_x , $r_hx_addr
+                stb $r_y , $r_hy_addr
+            }
+        !endscope
+
+        !scope # TAIL POPPING
+            def pop_tail = {
+                ldb $r_tx_addr , $r_x
+                ldb $r_ty_addr , $r_y
+                inc $r_tx_addr
+                inc $r_ty_addr
+                $when[reg=$r_tx_addr , is=eq , val=$r_xe_addr , do={mov $r_xs_addr , $r_tx_addr ; mov $r_ys_addr , $r_ty_addr}]
+                mov $r_background , $r_color
+                $draw_pixel
+            }
+        !endscope
+
+        !scope # KEY PRESSING
+            def key_body = {
+                ldb $r_kb_data_addr , $r_kb_data
+                $when[reg=$r_kb_data , is=eq , val=$r_w , do={$change_dir[todir=$r_up , dx=$r_zero , dy=$r_neg_one]; jmpi :.keys_done}]
+                $when[reg=$r_kb_data , is=eq , val=$r_a , do={$change_dir[todir=$r_left , dx=$r_neg_one , dy=$r_zero]; jmpi :.keys_done}]
+                $when[reg=$r_kb_data , is=eq , val=$r_s , do={$change_dir[todir=$r_down , dx=$r_zero , dy=$r_one]; jmpi :.keys_done}]
+                $when[reg=$r_kb_data , is=eq , val=$r_d , do={$change_dir[todir=$r_right , dx=$r_one , dy=$r_zero]; jmpi :.keys_done}]
+                $when[reg=$r_kb_data , is=eq , val=$r_q , do={$peek[addr=$KB_CLEAR , reg=$r_unsafe] ; hlt}]
+
+                ldb $r_kb_status_addr , $r_kb_status
+            }
+
+            def handle_keys = {
+                ldb $r_kb_status_addr , $r_kb_status
+                $while[reg=$r_kb_status , is=eq , val=$r_one , do=$key_body]
+                keys_done:
+            }
+
+            undef key_body
+        !endscope
+
+        !scope # APPLE SPAWNING
+            def spawn_apple = {
+                !scope try
+                    rnd $r_x
+                    lsr $r_x , $r_one , $r_x
+                    rem $r_x , $r_width , $r_x
+                    add $r_x , $r_one , $r_x
+
+                    rnd $r_y
+                    lsr $r_y , $r_one , $r_y
+                    rem $r_y , $r_p_height , $r_y
+                    add $r_y , $r_two , $r_y
+                    
+                    $set_cursor
+                    $if[reg=$r_rem , is=eq , val=$r_zero , do={ldb $r_r_fidx_addr , $r_color} , elsedo={ldb $r_r_bidx_addr , $r_color}]
+
+                    $if[reg=$r_color , is=eq , val=$r_snake , do={jmpi :.try} , elsedo={mov $r_apples , $r_color ; $draw_pixel}]
+                !endscope
+            }
+        !endscope
+
+        !scope # SNAKE STEPPING
+            def step_snake = {
+                $push_head
+                $if[reg=$r_growth , is=gt , val=$r_zero , do= {dec $r_growth} , elsedo={$pop_tail}]
+                $when[reg=$r_no_apple , is=eq , val=$r_one , do={$spawn_apple; mov $r_zero , $r_no_apple}]
+            }
+        !endscope
+
+        !scope # GAME STEPPING
+            def game_step = {
+                $handle_keys
+                $step_snake
+                stb $r_zero , $r_blit_addr
+            }
+        !endscope
 
 # ==================================================================================
 # INITIALIZATION AND FUNCTIONS
 # ==================================================================================
 
-    !label_origin
-    pc $r_origin
-    sjo $r_origin
+    # INITIAL PC AND LABEL ORIGIN:
+        !label_origin
+        pc $r_origin
+        sjo $r_origin
 
-    # CONSTANT REGISTERS
-    lib $r_one , 1
-    lib $r_up , 0b00
-    lib $r_left , 0b01
-    lib $r_down , 0b10
-    lib $r_right , 0b11
-    lib $r_w , $w
-    lib $r_a , $a
-    lib $r_s , $s
-    lib $r_d , $d
-    lib $r_q , $q
-    lib $r_background , $background
-    lib $r_snake , $snake
-    lib $r_apples , $apples
-    lib $r_walls , $walls
-    liw $r_xs_addr , $xs_addr
-    liw $r_xe_addr , $xe_addr
-    liw $r_ys_addr , $ys_addr
-    liw $r_ye_addr , $ye_addr
-    liw $r_two , 2
-    lib $r_width , $width
-    lib $r_height , $height
-    lib $r_p_height , $p_height
-    liw $r_neg_one , -1
-    liw $r_len_per_apple , $len_per_apple
+    # CONSTANT REGISTERS:
+        lib $r_one , 1
+        lib $r_up , 0b00
+        lib $r_left , 0b01
+        lib $r_down , 0b10
+        lib $r_right , 0b11
+        lib $r_w , $w
+        lib $r_a , $a
+        lib $r_s , $s
+        lib $r_d , $d
+        lib $r_q , $q
+        lib $r_background , $background
+        lib $r_snake , $snake
+        lib $r_apples , $apples
+        lib $r_walls , $walls
+        liw $r_xs_addr , $xs_addr
+        liw $r_xe_addr , $xe_addr
+        liw $r_ys_addr , $ys_addr
+        liw $r_ye_addr , $ye_addr
+        liw $r_two , 2
+        lib $r_width , $width
+        lib $r_height , $height
+        lib $r_p_height , $p_height
+        liw $r_neg_one , -1
+        liw $r_len_per_apple , $len_per_apple
 
-    # LABEL ADDRESS REGISTERS
-    liw $r_reset_screen_addr , :reset_screen
-    liw $r_set_seed_addr  , :set_seed
-    # liw $r_draw_pixel_addr , :draw_pixel
-    # liw $r_check_collisions_addr , :check_collisions
-    # liw $r_push_head_addr , :push_head
-    # liw $r_pop_tail_addr , :pop_tail
-    liw $r_snake_init_addr , :snake_init
-    liw $r_reset_snake_addr , :reset_snake
-    # liw $r_handle_keys_addr , :handle_keys
-    # liw $r_step_snake_addr , :step_snake
-    # liw $r_spawn_apple_addr , :spawn_apple
-    # liw $r_game_step_addr , :game_step
-    liw $r_game_loop_addr , :GAME_LOOP
+    # LABEL ADDRESS REGISTERS:
+        liw $r_reset_screen_addr , :reset_screen
+        liw $r_set_seed_addr  , :set_seed
+        liw $r_snake_init_addr , :snake_init
+        liw $r_reset_snake_addr , :reset_snake
+        liw $r_game_loop_addr , :GAME_LOOP
 
-    # SCREEN ADDRESSES
-    liw $r_cell_addr , $CELL
-    liw $r_blit_addr , $BLIT
-    liw $r_cx_addr , $CX
-    liw $r_cy_addr , $CY
-    liw $r_fidx_addr , $FIDX
-    liw $r_bidx_addr , $BIDX
-    liw $r_r_fidx_addr , $R_FIDX
-    liw $r_r_bidx_addr , $R_BIDX
+    # SCREEN ADDRESSES:
+        liw $r_cell_addr , $CELL
+        liw $r_blit_addr , $BLIT
+        liw $r_cx_addr , $CX
+        liw $r_cy_addr , $CY
+        liw $r_fidx_addr , $FIDX
+        liw $r_bidx_addr , $BIDX
+        liw $r_r_fidx_addr , $R_FIDX
+        liw $r_r_bidx_addr , $R_BIDX
 
-    # KEYBOARD ADDRESSES
-    liw $r_kb_status_addr , $KB_STATUS
-    liw $r_kb_data_addr , $KB_DATA
+    # KEYBOARD ADDRESSES:
+        liw $r_kb_status_addr , $KB_STATUS
+        liw $r_kb_data_addr , $KB_DATA
 
     RESET:
-    SSPI $RESET_SP
+        SSPI $RESET_SP
 
-    # REGISTER INITIALIZATION
-    lib $r_should_go , 1
-    lib $r_growth , 0
-    lib $r_no_apple , 1
-    lib $r_dx , 0
-    lib $r_dy , 0
+    # VARIABLE REGISTER INITIALIZATION
+        lib $r_should_go , 1
+        lib $r_growth , 0
+        lib $r_no_apple , 1
+        lib $r_dx , 0
+        lib $r_dy , 0
 
-    jmpi :END_FUNCTIONS
+    # CALLABLE FUNCTION DEFINITIONS:
+        jmpi :END_FUNCTIONS
 
         !scope reset_screen 
             $poke[addr=$CMODE , reg=$r_zero]               # Set the screen to id based color mode
@@ -623,21 +614,24 @@ def len_per_apple = 3
             ret
         !endscope
 
-    END_FUNCTIONS:
+        END_FUNCTIONS:
 
 # ==================================================================================
 # PROGRAM
 # ==================================================================================
 
-    cal $r_set_seed_addr
-    cal $r_reset_screen_addr
-    cal $r_reset_snake_addr
-    $reset_timer
-    GAME_LOOP:
-        $game_step
-        jmp $r_game_loop_addr
+    # PROGRAM INITIALIZATION:
+        cal $r_set_seed_addr
+        cal $r_reset_screen_addr
+        cal $r_reset_snake_addr
 
-    hlt
+    # MAIN PROGRAM LOOP:
+        GAME_LOOP:
+            $game_step
+            jmp $r_game_loop_addr
+
+    # END OF PROGRAM:
+        hlt
 
 # ==================================================================================
 # TABLES
