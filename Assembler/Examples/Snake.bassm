@@ -96,6 +96,9 @@ def r_two = r37
 def r_color = r38
 def r_growth = r39
 def r_rem = r40
+def r_width = r41
+def r_height = r42
+def r_p_height = r43
 
 # ==================================================================================
 # CONSTANTS
@@ -342,6 +345,9 @@ def snake_init_len = 3
     liw $r_ye_addr , $ye_addr
     liw $r_two , 2
     lib $r_growth , 0
+    lib $r_width , $width
+    lib $r_height , $height
+    lib $r_p_height , $p_height
 
     jmpi :END_FUNCTIONS
 
@@ -415,7 +421,7 @@ def snake_init_len = 3
     !scope check_collisions
         $set_cursor
         $if[reg=$r_rem , is=eq , val=$r_zero , do=$peek[addr=$R_FIDX , reg=$r_color] , elsedo=$peek[addr=$R_BIDX , reg=$r_color]]
-        $when[reg=$r_color , is=eq , val=$r_apples , do={inc $r_growth ; jmpi :.skip}]
+        $when[reg=$r_color , is=eq , val=$r_apples , do={inc $r_growth; cali :spawn_apple ; jmpi :.skip}]
         $when[reg=$r_color , is=eq , val=$r_walls , do={jmpi :RESET}]
         $when[reg=$r_color , is=eq , val=$r_snake , do={jmpi :RESET}]
         skip:
@@ -489,7 +495,7 @@ def snake_init_len = 3
             $when[reg=$r_kb_data , is=eq , val=$r_a , do={$change_dir[todir=$r_left]; ret}]
             $when[reg=$r_kb_data , is=eq , val=$r_s , do={$change_dir[todir=$r_down]; ret}]
             $when[reg=$r_kb_data , is=eq , val=$r_d , do={$change_dir[todir=$r_right]; ret}]
-            $when[reg=$r_kb_data , is=eq , val=$r_q , do={$peek[addr=$KB_CLEAR , reg=$r_zero] ; hlt}]
+            $when[reg=$r_kb_data , is=eq , val=$r_q , do={$peek[addr=$KB_CLEAR , reg=$r_unsafe] ; hlt}]
 
             $peek[addr = $KB_STATUS , reg=$r_kb_status]
         }
@@ -510,7 +516,20 @@ def snake_init_len = 3
     !endscope
 
     !scope spawn_apple
+        !scope try
+            rnd $r_x
+            rem $r_x , $r_width , $r_x
+            add $r_x , $r_one , $r_x
 
+            rnd $r_y
+            rem $r_y , $r_p_height , $r_y
+            add $r_y , $r_two , $r_y
+
+            $set_cursor
+            $if[reg=$r_rem , is=eq , val=$r_zero , do=$peek[addr=$R_FIDX , reg=$r_color] , elsedo=$peek[addr=$R_BIDX , reg=$r_color]]
+
+            $if[reg=$r_color , is=eq , val=$r_snake , do={jmpi :.try} , elsedo={mov $r_apples , $r_color ; cali :draw_pixel}]
+        !endscope
 
         ret
     !endscope
@@ -540,6 +559,7 @@ def snake_init_len = 3
     cali :set_seed
     cali :reset_screen
     cali :reset_snake
+    cali :spawn_apple
     $reset_timer
     $whilei[reg=$r_should_go , is=eq , val=1 , do = cali :game_step]
 

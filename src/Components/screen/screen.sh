@@ -9,7 +9,7 @@ source "$MY_DIR"/../../utils.sh
 source "$MY_DIR"/config.sh
 
 exec {TTY}>/dev/tty
-printf '\e[?251' >&"$TTY"
+printf '\e[?25l' >&"$TTY"
 
 declare -A fidx_array fr_array fg_array fb_array bidx_array br_array bg_array bb_array
 
@@ -217,7 +217,7 @@ parse_Cell() {
 
 parse_Blit() {
     printf '%s' "$writes" >&"$TTY"
-    writes=$'\e[?251'
+    writes=$'\e[?25l'
 }
 
 parse_Fill() {
