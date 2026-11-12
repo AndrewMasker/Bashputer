@@ -100,6 +100,9 @@ def r_width = r41
 def r_height = r42
 def r_p_height = r43
 def r_no_apple = r44
+def r_dx = r45
+def r_dy = r46
+def r_neg_one = r47
 
 def r_reset_screen_addr = r255
 def r_set_seed_addr = r254
@@ -125,6 +128,8 @@ def r_r_bidx_addr = r226
 
 def r_kb_status_addr = r225
 def r_kb_data_addr = r224
+
+def r_game_loop_addr = r223
 
 # ==================================================================================
 # CONSTANTS
@@ -328,13 +333,15 @@ def snake_init_len = 3
         $bid_table_read[reg=$r_op_dir , offset=@todir , table=:OP_DIR_TABLE] # Read the opposite direction of the way we are trying to turn
         $when[reg=$r_dir , is=eq , val=$r_op_dir , do=jmpi :.endchange_dir ] # Skip if our current direction is the opposite of the way we are trying to turn
         mov @todir , $r_dir
+        mov @dx , $r_dx
+        mov @dy , $r_dy
         endchange_dir:
     }
 
     def set_cursor = {
-        $poke[addr = $CX , reg=$r_x]
+        stb $r_x , $r_cx_addr
         div $r_y , $r_two , $r_unsafe
-        $poke[addr = $CY , reg=$r_unsafe]
+        stb $r_unsafe , $r_cy_addr
         rem $r_y , $r_two , $r_rem
     }
 
@@ -369,6 +376,7 @@ def snake_init_len = 3
     lib $r_width , $width
     lib $r_height , $height
     lib $r_p_height , $p_height
+    liw $r_neg_one , -1
 
     # LABEL ADDRESS REGISTERS
     liw $r_reset_screen_addr , :reset_screen
@@ -383,6 +391,7 @@ def snake_init_len = 3
     liw $r_step_snake_addr , :step_snake
     liw $r_spawn_apple_addr , :spawn_apple
     liw $r_game_step_addr , :game_step
+    liw $r_game_loop_addr , :GAME_LOOP
 
     # SCREEN ADDRESSES
     liw $r_cell_addr , $CELL
@@ -405,6 +414,8 @@ def snake_init_len = 3
     lib $r_should_go , 1
     lib $r_growth , 0
     lib $r_no_apple , 1
+    lib $r_dx , 0
+    lib $r_dy , 0
 
     jmpi :END_FUNCTIONS
 
@@ -493,10 +504,8 @@ def snake_init_len = 3
         inc $r_hy_addr
         $when[reg=$r_hx_addr , is=eq , val=$r_xe_addr , do={mov $r_xs_addr , $r_hx_addr}]
         $when[reg=$r_hy_addr , is=eq , val=$r_ye_addr , do={mov $r_ys_addr , $r_hy_addr}]
-        $when[reg=$r_dir , is=eq , val=$r_up ,   do={dec $r_y; jmpi :.skip}]
-        $when[reg=$r_dir , is=eq , val=$r_left,  do={dec $r_x; jmpi :.skip}]
-        $when[reg=$r_dir , is=eq , val=$r_down,  do={inc $r_y; jmpi :.skip}]
-        $when[reg=$r_dir , is=eq , val=$r_right, do={inc $r_x; jmpi :.skip}]
+        add $r_x , $r_dx , $r_x
+        add $r_y , $r_dy , $r_y
         skip:
         cal $r_check_collisions_addr
         mov $r_snake , $r_color
@@ -525,7 +534,9 @@ def snake_init_len = 3
         mov $r_ys_addr , $r_ty_addr
         mov $r_xs_addr , $r_hx_addr
         mov $r_ys_addr , $r_hy_addr
-        mov $r_right , $r_dir
+
+        mov $r_up , $r_dir
+        $change_dir[todir=$r_right , dx=$r_one , dy=$r_zero]
 
         lib $r_x , (($width / 2) + 1)
         lib $r_y , (($p_height/ 2) + 2)
@@ -548,10 +559,10 @@ def snake_init_len = 3
     !scope handle_keys
         def key_body = {
             ldb $r_kb_data_addr , $r_kb_data
-            $when[reg=$r_kb_data , is=eq , val=$r_w , do={$change_dir[todir=$r_up]; ret}]
-            $when[reg=$r_kb_data , is=eq , val=$r_a , do={$change_dir[todir=$r_left]; ret}]
-            $when[reg=$r_kb_data , is=eq , val=$r_s , do={$change_dir[todir=$r_down]; ret}]
-            $when[reg=$r_kb_data , is=eq , val=$r_d , do={$change_dir[todir=$r_right]; ret}]
+            $when[reg=$r_kb_data , is=eq , val=$r_w , do={$change_dir[todir=$r_up , dx=$r_zero , dy=$r_neg_one]; ret}]
+            $when[reg=$r_kb_data , is=eq , val=$r_a , do={$change_dir[todir=$r_left , dx=$r_neg_one , dy=$r_zero]; ret}]
+            $when[reg=$r_kb_data , is=eq , val=$r_s , do={$change_dir[todir=$r_down , dx=$r_zero , dy=$r_one]; ret}]
+            $when[reg=$r_kb_data , is=eq , val=$r_d , do={$change_dir[todir=$r_right , dx=$r_one , dy=$r_zero]; ret}]
             $when[reg=$r_kb_data , is=eq , val=$r_q , do={$peek[addr=$KB_CLEAR , reg=$r_unsafe] ; hlt}]
 
             ldb $r_kb_status_addr , $r_kb_status
@@ -619,10 +630,11 @@ def snake_init_len = 3
     cal $r_reset_screen_addr
     cal $r_reset_snake_addr
     $reset_timer
-    $whilei[reg=$r_should_go , is=eq , val=1 , do = cal $r_game_step_addr]
+    GAME_LOOP:
+        cal $r_game_step_addr
+        jmp $r_game_loop_addr
 
-    stall:
-    jmpi :stall
+    hlt
 
 # ==================================================================================
 # TABLES
