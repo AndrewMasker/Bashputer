@@ -103,6 +103,7 @@ def r_no_apple = r44
 def r_dx = r45
 def r_dy = r46
 def r_neg_one = r47
+def r_len_per_apple = r48
 
 def r_reset_screen_addr = r255
 def r_set_seed_addr = r254
@@ -163,6 +164,7 @@ def ys_addr = $xe_addr                                       # Inclusive
 def ye_addr = ( $xe_addr + ( $width * $p_height ) + 1)       # Exclusive (one is added so we don't have to worry about write order)
 
 def snake_init_len = 3
+def len_per_apple = 3
 
 # ==================================================================================
 # MACROS
@@ -377,6 +379,7 @@ def snake_init_len = 3
     lib $r_height , $height
     lib $r_p_height , $p_height
     liw $r_neg_one , -1
+    liw $r_len_per_apple , $len_per_apple
 
     # LABEL ADDRESS REGISTERS
     liw $r_reset_screen_addr , :reset_screen
@@ -490,7 +493,7 @@ def snake_init_len = 3
         $set_cursor
         $if[reg=$r_rem , is=eq , val=$r_zero , do={ldb $r_r_fidx_addr , $r_color} , elsedo={ldb $r_r_bidx_addr , $r_color}]
         def check_non_empty = {
-            $when[reg=$r_color , is=eq , val=$r_apples , do={inc $r_growth; mov $r_one , $r_no_apple ; jmpi :.skip}]
+            $when[reg=$r_color , is=eq , val=$r_apples , do={add $r_growth , $r_len_per_apple , $r_growth; mov $r_one , $r_no_apple ; jmpi :.skip}]
             $when[reg=$r_color , is=eq , val=$r_walls , do={jmpi :RESET}]
             $when[reg=$r_color , is=eq , val=$r_snake , do={jmpi :RESET}]
         }
@@ -606,17 +609,9 @@ def snake_init_len = 3
     !endscope
 
     !scope game_step
-        $read_timer
-        def step_body = 
-        {
-            $reset_timer
-            cal $r_handle_keys_addr
-            cal $r_step_snake_addr
-            stb $r_zero , $r_blit_addr
-        }
-        $wheni[reg=$r_timer , is=ge , val=$time_step , do=$step_body]
-
-        undef step_body
+        cal $r_handle_keys_addr
+        cal $r_step_snake_addr
+        stb $r_zero , $r_blit_addr
 
         ret
     !endscope
