@@ -55,75 +55,70 @@
 # REGISTERS
 # ==================================================================================
 
-    def r_addr = r0                             # The address register
-    def r_timer = r1                            # The timer register
-    def r_zero = r2                             # Dedicated empty register
-    def r_origin = r3                           # The register that holds 
-    def r_unsafe = r4                           # Dedicated scratch register
-    def r_more = r5                             # Register to hold the countdown index
-    def r_index = r6                            # Register to hold the current index
-    def r_cond = r7                             # Register to hold the condition
-    def r_one = r8                              # Register which will hold one
-    def r_should_go = r9                        # Register holding the should_go bool
-    def r_kb_status = r10                       # Register holding the status of the keyboard 
-    def r_kb_data = r11                         # Register holding the keyboard data
-    def r_dir = r12                             # Direction register 0b00 = up , 0b01 = left , 0b10 = down , 0b11 = right
-    def r_op_dir = r13                          # For holding the opposite of the current direction
-    def r_hx_addr = r14
-    def r_hy_addr = r15
-    def r_tx_addr = r16
-    def r_ty_addr = r17
-    def r_up = r18
-    def r_left = r19
-    def r_down = r20
-    def r_right = r21
-    def r_w = r22
-    def r_a = r23
-    def r_s = r24
-    def r_d = r25
-    def r_q = r26
-    def r_background = r27
-    def r_snake = r28
-    def r_apples = r29
-    def r_walls = r30
-    def r_xs_addr = r31
-    def r_xe_addr = r32
-    def r_ys_addr = r33
-    def r_ye_addr = r34
-    def r_x = r35
-    def r_y = r36
-    def r_two = r37
-    def r_color = r38
-    def r_growth = r39
-    def r_rem = r40
-    def r_width = r41
-    def r_height = r42
-    def r_p_height = r43
-    def r_no_apple = r44
-    def r_dx = r45
-    def r_dy = r46
-    def r_neg_one = r47
-    def r_len_per_apple = r48
-
+    def r_addr              = r0        # The address register
+    def r_timer             = r1        # The timer register
+    def r_zero              = r2        # Dedicated empty register
+    def r_origin            = r3        # The register that holds
+    def r_unsafe            = r4        # Dedicated scratch register
+    def r_more              = r5        # Register to hold the countdown index
+    def r_index             = r6        # Register to hold the current index
+    def r_cond              = r7        # Register to hold the condition
+    def r_one               = r8        # Register which will hold one
+    def r_should_go         = r9        # Register holding the should_go bool
+    def r_kb_status         = r10       # Register holding the status of the keyboard
+    def r_kb_data           = r11       # Register holding the keyboard data
+    def r_dir               = r12       # Direction register 0b00 = up, 0b01 = left, 0b10 = down, 0b11 = right
+    def r_op_dir            = r13       # For holding the opposite of the current direction
+    def r_hx_addr           = r14
+    def r_hy_addr           = r15
+    def r_tx_addr           = r16
+    def r_ty_addr           = r17
+    def r_up                = r18
+    def r_left              = r19
+    def r_down              = r20
+    def r_right             = r21
+    def r_w                 = r22
+    def r_a                 = r23
+    def r_s                 = r24
+    def r_d                 = r25
+    def r_q                 = r26
+    def r_background        = r27
+    def r_snake             = r28
+    def r_apples            = r29
+    def r_walls             = r30
+    def r_xs_addr           = r31
+    def r_xe_addr           = r32
+    def r_ys_addr           = r33
+    def r_ye_addr           = r34
+    def r_x                 = r35
+    def r_y                 = r36
+    def r_two               = r37
+    def r_color             = r38
+    def r_growth            = r39
+    def r_rem               = r40
+    def r_width             = r41
+    def r_height            = r42
+    def r_p_height          = r43
+    def r_no_apple          = r44
+    def r_dx                = r45
+    def r_dy                = r46
+    def r_neg_one           = r47
+    def r_len_per_apple     = r48
     def r_reset_screen_addr = r255
-    def r_set_seed_addr = r254
-
-    def r_snake_init_addr = r249
-    def r_reset_snake_addr = r248
-
-    def r_cell_addr = r243
-    def r_blit_addr = r242
-    def r_cx_addr = r241
-    def r_cy_addr = r240
-    def r_fidx_addr = r239
-    def r_bidx_addr = r238
-    def r_r_fidx_addr = r227
-    def r_r_bidx_addr = r226
-
-    def r_kb_status_addr = r225
-    def r_kb_data_addr = r224
-
-    def r_game_loop_addr = r223
+    def r_set_seed_addr     = r254
+    def r_snake_init_addr   = r249
+    def r_reset_snake_addr  = r248
+    def r_cell_addr         = r243
+    def r_blit_addr         = r242
+    def r_cx_addr           = r241
+    def r_cy_addr           = r240
+    def r_fidx_addr         = r239
+    def r_bidx_addr         = r238
+    def r_r_fidx_addr       = r227
+    def r_r_bidx_addr       = r226
+    def r_kb_status_addr    = r225
+    def r_kb_data_addr      = r224
+    def r_game_loop_addr    = r223
 
 # ==================================================================================
 # CONSTANTS
@@ -131,13 +126,13 @@
 
     # COLORS:
     def background = 0x10
-    def snake = 0x0A
-    def apples = 0x09
-    def walls = 0x0F
+    def snake      = 0x0A
+    def apples     = 0x09
+    def walls      = 0x0F
 
     # PLAY AREA:
-    def width = 30                            # Cell width of the playable area
-    def height = 15                           # Cell height of the playable area
+    def width    = 30                                           # Cell width of the playable area
+    def height   = 15                                           # Cell height of the playable area
     def p_height = ( $height * 2 )
 
     # TIMING:
@@ -151,14 +146,14 @@
     def q = 0x71
 
     # SNAKE RING BUFFERS:
-    def xs_addr = $RAM                                         # Inclusive
-    def xe_addr = ( $xs_addr + ( $width * $p_height ) + 1)     # Exclusive (one is added so we don't have to worry about write order)
-    def ys_addr = $xe_addr                                       # Inclusive
-    def ye_addr = ( $xe_addr + ( $width * $p_height ) + 1)       # Exclusive (one is added so we don't have to worry about write order)
+    def xs_addr = $RAM                                          # Inclusive
+    def xe_addr = ( $xs_addr + ( $width * $p_height ) + 1)      # Exclusive (one is added so we don't have to worry about write order)
+    def ys_addr = $xe_addr                                      # Inclusive
+    def ye_addr = ( $xe_addr + ( $width * $p_height ) + 1)      # Exclusive (one is added so we don't have to worry about write order)
 
     # SNAKE LENGTHS:
     def snake_init_len = 3
-    def len_per_apple = 3
+    def len_per_apple  = 3
 
 # ==================================================================================
 # MACROS
