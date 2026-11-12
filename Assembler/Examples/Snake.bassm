@@ -489,11 +489,14 @@ def snake_init_len = 3
     !scope check_collisions
         $set_cursor
         $if[reg=$r_rem , is=eq , val=$r_zero , do={ldb $r_r_fidx_addr , $r_color} , elsedo={ldb $r_r_bidx_addr , $r_color}]
-        $when[reg=$r_color , is=eq , val=$r_apples , do={inc $r_growth; mov $r_one , $r_no_apple ; jmpi :.skip}]
-        $when[reg=$r_color , is=eq , val=$r_walls , do={jmpi :RESET}]
-        $when[reg=$r_color , is=eq , val=$r_snake , do={jmpi :RESET}]
+        def check_non_empty = {
+            $when[reg=$r_color , is=eq , val=$r_apples , do={inc $r_growth; mov $r_one , $r_no_apple ; jmpi :.skip}]
+            $when[reg=$r_color , is=eq , val=$r_walls , do={jmpi :RESET}]
+            $when[reg=$r_color , is=eq , val=$r_snake , do={jmpi :RESET}]
+        }
+        $when[reg=$r_color , is=neq , val=$r_background , do=$check_non_empty]
         skip:
-
+        undef check_non_empty
         ret
     !endscope
 
@@ -502,8 +505,7 @@ def snake_init_len = 3
         ldb $r_hy_addr , $r_y
         inc $r_hx_addr
         inc $r_hy_addr
-        $when[reg=$r_hx_addr , is=eq , val=$r_xe_addr , do={mov $r_xs_addr , $r_hx_addr}]
-        $when[reg=$r_hy_addr , is=eq , val=$r_ye_addr , do={mov $r_ys_addr , $r_hy_addr}]
+        $when[reg=$r_hx_addr , is=eq , val=$r_xe_addr , do={mov $r_xs_addr , $r_hx_addr ; mov $r_ys_addr , $r_hy_addr}]
         add $r_x , $r_dx , $r_x
         add $r_y , $r_dy , $r_y
         skip:
@@ -521,8 +523,7 @@ def snake_init_len = 3
         ldb $r_ty_addr , $r_y
         inc $r_tx_addr
         inc $r_ty_addr
-        $when[reg=$r_tx_addr , is=eq , val=$r_xe_addr , do={mov $r_xs_addr , $r_tx_addr}]
-        $when[reg=$r_ty_addr , is=eq , val=$r_ye_addr , do={mov $r_ys_addr , $r_ty_addr}]
+        $when[reg=$r_tx_addr , is=eq , val=$r_xe_addr , do={mov $r_xs_addr , $r_tx_addr ; mov $r_ys_addr , $r_ty_addr}]
         mov $r_background , $r_color
         cal $r_draw_pixel_addr
 
