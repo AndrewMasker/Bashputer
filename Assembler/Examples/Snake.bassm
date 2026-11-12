@@ -99,6 +99,7 @@ def r_rem = r40
 def r_width = r41
 def r_height = r42
 def r_p_height = r43
+def r_no_apple = r44
 
 # ==================================================================================
 # CONSTANTS
@@ -348,6 +349,7 @@ def snake_init_len = 3
     lib $r_width , $width
     lib $r_height , $height
     lib $r_p_height , $p_height
+    lib $r_no_apple , 1
 
     jmpi :END_FUNCTIONS
 
@@ -421,7 +423,7 @@ def snake_init_len = 3
     !scope check_collisions
         $set_cursor
         $if[reg=$r_rem , is=eq , val=$r_zero , do=$peek[addr=$R_FIDX , reg=$r_color] , elsedo=$peek[addr=$R_BIDX , reg=$r_color]]
-        $when[reg=$r_color , is=eq , val=$r_apples , do={inc $r_growth; cali :spawn_apple ; jmpi :.skip}]
+        $when[reg=$r_color , is=eq , val=$r_apples , do={inc $r_growth; mov $r_one , $r_no_apple ; jmpi :.skip}]
         $when[reg=$r_color , is=eq , val=$r_walls , do={jmpi :RESET}]
         $when[reg=$r_color , is=eq , val=$r_snake , do={jmpi :RESET}]
         skip:
@@ -511,17 +513,19 @@ def snake_init_len = 3
     !scope step_snake
         cali :push_head
         $if[reg=$r_growth , is=gt , val=$r_zero , do= {dec $r_growth} , elsedo={cali :pop_tail}]
-        
+        $when[reg=$r_no_apple , is=eq , val=$r_one , do={cali :spawn_apple; mov $r_zero , $r_no_apple}]
         ret
     !endscope
 
     !scope spawn_apple
         !scope try
             rnd $r_x
+            lsr $r_x , $r_one , $r_x
             rem $r_x , $r_width , $r_x
             add $r_x , $r_one , $r_x
 
             rnd $r_y
+            lsr $r_y , $r_one , $r_y
             rem $r_y , $r_p_height , $r_y
             add $r_y , $r_two , $r_y
 
@@ -559,7 +563,6 @@ def snake_init_len = 3
     cali :set_seed
     cali :reset_screen
     cali :reset_snake
-    cali :spawn_apple
     $reset_timer
     $whilei[reg=$r_should_go , is=eq , val=1 , do = cali :game_step]
 
