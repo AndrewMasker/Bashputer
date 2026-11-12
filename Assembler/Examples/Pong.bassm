@@ -1,0 +1,763 @@
+# Pong.bassm - two player pong written in bassm for the bashputer
+# Author: Claude Opus 5.5 (modelled on Andrew Masker's Snake.bassm)
+#
+# ==================================================================================
+# PREAMBLE
+# ==================================================================================
+#
+# CONTROLS:
+#       w / s:  move the left paddle up / down
+#       i / k:  move the right paddle up / down
+#       q:      quit the game
+#       space:  play again (on the win screen)
+#
+# RULES:
+#       The ball bounces off the top and bottom walls. Where it hits a paddle steers it:
+#       the top third sends it up, the bottom third sends it down, the middle keeps its
+#       angle. Every paddle hit speeds the ball up a little. Miss and your opponent scores.
+#       First to $win_score wins.
+#
+# LAYOUT (cell rows, each cell is two pixels tall):
+#       row 0               : labels and scores (character mode)
+#       row 1               : top wall in the bottom half of the cell
+#       rows 2 .. height+1  : the field, pixel rows ymin .. ymin+play_ph-1
+#       row height+2        : bottom wall in the top half of the cell
+#
+# PERFORMANCE NOTES:
+#       Paddles are whole cells and only move a cell at a time, so drawing them never
+#       needs a screen readback. The ball is one pixel and is drawn like the snake.
+#       The ball moves on a timer; on a slow host it just runs as fast as the CPU allows.
+#       The idle path of the game loop uses register branches (3 bytes) instead of
+#       immediate ones (10 bytes) because every fetched byte is a bus access.
+
+
+# ==================================================================================
+# MEMORY MAPPED IO
+# ==================================================================================
+
+    # MEMORY MAP:
+    def SCREEN   = ( 1 * 64 * 1000 )
+    def KEYBOARD = ( 3 * 64 * 1000 )
+    def TIMER    = ( 4 * 64 * 1000 )
+    def RAM      = ( 6 * 64 * 1000 )
+
+    # SCREEN REGISTERS:
+    def MODE  = ( $SCREEN + 0 )                 # 0 = characters, 1 = half-block pixels
+    def CMODE = ( $SCREEN + 1 )                 # 0 = palette index, 1 = 24-bit RGB
+    def CX    = ( $SCREEN + 2 )
+    def CY    = ( $SCREEN + 3 )
+    def FIDX  = ( $SCREEN + 4 )
+    def BIDX  = ( $SCREEN + 8 )
+    def CELL  = ( $SCREEN + 14 )
+    def BLIT  = ( $SCREEN + 15 )
+    def FILL  = ( $SCREEN + 16 )
+    def R_FIDX= ( $SCREEN + 18 )
+    def R_BIDX= ( $SCREEN + 22 )
+
+    # KEYBOARD REGISTERS:
+    def KB_STATUS = ( $KEYBOARD + 0 )           # 1 while a key is waiting
+    def KB_DATA   = ( $KEYBOARD + 1 )           # reading pops one byte
+    def KB_CLEAR  = ( $KEYBOARD + 2 )           # reading flushes the buffer
+
+    # TIMER REGISTERS:
+    def TIMER_RESET = ( $TIMER + 0 )            # any write restarts the count
+    def TIMER_LATCH = ( $TIMER + 1 )            # any write captures the count
+    def TIMER_TICKS = ( $TIMER + 2 )            # 8 bytes, 1 tick = 1 ms
+
+    # STACK RESET VALUE:
+    def RESET_SP = ( 22*64*1000 )
+
+# ==================================================================================
+# REGISTERS
+# ==================================================================================
+
+    # GENERAL:
+    def r_addr              = r0        # The address register
+    def r_timer             = r1        # Holds the latched timer ticks
+    def r_zero              = r2        # Dedicated empty register
+    def r_origin            = r3        # Absolute address of the label origin
+    def r_unsafe            = r4        # Dedicated scratch register
+    def r_more              = r5        # fori countdown
+    def r_index             = r6        # fori index
+    def r_cond              = r7        # Holds conditions
+    def r_one               = r8
+    def r_two               = r9
+    def r_neg_one           = r10
+
+    # BALL:
+    def r_bx                = r11       # Ball x (cells)
+    def r_by                = r12       # Ball y (pixels)
+    def r_dx                = r13       # Ball x velocity, 1 or -1
+    def r_dy                = r14       # Ball y velocity, 1 or -1
+    def r_nx                = r15       # Next ball x
+    def r_ny                = r16       # Next ball y
+    def r_wait              = r17       # ms to wait before the next ball step
+    def r_speed             = r18       # ms between ball steps (shrinks on paddle hits)
+
+    # PADDLES AND SCORES:
+    def r_p1y               = r19       # Top cell row of the left paddle
+    def r_p2y               = r20       # Top cell row of the right paddle
+    def r_p1_move           = r21       # -1 up, 0 stay, 1 down (set by the keys this frame)
+    def r_p2_move           = r22
+    def r_score1            = r23
+    def r_score2            = r24
+
+    # DRAWING ARGUMENTS:
+    def r_x                 = r25
+    def r_y                 = r26
+    def r_color             = r27
+    def r_rem               = r28       # 0 = top pixel of the cell, 1 = bottom pixel
+    def r_str               = r29       # puts: origin relative address of the string
+
+    # KEYBOARD:
+    def r_kb_status         = r30
+    def r_kb_data           = r31
+    def r_keys_left         = r32
+
+    # CONSTANTS:
+    def r_bg                = r40
+    def r_wall_c            = r41
+    def r_net_c             = r42
+    def r_ball_c            = r43
+    def r_p1_c              = r44
+    def r_p2_c              = r45
+    def r_text_c            = r46
+    def r_key_w             = r47
+    def r_key_s             = r48
+    def r_key_i             = r49
+    def r_key_k             = r50
+    def r_key_q             = r51
+    def r_key_space         = r52
+    def r_p1x               = r53
+    def r_p2x               = r54
+    def r_net_x             = r55
+    def r_ymin              = r56
+    def r_play_ph           = r57
+    def r_inner_lo          = r58
+    def r_inner_w           = r59
+    def r_pad_min           = r60
+    def r_pad_max           = r61
+
+    # ADDRESSES:
+    def r_game_loop_addr    = r223
+    def r_kb_clear_addr     = r224
+    def r_kb_data_addr      = r225
+    def r_kb_status_addr    = r226
+    def r_ticks_addr        = r227
+    def r_latch_addr        = r228
+    def r_treset_addr       = r229
+    def r_mode_addr         = r230
+    def r_r_bidx_addr       = r231
+    def r_r_fidx_addr       = r232
+    def r_bidx_addr         = r233
+    def r_fidx_addr         = r234
+    def r_cy_addr           = r235
+    def r_cx_addr           = r236
+    def r_blit_addr         = r237
+    def r_cell_addr         = r238
+
+# ==================================================================================
+# CONSTANTS
+# ==================================================================================
+
+    # COLORS:
+    def background = 0x10
+    def walls      = 0x0F
+    def net        = 0x08
+    def ball       = 0x0B                                       # must differ from every other color
+    def p1_color   = 0x0E
+    def p2_color   = 0x0D
+    def text       = 0x0F
+
+    # PLAY AREA:
+    def width        = 32                                       # Cell width of the whole field
+    def height       = 12                                       # Cell rows the ball can travel in
+    def ymin         = 4                                        # First playable pixel row (cell row 2)
+    def play_ph      = ( $height * 2 )                          # Playable pixel rows
+    def p1x          = 1                                        # Left paddle column
+    def p2x          = ( $width - 2 )                           # Right paddle column
+    def goal_l       = ( $p1x - 1 )                             # Ball reaching this column scores for p2
+    def goal_r       = ( $p2x + 1 )                             # Ball reaching this column scores for p1
+    def net_x        = ( $width / 2 )
+    def inner_lo     = ( $p1x + 1 )                             # Columns strictly between the paddles
+    def inner_w      = ( $p2x - $p1x - 1 )
+
+    # PADDLES:
+    def paddle_cells = 3
+    def paddle_ph    = ( $paddle_cells * 2 )
+    def edge         = 2                                        # Pixels at each end of a paddle that steer the ball
+    def pad_min      = 2
+    def pad_max      = ( $height + 2 - $paddle_cells )
+    def pad_start    = ( 2 + ( $height - $paddle_cells ) / 2 )
+
+    # SERVING:
+    def serve_top    = ( $ymin + 4 )
+    def serve_span   = ( $play_ph - 8 )
+
+    # TEXT POSITIONS:
+    def score1_x     = ( $net_x - 3 )
+    def score2_x     = ( $net_x + 3 )
+    def msg_row      = ( 1 + $height / 2 )
+
+    # RULES:
+    def win_score    = 7
+
+    # TIMING (ms):
+    def start_ms     = 60
+    def min_ms       = 20
+    def speedup      = 4
+    def serve_ms     = 1000
+
+    # KEYS:
+    def key_w     = 0x77
+    def key_s     = 0x73
+    def key_i     = 0x69
+    def key_k     = 0x6B
+    def key_q     = 0x71
+    def key_space = 0x20
+    def max_keys  = 3                                           # Keys read per frame before the rest are dropped
+
+# ==================================================================================
+# MACROS
+# ==================================================================================
+
+    # GENERAL:
+        # fori[i= , to= , do= ] - does @do @to-@i times starting at @i. @i and @to are limited to a quarter
+        def fori =
+        {
+            pshq $r_index
+            pshq $r_more
+            liq $r_more , ( @to - @i )
+            lib $r_index , @i
+            bzi $r_more , :.endfor
+            loop:
+                !scope
+                    @do
+                !endscope
+            next:
+                dec $r_more
+                inc $r_index
+                bnzi $r_more , :.loop
+            endfor:
+                popq $r_more
+                popq $r_index
+        }
+
+        # ifi[reg= , is= , val= , do= , elsedo=] - does @do if @reg is @is to @val else does @elsedo. @val is limited to a quarter
+        def ifi =
+        {
+            liq $r_cond , @val
+            @is @reg , $r_cond , $r_cond
+            bzi $r_cond , :.else
+            !scope
+                @do
+            !endscope
+            jmpi :.endif
+            else:
+                !scope
+                    @elsedo
+                !endscope
+            endif:
+        }
+
+        # if[reg= , is= , val= , do= , elsedo=] - does @do if @reg is @is to the value in @val else does @elsedo
+        def if =
+        {
+            @is @reg , @val , $r_cond
+            bzi $r_cond , :.else
+            !scope
+                @do
+            !endscope
+            jmpi :.endif
+            else:
+                !scope
+                    @elsedo
+                !endscope
+            endif:
+        }
+
+        # wheni[reg= , is= , val= , do=] - does @do if @reg is @is to @val else does nothing. @val is limited to a quarter
+        def wheni =
+        {
+            liq $r_cond , @val
+            @is @reg , $r_cond , $r_cond
+            bzi $r_cond , :.endif
+            !scope
+                @do
+            !endscope
+            endif:
+        }
+
+        # when[reg= , is= , val= , do=] - does @do if @reg is @is to the value in @val else does nothing
+        def when =
+        {
+            @is @reg , @val , $r_cond
+            bzi $r_cond , :.endif
+            !scope
+                @do
+            !endscope
+            endif:
+        }
+
+    # DATA HANDLING:
+        # poke[addr= , reg= ] - sets the address to the value stored in the low byte of the register
+        def poke =
+        {
+            liw $r_addr , @addr
+            stb @reg , $r_addr
+        }
+
+    # GAME MACROS:
+        !scope # PIXEL DRAWING
+            # set_cursor - points the screen at the cell holding pixel (r_x, r_y) and sets r_rem to the half
+            def set_cursor = {
+                stb $r_x , $r_cx_addr
+                lsr $r_y , $r_one , $r_unsafe
+                stb $r_unsafe , $r_cy_addr
+                and $r_y , $r_one , $r_rem
+            }
+
+            # put_pixel - after set_cursor, paints r_color into that half and keeps the other half as it was
+            def put_pixel = {
+                bnzi $r_rem , :.bottom
+                    stb $r_color , $r_fidx_addr
+                    ldb $r_r_bidx_addr , $r_unsafe
+                    stb $r_unsafe , $r_bidx_addr
+                    jmpi :.write
+                bottom:
+                    stb $r_color , $r_bidx_addr
+                    ldb $r_r_fidx_addr , $r_unsafe
+                    stb $r_unsafe , $r_fidx_addr
+                write:
+                    stb $r_zero , $r_cell_addr
+            }
+
+            # paddle_cell[x= , row= , color= ] - paints a whole cell (both pixels) one color
+            def paddle_cell = {
+                stb @x , $r_cx_addr
+                stb @row , $r_cy_addr
+                stb @color , $r_fidx_addr
+                stb @color , $r_bidx_addr
+                stb $r_zero , $r_cell_addr
+            }
+        !endscope
+
+        !scope # BALL DRAWING
+            def draw_ball = {
+                mov $r_bx , $r_x
+                mov $r_by , $r_y
+                mov $r_ball_c , $r_color
+                $set_cursor
+                $put_pixel
+            }
+
+            # erase_ball - puts back the background (or the net) under the ball, unless a paddle has
+            #              already painted over it
+            def erase_ball = {
+                mov $r_bx , $r_x
+                mov $r_by , $r_y
+                $set_cursor
+                bnzi $r_rem , :.read_bottom
+                    ldb $r_r_fidx_addr , $r_color
+                    jmpi :.check
+                read_bottom:
+                    ldb $r_r_bidx_addr , $r_color
+                check:
+                    $when[reg=$r_color , is=neq , val=$r_ball_c , do={jmpi :.done}]
+                    mov $r_bg , $r_color
+                    eq $r_x , $r_net_x , $r_cond
+                    bzi $r_cond , :.paint
+                    bnzi $r_rem , :.paint
+                    mov $r_net_c , $r_color             # the net is drawn in the top half of its cells
+                paint:
+                    $put_pixel
+                done:
+            }
+        !endscope
+
+        !scope # BALL MOVEMENT
+            # wall_check - sets r_ny from r_by and r_dy, bouncing off the top and bottom walls
+            def wall_check = {
+                add $r_by , $r_dy , $r_ny
+                sub $r_ny , $r_ymin , $r_unsafe         # unsigned: anything above ymin wraps to huge
+                lt $r_unsafe , $r_play_ph , $r_cond
+                bnzi $r_cond , :.in_field
+                neg $r_dy , $r_dy
+                add $r_by , $r_dy , $r_ny
+                in_field:
+            }
+
+            # paddle_hit[pad= , newdx= ] - the ball is about to enter a paddle column; bounce if the paddle is there
+            def paddle_hit = {
+                shl @pad , $r_one , $r_unsafe           # paddle top in pixels
+                sub $r_ny , $r_unsafe , $r_unsafe       # where along the paddle the ball lands
+                $wheni[reg=$r_unsafe , is=ge , val=$paddle_ph , do={jmpi :.miss}]
+                mov @newdx , $r_dx
+                add $r_bx , $r_dx , $r_nx
+                $wheni[reg=$r_unsafe , is=lt , val=$edge , do={mov $r_neg_one , $r_dy}]
+                $wheni[reg=$r_unsafe , is=ge , val=( $paddle_ph - $edge ) , do={mov $r_one , $r_dy}]
+                $wall_check
+                $wheni[reg=$r_speed , is=gt , val=$min_ms , do={lib $r_unsafe , $speedup ; sub $r_speed , $r_unsafe , $r_speed}]
+                miss:
+            }
+
+            def step_ball = {
+                $wall_check
+                add $r_bx , $r_dx , $r_nx
+                sub $r_nx , $r_inner_lo , $r_unsafe     # quick exit while the ball is between the paddles
+                lt $r_unsafe , $r_inner_w , $r_cond
+                bnzi $r_cond , :.move
+
+                $when[reg=$r_nx , is=eq , val=$r_p1x , do=$paddle_hit[pad=$r_p1y , newdx=$r_one]]
+                $when[reg=$r_nx , is=eq , val=$r_p2x , do=$paddle_hit[pad=$r_p2y , newdx=$r_neg_one]]
+                $wheni[reg=$r_nx , is=eq , val=$goal_l , do={cali :score_p2 ; jmpi :.done}]
+                $wheni[reg=$r_nx , is=eq , val=$goal_r , do={cali :score_p1 ; jmpi :.done}]
+
+                move:
+                    $erase_ball
+                    mov $r_nx , $r_bx
+                    mov $r_ny , $r_by
+                    $draw_ball
+                done:
+            }
+        !endscope
+
+        !scope # PADDLE MOVEMENT
+            # move_paddle[y= , move= , x= , color= ] - moves a paddle one cell in the direction of @move
+            def move_paddle = {
+                bzi @move , :.done
+                eq @move , $r_one , $r_cond
+                bzi $r_cond , :.up
+                down:
+                    lt @y , $r_pad_max , $r_cond
+                    bzi $r_cond , :.done
+                    $paddle_cell[x=@x , row=@y , color=$r_bg]
+                    inc @y
+                    add @y , $r_two , $r_unsafe
+                    $paddle_cell[x=@x , row=$r_unsafe , color=@color]
+                    jmpi :.blit
+                up:
+                    gt @y , $r_pad_min , $r_cond
+                    bzi $r_cond , :.done
+                    add @y , $r_two , $r_unsafe
+                    $paddle_cell[x=@x , row=$r_unsafe , color=$r_bg]
+                    dec @y
+                    $paddle_cell[x=@x , row=@y , color=@color]
+                blit:
+                    stb $r_zero , $r_blit_addr
+                done:
+            }
+        !endscope
+
+        !scope # KEY PRESSING
+            # handle_input - reads up to max_keys keys, drops any backlog, then moves the paddles
+            def handle_input = {
+                ldb $r_kb_status_addr , $r_kb_status
+                bzi $r_kb_status , :.input_done
+                mov $r_zero , $r_p1_move
+                mov $r_zero , $r_p2_move
+                lib $r_keys_left , $max_keys
+                read_key:
+                    dec $r_keys_left
+                    ldb $r_kb_data_addr , $r_kb_data
+                    $when[reg=$r_kb_data , is=eq , val=$r_key_w , do={mov $r_neg_one , $r_p1_move ; jmpi :.next_key}]
+                    $when[reg=$r_kb_data , is=eq , val=$r_key_s , do={mov $r_one , $r_p1_move ; jmpi :.next_key}]
+                    $when[reg=$r_kb_data , is=eq , val=$r_key_i , do={mov $r_neg_one , $r_p2_move ; jmpi :.next_key}]
+                    $when[reg=$r_kb_data , is=eq , val=$r_key_k , do={mov $r_one , $r_p2_move ; jmpi :.next_key}]
+                    $when[reg=$r_kb_data , is=eq , val=$r_key_q , do={ldb $r_kb_clear_addr , $r_unsafe ; hlt}]
+                next_key:
+                    ldb $r_kb_status_addr , $r_kb_status
+                    bzi $r_kb_status , :.apply
+                    bnzi $r_keys_left , :.read_key
+                    ldb $r_kb_clear_addr , $r_unsafe     # a held key floods the buffer, so drop the backlog
+                apply:
+                    $move_paddle[y=$r_p1y , move=$r_p1_move , x=$r_p1x , color=$r_p1_c]
+                    $move_paddle[y=$r_p2y , move=$r_p2_move , x=$r_p2x , color=$r_p2_c]
+                input_done:
+            }
+        !endscope
+
+        !scope # SCORING
+            # point[score= , text= , color= , serve_dx= ] - awards a point, ends the game or serves again
+            def point = {
+                $erase_ball
+                inc @score
+                cali :draw_scores
+                stb $r_zero , $r_blit_addr
+                $wheni[reg=@score , is=eq , val=$win_score , do={liw $r_str , @text ; mov @color , $r_color ; jmpi :game_over}]
+                mov @serve_dx , $r_dx
+                cali :serve
+            }
+        !endscope
+
+# ==================================================================================
+# INITIALIZATION AND FUNCTIONS
+# ==================================================================================
+
+    # INITIAL PC AND LABEL ORIGIN:
+        !label_origin
+        pc $r_origin
+        sjo $r_origin
+
+    # CONSTANT REGISTERS:
+        lib $r_one , 1
+        lib $r_two , 2
+        liw $r_neg_one , -1
+        lib $r_bg , $background
+        lib $r_wall_c , $walls
+        lib $r_net_c , $net
+        lib $r_ball_c , $ball
+        lib $r_p1_c , $p1_color
+        lib $r_p2_c , $p2_color
+        lib $r_text_c , $text
+        lib $r_key_w , $key_w
+        lib $r_key_s , $key_s
+        lib $r_key_i , $key_i
+        lib $r_key_k , $key_k
+        lib $r_key_q , $key_q
+        lib $r_key_space , $key_space
+        lib $r_p1x , $p1x
+        lib $r_p2x , $p2x
+        lib $r_net_x , $net_x
+        lib $r_ymin , $ymin
+        lib $r_play_ph , $play_ph
+        lib $r_inner_lo , $inner_lo
+        lib $r_inner_w , $inner_w
+        lib $r_pad_min , $pad_min
+        lib $r_pad_max , $pad_max
+
+    # LABEL ADDRESS REGISTERS:
+        liw $r_game_loop_addr , :GAME_LOOP
+
+    # SCREEN ADDRESSES:
+        liw $r_cell_addr , $CELL
+        liw $r_blit_addr , $BLIT
+        liw $r_cx_addr , $CX
+        liw $r_cy_addr , $CY
+        liw $r_fidx_addr , $FIDX
+        liw $r_bidx_addr , $BIDX
+        liw $r_r_fidx_addr , $R_FIDX
+        liw $r_r_bidx_addr , $R_BIDX
+        liw $r_mode_addr , $MODE
+
+    # KEYBOARD AND TIMER ADDRESSES:
+        liw $r_kb_status_addr , $KB_STATUS
+        liw $r_kb_data_addr , $KB_DATA
+        liw $r_kb_clear_addr , $KB_CLEAR
+        liw $r_treset_addr , $TIMER_RESET
+        liw $r_latch_addr , $TIMER_LATCH
+        liw $r_ticks_addr , $TIMER_TICKS
+
+    # SEED THE RANDOM NUMBER GENERATOR:
+        ent $r_unsafe
+        seed $r_unsafe
+
+    # CALLABLE FUNCTION DEFINITIONS:
+        jmpi :END_FUNCTIONS
+
+        # puts - writes the zero terminated string at r_str (origin relative) at (r_x, r_y) in r_color
+        !scope puts
+            stb $r_zero , $r_mode_addr                  # character mode
+            stb $r_color , $r_fidx_addr
+            stb $r_bg , $r_bidx_addr
+            stb $r_y , $r_cy_addr
+            add $r_str , $r_origin , $r_str
+            loop:
+                ldb $r_str , $r_unsafe
+                bzi $r_unsafe , :.end
+                stb $r_x , $r_cx_addr
+                stb $r_unsafe , $r_cell_addr
+                inc $r_x
+                inc $r_str
+                jmpi :.loop
+            end:
+            stb $r_one , $r_mode_addr                   # back to pixel mode
+            ret
+        !endscope
+
+        # draw_scores - writes both score digits into the top row
+        !scope draw_scores
+            stb $r_zero , $r_mode_addr
+            stb $r_bg , $r_bidx_addr
+            stb $r_zero , $r_cy_addr
+            lib $r_cond , 0x30                          # ascii '0'
+
+            stb $r_p1_c , $r_fidx_addr
+            lib $r_unsafe , $score1_x
+            stb $r_unsafe , $r_cx_addr
+            add $r_score1 , $r_cond , $r_unsafe
+            stb $r_unsafe , $r_cell_addr
+
+            stb $r_p2_c , $r_fidx_addr
+            lib $r_unsafe , $score2_x
+            stb $r_unsafe , $r_cx_addr
+            add $r_score2 , $r_cond , $r_unsafe
+            stb $r_unsafe , $r_cell_addr
+
+            stb $r_one , $r_mode_addr
+            ret
+        !endscope
+
+        # reset_screen - draws the walls, net, labels, scores and paddles
+        !scope reset_screen
+            $poke[addr=$CMODE , reg=$r_zero]            # palette index colors
+            $poke[addr=$BIDX , reg=$r_bg]
+            $poke[addr=$FILL , reg=$r_zero]
+            $poke[addr=$MODE , reg=$r_one]              # pixel mode
+
+            def line_init = {
+                lib $r_unsafe , @where
+                stb $r_unsafe , @axis
+                stb @top , $r_fidx_addr
+                stb @bottom , $r_bidx_addr
+            }
+
+            def line_body = {
+                stb $r_index , @axis
+                stb $r_zero , $r_cell_addr
+            }
+
+            $line_init[axis=$r_cy_addr , where=1 , top=$r_bg , bottom=$r_wall_c]
+            $fori[i=0 , to=$width , do=$line_body[axis=$r_cx_addr]]
+
+            $line_init[axis=$r_cy_addr , where=( $height + 2 ) , top=$r_wall_c , bottom=$r_bg]
+            $fori[i=0 , to=$width , do=$line_body[axis=$r_cx_addr]]
+
+            $line_init[axis=$r_cx_addr , where=$net_x , top=$r_net_c , bottom=$r_bg]
+            $fori[i=2 , to=( $height + 2 ) , do=$line_body[axis=$r_cy_addr]]
+
+            undef line_init
+            undef line_body
+
+            liw $r_str , :P1_LABEL
+            lib $r_x , $p1x
+            lib $r_y , 0
+            mov $r_p1_c , $r_color
+            cali :puts
+
+            liw $r_str , :P2_LABEL
+            lib $r_x , ( $p2x - 5 )
+            lib $r_y , 0
+            mov $r_p2_c , $r_color
+            cali :puts
+
+            cali :draw_scores
+
+            $fori[i=0 , to=$paddle_cells , do={
+                add $r_p1y , $r_index , $r_unsafe
+                $paddle_cell[x=$r_p1x , row=$r_unsafe , color=$r_p1_c]
+                add $r_p2y , $r_index , $r_unsafe
+                $paddle_cell[x=$r_p2x , row=$r_unsafe , color=$r_p2_c]
+            }]
+
+            stb $r_zero , $r_blit_addr
+            ret
+        !endscope
+
+        # serve - puts the ball on the net at a random height heading along r_dx, then pauses
+        !scope serve
+            lib $r_bx , $net_x
+            rnd $r_unsafe
+            lsr $r_unsafe , $r_one , $r_unsafe
+            lib $r_cond , $serve_span
+            rem $r_unsafe , $r_cond , $r_unsafe
+            lib $r_cond , $serve_top
+            add $r_unsafe , $r_cond , $r_by
+
+            rnd $r_unsafe
+            and $r_unsafe , $r_one , $r_unsafe
+            $if[reg=$r_unsafe , is=eq , val=$r_zero , do={mov $r_neg_one , $r_dy} , elsedo={mov $r_one , $r_dy}]
+
+            $draw_ball
+            stb $r_zero , $r_blit_addr
+
+            liq $r_wait , $serve_ms
+            liq $r_speed , $start_ms
+            stb $r_zero , $r_treset_addr
+            ret
+        !endscope
+
+        # score_p1 / score_p2 - the loser of the point receives the next serve
+        !scope score_p1
+            $point[score=$r_score1 , text=:P1_WINS , color=$r_p1_c , serve_dx=$r_one]
+            ret
+        !endscope
+
+        !scope score_p2
+            $point[score=$r_score2 , text=:P2_WINS , color=$r_p2_c , serve_dx=$r_neg_one]
+            ret
+        !endscope
+
+        # game_over - shows the winner (r_str, r_color) and waits for space or q
+        !scope game_over
+            lib $r_x , ( $net_x - 7 )
+            lib $r_y , $msg_row
+            cali :puts
+
+            liw $r_str , :AGAIN_TEXT
+            lib $r_x , ( $net_x - 10 )
+            lib $r_y , ( $msg_row + 2 )
+            mov $r_text_c , $r_color
+            cali :puts
+
+            stb $r_zero , $r_blit_addr
+            ldb $r_kb_clear_addr , $r_unsafe
+            wait:
+                ldb $r_kb_status_addr , $r_kb_status
+                bzi $r_kb_status , :.wait
+                ldb $r_kb_data_addr , $r_kb_data
+                $when[reg=$r_kb_data , is=eq , val=$r_key_space , do={jmpi :RESET}]
+                $when[reg=$r_kb_data , is=eq , val=$r_key_q , do={hlt}]
+                jmpi :.wait
+        !endscope
+
+        END_FUNCTIONS:
+
+# ==================================================================================
+# PROGRAM
+# ==================================================================================
+
+    # GAME INITIALIZATION:
+    RESET:
+        SSPI $RESET_SP
+        lib $r_score1 , 0
+        lib $r_score2 , 0
+        lib $r_p1y , $pad_start
+        lib $r_p2y , $pad_start
+        cali :reset_screen
+
+        rnd $r_unsafe                                   # first serve goes a random way
+        and $r_unsafe , $r_one , $r_unsafe
+        $if[reg=$r_unsafe , is=eq , val=$r_zero , do={mov $r_neg_one , $r_dx} , elsedo={mov $r_one , $r_dx}]
+        cali :serve
+
+    # MAIN PROGRAM LOOP:
+        GAME_LOOP:
+            $handle_input
+            stb $r_zero , $r_latch_addr                 # is the ball due to move?
+            ldq $r_ticks_addr , $r_timer
+            lt $r_timer , $r_wait , $r_cond
+            bnz $r_cond , $r_game_loop_addr
+            stb $r_zero , $r_treset_addr
+            mov $r_speed , $r_wait
+            $step_ball
+            stb $r_zero , $r_blit_addr
+            jmp $r_game_loop_addr
+
+    # END OF PROGRAM:
+        hlt
+
+# ==================================================================================
+# TABLES
+# ==================================================================================
+
+    P1_LABEL:   # "P1 W/S"
+        db 0x50 , 0x31 , 0x20 , 0x57 , 0x2F , 0x53 , 0
+    P2_LABEL:   # "I/K P2"
+        db 0x49 , 0x2F , 0x4B , 0x20 , 0x50 , 0x32 , 0
+    P1_WINS:    # "PLAYER 1 WINS!"
+        db 0x50 , 0x4C , 0x41 , 0x59 , 0x45 , 0x52 , 0x20 , 0x31 , 0x20 , 0x57 , 0x49 , 0x4E , 0x53 , 0x21 , 0
+    P2_WINS:    # "PLAYER 2 WINS!"
+        db 0x50 , 0x4C , 0x41 , 0x59 , 0x45 , 0x52 , 0x20 , 0x32 , 0x20 , 0x57 , 0x49 , 0x4E , 0x53 , 0x21 , 0
+    AGAIN_TEXT: # "SPACE: AGAIN  Q: QUIT"
+        db 0x53 , 0x50 , 0x41 , 0x43 , 0x45 , 0x3A , 0x20 , 0x41 , 0x47 , 0x41 , 0x49 , 0x4E , 0x20 , 0x20 , 0x51 , 0x3A , 0x20 , 0x51 , 0x55 , 0x49 , 0x54 , 0
