@@ -27,8 +27,8 @@ start_Component() {
 
 connect_Component() {
     local name=$1
-    exec {IN[$name]}<> "$FIFO_DIR/$name.in"
-    exec {OUT[$name]}<> "$FIFO_DIR/$name.out"
+    exec {IN[$name]}> "$FIFO_DIR/$name.in"
+    exec {OUT[$name]}< "$FIFO_DIR/$name.out"
 }
 
 shutdown_All_Components() {
