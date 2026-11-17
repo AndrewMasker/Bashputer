@@ -1,0 +1,488 @@
+# Maze.bassm - an endless, self-solving rainbow maze for the Bashputer
+# Author: Claude Opus 5.5
+#
+# Each round:
+#   1. A depth-first search carves a perfect maze outward from the exit (bottom right).
+#      The white square is the search head: it pushes forward into unvisited cells and
+#      retreats along its own trail when it gets stuck. Every cell is coloured by its
+#      distance from the exit, so rainbow bands ripple out through the maze.
+#   2. Once the maze is finished, every cell has stored the direction back toward the
+#      exit, so the solution is traced from the entrance (top left) by following those
+#      directions, drawn as a chain of white "<>" on top of the rainbow.
+#   3. It reports the path length, waits a few seconds and starts a new maze.
+#
+# It is written for a slow machine: something changes on screen every ~150 bus
+# cycles, so it stays watchable at a few hundred cycles per second. Each bus cycle
+# is one fetched instruction byte or one load/store, so the hot paths are inline
+# macros, and every branch target is kept in a register.
+#
+# Tunables: MAZE_W x MAZE_H cells. Generation costs roughly 350 bus cycles per cell,
+# so 12 x 7 = 84 cells is about 30k cycles. The layout is centred for an 80 column
+# terminal and needs 2 * MAZE_H + 3 rows.
+
+def MAZE_W   = 12
+def MAZE_H   = 7
+def COLS     = 80                                      # terminal width to centre in
+def X0       = ( ( $COLS - ( 2 * $MAZE_W + 1 ) * 2 ) / 2 )   # left edge of the outer wall
+def Y0       = 2                                       # top edge of the outer wall
+def SY       = ( $Y0 + 2 * $MAZE_H + 2 )               # status line
+def PAUSE_MS = 4000                                    # pause between mazes
+
+# Colours (xterm 256-colour palette indices)
+def C_BG    = 16                                       # background and walls
+def C_HEAD  = 231                                      # search head and solution path
+def C_TEXT  = 250
+def PATH_L  = 0x3C                                     # the solution is drawn as "<>" over each cell
+def PATH_R  = 0x3E
+
+# Memory map, from src/Components/bus_interconnect/config.sh
+def SCR      = ( 1 * 64 * 1000 )
+def TMR      = ( 4 * 64 * 1000 )
+def A_FIDX   = ( $SCR + 4 )
+def A_BIDX   = ( $SCR + 8 )
+def A_RDBIDX = ( $SCR + 22 )                           # reads back the background of the cell at CX, CY
+def A_FILL   = ( $SCR + 16 )
+def A_RESET  = ( $TMR + 0 )                            # any write restarts the timer
+def A_LATCH  = ( $TMR + 1 )                            # any write captures the count
+def A_TICKS  = ( $TMR + 2 )                            # little-endian, 1 tick = 1 ms
+
+# The visited map lives in RAM. A cell's map address is BASE + (row << 8) + column,
+# where row and column are the cell's position on screen. That means the low byte of
+# the address is the screen column and the next byte up is the screen row, so the
+# same register drives both the visited map and the screen.
+def MAP_BASE = 0x60000                                 # 64K aligned, inside RAM
+
+# Screen position of cell (i, j) relative to BASE. Cells sit on odd pixels of a
+# (2W+1) x (2H+1) pixel grid, and each pixel is two characters wide so it looks square.
+def CELLOFF = ( ( $Y0 + 2 * ( @j ) + 1 ) * 256 + $X0 + 4 * ( @i ) + 2 )
+
+# ----------------------------------------------------------------------
+# Registers
+# ----------------------------------------------------------------------
+def R_ZERO        = r0                                 # never written
+def R_CX          = r1                                 # screen register addresses
+def R_CY          = r2
+def R_FIDX        = r3
+def R_BIDX        = r4
+def R_CELL        = r5
+def R_BLIT        = r6
+def R_EIGHT       = r7
+def R_BG          = r8
+def R_WHITE       = r9
+def R_Q           = r10                                # search head: map address of the current cell
+def R_DEPTH       = r11                                # distance of the head from the exit
+def R_NEXT        = r12                                # map address of the neighbour being tried
+def R_V           = r13
+def R_FLAG        = r14
+def R_TMP         = r15
+def R_ADDR        = r16
+def R_COL         = r17                                # colour of the cell at R_DEPTH
+def R_STAMP       = r18                                # visited threshold for this maze
+def R_RAND        = r19
+def R_MARK_E      = r20                                # STAMP + direction back to the parent
+def R_MARK_S      = r21
+def R_MARK_W      = r22
+def R_MARK_N      = r23
+def R_OFF_E       = r24                                # map offset to the neighbouring cell
+def R_OFF_S       = r25
+def R_OFF_W       = r26
+def R_OFF_N       = r27
+def R_HALF_E      = r28                                # map offset to the wall in between
+def R_HALF_S      = r29
+def R_HALF_W      = r30
+def R_HALF_N      = r31
+def R_GO_E        = r32                                # branch targets
+def R_GO_S        = r33
+def R_GO_W        = r34
+def R_GO_N        = r35
+def R_TO_STEP     = r36
+def R_TO_DEAD     = r37
+def R_TO_CARVED   = r38
+def R_TO_TRACE    = r39
+def R_TO_SOLVED   = r40
+def R_CHAIN0      = r41                                # computed jump tables
+def R_CHAIN_SIZE  = r42
+def R_FOLLOW0     = r43
+def R_FOLLOW_SIZE = r44
+def R_PALETTE     = r45
+def R_THIRTY      = r46
+def R_SEVEN       = r47
+def R_THREE       = r48
+def R_ONE         = r49
+def R_ROOT        = r50                                # map address of the exit cell
+def R_BASE        = r51
+def R_LEN         = r52                                # solution length
+def R_MAZE_NO     = r53
+def R_STR         = r54                                # text routines
+def R_CHAR        = r55
+def R_TX          = r56
+def R_TY          = r57
+def R_NUM         = r58
+def R_CNT         = r59
+def R_TEN         = r60
+def R_ASCII0      = r61
+def R_FOUR        = r62
+def R_TEXTC       = r63
+def R_RDBIDX      = r64
+def R_PATH_L      = r65
+def R_PATH_R      = r66
+
+# ----------------------------------------------------------------------
+# Macros
+# ----------------------------------------------------------------------
+
+# Paint the square pixel at map address @a in palette colour @c (two space characters
+# on colour @c). @a is left unchanged. 32 bus cycles.
+def PIX = {
+    stb @a , $R_CX                                     # low byte = column
+    lsr @a , $R_EIGHT , $R_TMP
+    stb $R_TMP , $R_CY                                 # next byte = row
+    stb @c , $R_BIDX
+    stb $R_ZERO , $R_CELL                              # a control char is drawn as a space
+    inc @a
+    stb @a , $R_CX
+    stb $R_ZERO , $R_CELL
+    dec @a
+}
+
+# Draw the pixel at @a as a white "<>" on top of whatever colour it already has
+# (read back from the screen). Expects FIDX to be white.
+def PATHPIX = {
+    stb @a , $R_CX
+    lsr @a , $R_EIGHT , $R_TMP
+    stb $R_TMP , $R_CY
+    ldb $R_RDBIDX , $R_TMP
+    stb $R_TMP , $R_BIDX
+    stb $R_PATH_L , $R_CELL
+    inc @a
+    stb @a , $R_CX
+    stb $R_PATH_R , $R_CELL
+    dec @a
+}
+
+# R_COL = palette[R_DEPTH % 30]
+def COLOR = { rem $R_DEPTH , $R_THIRTY , $R_TMP ; add $R_TMP , $R_PALETTE , $R_TMP ; ldb $R_TMP , $R_COL }
+
+# Branch to @go if the neighbour at offset @off has not been visited in this maze.
+# Map bytes below STAMP are left over from older mazes, so they count as unvisited.
+def TRY = { add $R_Q , @off , $R_NEXT ; ldb $R_NEXT , $R_V ; lt $R_V , $R_STAMP , $R_FLAG ; bnz $R_FLAG , @go }
+def TRY_E = $TRY[off=$R_OFF_E, go=$R_GO_E]
+def TRY_S = $TRY[off=$R_OFF_S, go=$R_GO_S]
+def TRY_W = $TRY[off=$R_OFF_W, go=$R_GO_W]
+def TRY_N = $TRY[off=$R_OFF_N, go=$R_GO_N]
+
+# Carve from the head into R_NEXT. @mark records the way back, @half finds the wall.
+def GO = {
+    stb @mark , $R_NEXT                                # visited, and remembers its parent
+    $PIX[a=$R_Q, c=$R_COL]                             # the old head takes its own colour
+    pshh $R_Q
+    inc $R_DEPTH
+    $COLOR
+    add $R_Q , @half , $R_ADDR
+    $PIX[a=$R_ADDR, c=$R_COL]                          # knock down the wall
+    mov $R_NEXT , $R_Q
+    $PIX[a=$R_Q, c=$R_WHITE]                           # the new head
+    stb $R_ZERO , $R_BLIT
+    jmp $R_TO_STEP
+}
+
+# One step of the solution trace: the wall that was knocked down, then the next cell.
+def FOLLOW = {
+    add $R_Q , @half , $R_ADDR
+    $PATHPIX[a=$R_ADDR]
+    add $R_Q , @off , $R_Q
+    $PATHPIX[a=$R_Q]
+    stb $R_ZERO , $R_BLIT
+    inc $R_LEN
+    jmp $R_TO_TRACE
+}
+
+# Type the 0-terminated string at @str starting at column @x of row @y.
+def TEXT = { liw $R_STR , @str ; lib $R_TX , @x ; lib $R_TY , @y ; cali :puts }
+
+# ======================================================================
+# Program (JO stays 0, so labels are absolute addresses)
+# ======================================================================
+
+!scope boot
+    liw $R_CX , ( $SCR + 2 ) ; liw $R_CY , ( $SCR + 3 )
+    liw $R_FIDX , $A_FIDX ; liw $R_BIDX , $A_BIDX
+    liw $R_CELL , ( $SCR + 14 ) ; liw $R_BLIT , ( $SCR + 15 )
+    lib $R_EIGHT , 8 ; lib $R_BG , $C_BG ; lib $R_WHITE , $C_HEAD
+    lib $R_THIRTY , 30 ; lib $R_SEVEN , 7 ; lib $R_THREE , 3 ; lib $R_ONE , 1 ; lib $R_FOUR , 4
+    lib $R_TEN , 10 ; lib $R_ASCII0 , 0x30
+    lib $R_TEXTC , $C_TEXT ; liw $R_RDBIDX , $A_RDBIDX
+    lib $R_PATH_L , $PATH_L ; lib $R_PATH_R , $PATH_R
+
+    # Neighbour and wall offsets. Directions are numbered E=0 S=1 W=2 N=3.
+    lib $R_OFF_E , 4 ; liq $R_OFF_S , 512
+    neg $R_OFF_E , $R_OFF_W ; neg $R_OFF_S , $R_OFF_N
+    lib $R_HALF_E , 2 ; liq $R_HALF_S , 256
+    neg $R_HALF_E , $R_HALF_W ; neg $R_HALF_S , $R_HALF_N
+
+    liw $R_GO_E , :go_e ; liw $R_GO_S , :go_s ; liw $R_GO_W , :go_w ; liw $R_GO_N , :go_n
+    liw $R_TO_STEP , :step ; liw $R_TO_DEAD , :dead ; liw $R_TO_CARVED , :carved
+    liw $R_TO_TRACE , :trace ; liw $R_TO_SOLVED , :solved
+    liw $R_CHAIN0 , :chain0 ; liq $R_CHAIN_SIZE , ( :chain1 - :chain0 )
+    liw $R_FOLLOW0 , :follow_e ; liq $R_FOLLOW_SIZE , ( :follow_s - :follow_e )
+    liw $R_PALETTE , :palette
+
+    ent $R_TMP ; seed $R_TMP                           # a different maze every run
+    liw $R_BASE , $MAP_BASE
+    lib $R_STAMP , 0
+    lib $R_MAZE_NO , 0
+    cali :mark_border
+!endscope
+
+# ----------------------------------------------------------------------
+# A new round. Rather than clearing the visited map, each maze gets a higher
+# "stamp": a cell is visited if its map byte is >= STAMP, and a visited cell stores
+# STAMP + the direction back to its parent. After 63 mazes the stamps run out, so
+# the map is wiped once and the stamps start again.
+# ----------------------------------------------------------------------
+!scope new_maze
+    add $R_STAMP , $R_FOUR , $R_STAMP
+    liq $R_TMP , 256
+    lt $R_STAMP , $R_TMP , $R_FLAG
+    bnzi $R_FLAG , :.stamp_ok
+        lib $R_STAMP , 4
+        cali :clear_cells
+    stamp_ok:
+    mov $R_STAMP , $R_MARK_E
+    add $R_STAMP , $R_ONE , $R_MARK_S
+    add $R_MARK_S , $R_ONE , $R_MARK_W
+    add $R_MARK_W , $R_ONE , $R_MARK_N
+    inc $R_MAZE_NO
+
+    stb $R_BG , $R_BIDX                                # clear to the background colour
+    liw $R_TMP , $A_FILL ; stb $R_ZERO , $R_TMP
+    $TEXT[str=:text.title, x=$X0, y=0]
+    mov $R_MAZE_NO , $R_NUM ; cali :putnum
+    $TEXT[str=:text.carve, x=$X0, y=$SY]
+
+    # The exit cell is the root of the search.
+    liw $R_TMP , $CELLOFF[i=$MAZE_W - 1, j=$MAZE_H - 1]
+    add $R_TMP , $R_BASE , $R_Q
+    mov $R_Q , $R_ROOT
+    stb $R_MARK_E , $R_Q
+    lib $R_DEPTH , 0
+    $COLOR
+    $PIX[a=$R_Q, c=$R_WHITE]
+    stb $R_ZERO , $R_BLIT
+!endscope
+
+# ----------------------------------------------------------------------
+# Depth-first carving. Each step jumps to one of 8 chains chosen at random. A chain
+# tries the 4 directions in one rotation (4 clockwise orders, 4 anticlockwise) and
+# carves into the first unvisited neighbour; if there is none it backtracks. Border
+# cells around the maze are marked 0xFF so they always look visited.
+# ----------------------------------------------------------------------
+step:
+    rnd $R_RAND
+    and $R_RAND , $R_SEVEN , $R_TMP
+    mul $R_TMP , $R_CHAIN_SIZE , $R_TMP
+    add $R_TMP , $R_CHAIN0 , $R_TMP
+    jmp $R_TMP
+
+chain0:
+    $TRY_E ; $TRY_S ; $TRY_W ; $TRY_N ; jmp $R_TO_DEAD
+chain1:
+    $TRY_S ; $TRY_W ; $TRY_N ; $TRY_E ; jmp $R_TO_DEAD
+chain2:
+    $TRY_W ; $TRY_N ; $TRY_E ; $TRY_S ; jmp $R_TO_DEAD
+chain3:
+    $TRY_N ; $TRY_E ; $TRY_S ; $TRY_W ; jmp $R_TO_DEAD
+chain4:
+    $TRY_E ; $TRY_N ; $TRY_W ; $TRY_S ; jmp $R_TO_DEAD
+chain5:
+    $TRY_S ; $TRY_E ; $TRY_N ; $TRY_W ; jmp $R_TO_DEAD
+chain6:
+    $TRY_W ; $TRY_S ; $TRY_E ; $TRY_N ; jmp $R_TO_DEAD
+chain7:
+    $TRY_N ; $TRY_W ; $TRY_S ; $TRY_E ; jmp $R_TO_DEAD
+
+go_e:
+    $GO[mark=$R_MARK_W, half=$R_HALF_E]
+go_s:
+    $GO[mark=$R_MARK_N, half=$R_HALF_S]
+go_w:
+    $GO[mark=$R_MARK_E, half=$R_HALF_W]
+go_n:
+    $GO[mark=$R_MARK_S, half=$R_HALF_N]
+
+# Stuck: repaint the head in its colour and retreat to the previous cell.
+dead:
+    bz $R_DEPTH , $R_TO_CARVED                         # back at the exit: every cell is carved
+    $PIX[a=$R_Q, c=$R_COL]
+    poph $R_Q
+    dec $R_DEPTH
+    $COLOR
+    $PIX[a=$R_Q, c=$R_WHITE]
+    stb $R_ZERO , $R_BLIT
+    jmp $R_TO_STEP
+
+# ----------------------------------------------------------------------
+# Solve: start at the entrance and follow each cell's stored direction to the exit.
+# ----------------------------------------------------------------------
+carved:
+    $PIX[a=$R_Q, c=$R_COL]                             # the exit loses its head marker
+    stb $R_ZERO , $R_BLIT
+    $TEXT[str=:text.trace, x=$X0, y=$SY]
+
+    stb $R_WHITE , $R_FIDX
+    liw $R_TMP , $CELLOFF[i=0, j=0]
+    add $R_TMP , $R_BASE , $R_Q
+    add $R_Q , $R_HALF_W , $R_ADDR
+    $PATHPIX[a=$R_ADDR]                                # through the outer wall at the entrance
+    $PATHPIX[a=$R_Q]
+    stb $R_ZERO , $R_BLIT
+    lib $R_LEN , 1
+
+trace:
+    eq $R_Q , $R_ROOT , $R_FLAG
+    bnz $R_FLAG , $R_TO_SOLVED
+    ldb $R_Q , $R_TMP
+    and $R_TMP , $R_THREE , $R_TMP                     # direction back toward the exit
+    mul $R_TMP , $R_FOLLOW_SIZE , $R_TMP
+    add $R_TMP , $R_FOLLOW0 , $R_TMP
+    jmp $R_TMP
+
+follow_e:
+    $FOLLOW[off=$R_OFF_E, half=$R_HALF_E]
+follow_s:
+    $FOLLOW[off=$R_OFF_S, half=$R_HALF_S]
+follow_w:
+    $FOLLOW[off=$R_OFF_W, half=$R_HALF_W]
+follow_n:
+    $FOLLOW[off=$R_OFF_N, half=$R_HALF_N]
+
+solved:
+    add $R_Q , $R_HALF_E , $R_ADDR
+    $PATHPIX[a=$R_ADDR]                                # and out through the exit
+    stb $R_ZERO , $R_BLIT
+    $TEXT[str=:text.solved, x=$X0, y=$SY]
+    mov $R_LEN , $R_NUM ; cali :putnum
+    liw $R_STR , :text.steps ; cali :puts
+    liq $R_NUM , $PAUSE_MS ; cali :pause
+    jmpi :new_maze
+
+# ======================================================================
+# Subroutines
+# ======================================================================
+
+# Mark the ring of cells just outside the maze as visited (0xFF).
+!scope mark_border
+    lib $R_V , 0xFF
+    liw $R_TMP , $CELLOFF[i=-1, j=-1] ; add $R_TMP , $R_BASE , $R_ADDR
+    liw $R_TMP , $CELLOFF[i=-1, j=$MAZE_H] ; add $R_TMP , $R_BASE , $R_NEXT
+    lib $R_CNT , ( $MAZE_W + 2 )
+    rows:                                              # the rows above and below
+        stb $R_V , $R_ADDR ; stb $R_V , $R_NEXT
+        add $R_ADDR , $R_OFF_E , $R_ADDR ; add $R_NEXT , $R_OFF_E , $R_NEXT
+        dec $R_CNT
+        bnzi $R_CNT , :.rows
+    liw $R_TMP , $CELLOFF[i=-1, j=0] ; add $R_TMP , $R_BASE , $R_ADDR
+    liw $R_TMP , $CELLOFF[i=$MAZE_W, j=0] ; add $R_TMP , $R_BASE , $R_NEXT
+    lib $R_CNT , $MAZE_H
+    cols:                                              # the columns left and right
+        stb $R_V , $R_ADDR ; stb $R_V , $R_NEXT
+        add $R_ADDR , $R_OFF_S , $R_ADDR ; add $R_NEXT , $R_OFF_S , $R_NEXT
+        dec $R_CNT
+        bnzi $R_CNT , :.cols
+    ret
+!endscope
+
+# Zero the map byte of every cell in the maze (the border keeps its 0xFF).
+!scope clear_cells
+    liw $R_TMP , $CELLOFF[i=0, j=0] ; add $R_TMP , $R_BASE , $R_ADDR
+    lib $R_CNT , $MAZE_H
+    rows:
+        mov $R_ADDR , $R_NEXT
+        lib $R_V , $MAZE_W
+        cells:
+            stb $R_ZERO , $R_NEXT
+            add $R_NEXT , $R_OFF_E , $R_NEXT
+            dec $R_V
+            bnzi $R_V , :.cells
+        add $R_ADDR , $R_OFF_S , $R_ADDR
+        dec $R_CNT
+        bnzi $R_CNT , :.rows
+    ret
+!endscope
+
+# Type the 0-terminated string at R_STR at column R_TX of row R_TY, one blit per
+# character, in the text colours. Leaves R_TX just past the end.
+!scope puts
+    stb $R_TEXTC , $R_FIDX ; stb $R_BG , $R_BIDX
+    stb $R_TY , $R_CY
+    next:
+        ldb $R_STR , $R_CHAR
+        bzi $R_CHAR , :.done
+        stb $R_TX , $R_CX
+        stb $R_CHAR , $R_CELL
+        stb $R_ZERO , $R_BLIT
+        inc $R_TX
+        inc $R_STR
+        jmpi :.next
+    done:
+    ret
+!endscope
+
+# Type R_NUM in decimal at column R_TX of row R_TY. R_NUM is destroyed.
+!scope putnum
+    stb $R_TEXTC , $R_FIDX ; stb $R_BG , $R_BIDX
+    stb $R_TY , $R_CY
+    lib $R_CNT , 0
+    split:                                             # push digits, least significant first
+        rem $R_NUM , $R_TEN , $R_CHAR
+        pshb $R_CHAR
+        inc $R_CNT
+        div $R_NUM , $R_TEN , $R_NUM
+        bnzi $R_NUM , :.split
+    emit:
+        popb $R_CHAR
+        add $R_CHAR , $R_ASCII0 , $R_CHAR
+        stb $R_TX , $R_CX
+        stb $R_CHAR , $R_CELL
+        stb $R_ZERO , $R_BLIT
+        inc $R_TX
+        dec $R_CNT
+        bnzi $R_CNT , :.emit
+    ret
+!endscope
+
+# Wait until R_NUM milliseconds have passed.
+!scope pause
+    liw $R_ADDR , $A_RESET ; stb $R_ZERO , $R_ADDR
+    liw $R_ADDR , $A_LATCH ; liw $R_NEXT , $A_TICKS
+    wait:
+        stb $R_ZERO , $R_ADDR
+        ldh $R_NEXT , $R_TMP
+        lt $R_TMP , $R_NUM , $R_FLAG
+        bnzi $R_FLAG , :.wait
+    ret
+!endscope
+
+# ======================================================================
+# Data
+# ======================================================================
+
+# A 30-step hue wheel through the 6x6x6 colour cube (16 + 36r + 6g + b):
+# red > yellow > green > cyan > blue > magenta > back to red.
+palette:
+    db 196, 202, 208, 214, 220, 226, 190, 154, 118, 82
+    db 46, 47, 48, 49, 50, 51, 45, 39, 33, 27
+    db 21, 57, 93, 129, 165, 201, 200, 199, 198, 197
+
+!scope text
+    title:                                             # "BASHPUTER // MAZE #"
+        db 0x42, 0x41, 0x53, 0x48, 0x50, 0x55, 0x54, 0x45, 0x52, 0x20, 0x2F, 0x2F, 0x20, 0x4D, 0x41, 0x5A, 0x45, 0x20, 0x23, 0
+    carve:                                             # "CARVING: DEPTH-FIRST SEARCH"
+        db 0x43, 0x41, 0x52, 0x56, 0x49, 0x4E, 0x47, 0x3A, 0x20, 0x44, 0x45, 0x50, 0x54, 0x48, 0x2D, 0x46, 0x49, 0x52, 0x53, 0x54, 0x20, 0x53, 0x45, 0x41, 0x52, 0x43, 0x48, 0
+    trace:                                             # "TRACING THE WAY OUT...", padded to cover the line above
+        db 0x54, 0x52, 0x41, 0x43, 0x49, 0x4E, 0x47, 0x20, 0x54, 0x48, 0x45, 0x20, 0x57, 0x41, 0x59, 0x20, 0x4F, 0x55, 0x54, 0x2E, 0x2E, 0x2E, 0x20, 0x20, 0x20, 0x20, 0x20, 0
+    solved:                                            # "SOLVED IN "
+        db 0x53, 0x4F, 0x4C, 0x56, 0x45, 0x44, 0x20, 0x49, 0x4E, 0x20, 0
+    steps:                                             # " STEPS", padded
+        db 0x20, 0x53, 0x54, 0x45, 0x50, 0x53, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0
+!endscope
