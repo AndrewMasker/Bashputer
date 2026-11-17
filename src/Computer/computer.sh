@@ -39,7 +39,7 @@ for name in "${!COMPONENTS[@]}"; do
 done
 for name in "${!COMPONENTS[@]}"; do
     connect_Component "$name"
-    send_Message $name "set_name $name"
+    send_First_Message $name "set_name $name"
 done
 
 

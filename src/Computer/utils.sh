@@ -18,6 +18,15 @@ send_Message() {
     printf '%s\n' "$message" >&"${IN[$name]}"
 }
 
+send_First_Message() {
+    local name=$1
+    local message=$2 tries=0
+    until printf '%s\n' "$message" 2>/dev/null >&"${IN[$name]}"; do
+        (( ++tries < 300 )) || die "component '$name' never opened its input"
+        sleep 0.1
+    done
+}
+
 start_Component() {
     local name=$1 script=$2
     mkfifo "$FIFO_DIR/$name.in" "$FIFO_DIR/$name.out"
