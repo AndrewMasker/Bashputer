@@ -4,7 +4,7 @@
 get_Message() {
     local name=$1 varname=$2 exit_status=0
     read -r -t $TIMEOUT "$varname" <&"${OUT[$name]}" || exit_status=$?
-    if (( exit_status > 128)); then die "component '$name' didn't repond within '$TIMEOUT' seconds"; fi
+    if (( exit_status > 128)) && kill -0 "${PID[$name]}" 2>/dev/null; then die "component '$name' didn't repond within '$TIMEOUT' seconds"; fi
     if (( exit_status != 0)); then
         exit_status=0; wait "${PID[$name]}" || exit_status=$?
         unset 'PID[$name]'
@@ -27,8 +27,8 @@ start_Component() {
 
 connect_Component() {
     local name=$1
-    exec {IN[$name]}> "$FIFO_DIR/$name.in"
-    exec {OUT[$name]}< "$FIFO_DIR/$name.out"
+    exec {IN[$name]}<> "$FIFO_DIR/$name.in"
+    exec {OUT[$name]}<> "$FIFO_DIR/$name.out"
 }
 
 shutdown_All_Components() {
