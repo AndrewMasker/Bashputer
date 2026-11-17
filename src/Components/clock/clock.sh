@@ -9,7 +9,11 @@ source "$MY_DIR"/../../utils.sh
 source "$MY_DIR"/config.sh
 
 export LC_ALL=C
-exec {SLEEP_FD}<> <(:)
+
+SLEEP_FIFO=$(mktemp -u)
+mkfifo "$SLEEP_FIFO"
+exec {SLEEP_FD}<> "$SLEEP_FIFO"
+rm -f "$SLEEP_FIFO"
 
 set_Now_Us() {
     printf -v "$1" '%d' "${EPOCHREALTIME/./}"
