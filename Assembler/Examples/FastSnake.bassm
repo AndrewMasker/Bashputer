@@ -1,0 +1,653 @@
+# FastSnake.bassm - Snake.bassm rebuilt so that a game step costs as few bus cycles as possible
+# Authors: Andrew Masker and Claude Opus 5.5
+#
+# ==================================================================================
+# PREAMBLE
+# ==================================================================================
+#
+# CONTROLS:
+#       w: turn upwards if traveling left or right
+#       a: turn left (screen relative) if traveling up or down
+#       s: turn downwards if traveling left or right
+#       d: turn right (screen relative) if traveling up or down
+#       q: quit the game
+#
+# HOW IT GOES FAST:
+#   One bus cycle is one fetched instruction byte or one load/store, so the program avoids
+#   fetching bytes. A normal step is about 80 cycles.
+#
+#   * No immediate jumps, branches or calls, no subroutines, and no stack. Every branch
+#     target lives in a register.
+#   * The direction and the half of the character the head is in are encoded in WHERE THE
+#     CODE IS. There is one head routine per (direction , half), so nothing is tested
+#     or computed per step, and r_state simply holds the routine to run next.
+#   * The board lives in RAM, so a collision check is one ldb and one bnz. A cell address is
+#     GRID + (half << 16) + (char row << 8) + column, which means a single `stq` of the
+#     address writes both CX and CY.
+#   * The snake's body is stored in the board. Leaving a cell writes the address of the
+#     tail routine that will later erase it, so moving the tail is just `ldb` + `jmp`.
+#     There are no ring buffers to advance or wrap.
+#   * Growing costs the hot path nothing: while growing, r_tail points at a fake cell whose
+#     tail routine counts the growth down instead of erasing anything.
+#   * Moving vertically inside one character needs no screen read: the other half of that
+#     character is known to be snake.
+
+# ==================================================================================
+# MEMORY MAPPED IO
+# ==================================================================================
+
+    # MEMORY MAP:
+    def SCREEN   = ( 1 * 64 * 1000 )
+    def KEYBOARD = ( 3 * 64 * 1000 )
+
+    # SCREEN REGISTERS:
+    def MODE    = ( $SCREEN + 0 )               # 0 = characters, 1 = half-block pixels
+    def CMODE   = ( $SCREEN + 1 )               # 0 = palette index, 1 = 24-bit RGB
+    def CX      = ( $SCREEN + 2 )               # CY is the next byte, see `stq` above
+    def FIDX    = ( $SCREEN + 4 )
+    def BIDX    = ( $SCREEN + 8 )
+    def DRAW    = ( $SCREEN + 14 )
+    def BLIT    = ( $SCREEN + 15 )
+    def FILL    = ( $SCREEN + 16 )
+    def RD_FIDX = ( $SCREEN + 18 )
+    def RD_BIDX = ( $SCREEN + 22 )
+
+    # KEYBOARD REGISTERS:
+    def KB_STATUS = ( $KEYBOARD + 0 )           # 1 while a key is waiting
+    def KB_DATA   = ( $KEYBOARD + 1 )           # reading pops one byte
+    def KB_CLEAR  = ( $KEYBOARD + 2 )           # reading flushes the buffer
+
+# ==================================================================================
+# CONSTANTS
+# ==================================================================================
+
+    # COLORS:
+    def background = 0x10
+    def snake      = 0x0A
+    def apples     = 0x09
+    def walls      = 0x0F
+
+    # PLAY AREA:
+    def width    = 30                           # Cell width of the playable area
+    def height   = 15                           # Cell height of the playable area
+    def p_height = ( $height * 2 )
+
+    # KEYS:
+    def key_w = 0x77
+    def key_a = 0x61
+    def key_s = 0x73
+    def key_d = 0x64
+    def key_q = 0x71
+
+    # DIRECTIONS:
+    def dir_right = 0b11                        # 0b00 = up, 0b01 = left, 0b10 = down, 0b11 = right
+
+    # SNAKE LENGTHS:
+    def init_len = 3
+    def len_per_apple  = 3
+
+    # WHERE THE SNAKE STARTS:
+    def start_x = ( $width / 2 + 1 )            # Column of the tail
+    def start_y = ( $p_height / 2 + 2 )         # Pixel row of the whole snake
+
+    # RAM LAYOUT:
+    def GRID      = 0x60000                     # 64K aligned so bit 16 of a cell is its half
+    def KEYMAP    = 0x80000                     # 256 bytes: key -> 0 ignored, 1-4 direction + 1, 5 quit
+    def GROW_CELL = 0x80100                     # The fake tail cell used while growing
+    def FIRST_CELL = 0x80101                    # The fake tail cell used on a game's first step
+
+    # BOARD MARKS (anything else nonzero on the board is the address of a tail routine):
+    def mark_apple = 1
+    def mark_wall  = 2
+
+    # cell_at[x= , y= ] - the board address of pixel (x , y)
+    def cell_at = ( $GRID + ( ( ( @y ) % 2 ) << 16 ) + ( ( ( @y ) / 2 ) << 8 ) + ( @x ) )
+
+# ==================================================================================
+# REGISTERS
+# ==================================================================================
+
+    # HOT DEVICE ADDRESSES:
+    def r_cx_addr        = r0
+    def r_fidx_addr      = r1
+    def r_bidx_addr      = r2
+    def r_rd_fidx_addr   = r3
+    def r_rd_bidx_addr   = r4
+    def r_cell_addr      = r5
+    def r_blit_addr      = r6
+    def r_kb_status_addr = r7
+    def r_kb_data_addr   = r8
+
+    # GAME STATE:
+    def r_head       = r9                       # Board address of the head
+    def r_tail       = r10                      # Board address of the tail, or GROW_CELL
+    def r_state      = r11                      # The head routine that runs next
+    def r_under      = r12                      # What the head landed on / the tail routine
+    def r_tmp        = r13
+    def r_kb_ready  = r14
+    def r_dir        = r15                      # 0b00 = up, 0b01 = left, 0b10 = down, 0b11 = right
+    def r_growth     = r16                      # Cells still to grow
+    def r_saved_tail = r17                      # The real tail while r_tail is GROW_CELL
+    def r_total      = r18                      # Length the snake is growing toward
+    def r_apple_cell = r19                      # Board address of the apple
+
+    # CONSTANTS:
+    def r_zero          = r20                   # Never written
+    def r_one           = r21
+    def r_two           = r22
+    def r_five          = r23
+    def r_four          = r24
+    def r_half_shift    = r25                   # Moves bit 16 of a cell to bit 2
+    def r_plane_shift   = r26
+    def r_row_shift     = r27
+    def r_poll_skip     = r28                   # Bytes from the start of a head routine past its key poll
+    def r_len_per_apple = r29
+    def r_width         = r30
+    def r_p_height      = r31
+    def r_bg_color      = r32
+    def r_snake_color   = r33
+    def r_apple_color   = r34
+    def r_wall_color    = r35
+    def r_mark_apple    = r36
+    def r_mark_wall     = r37
+
+    # BOARD STEPS BETWEEN VERTICAL NEIGHBORS (named for the half being left):
+    def r_step_up_top   = r38
+    def r_step_up_bot   = r39
+    def r_step_down_top = r40
+    def r_step_down_bot = r41
+
+    # TAIL ROUTINES (the values written to the board):
+    def r_code_up_top    = r42
+    def r_code_up_bot    = r43
+    def r_code_left_top  = r44
+    def r_code_left_bot  = r45
+    def r_code_down_top  = r46
+    def r_code_down_bot  = r47
+    def r_code_right_top = r48
+    def r_code_right_bot = r49
+
+    # BRANCH TARGETS:
+    def r_go_up_top     = r50
+    def r_go_up_bot     = r51
+    def r_go_down_top   = r52
+    def r_go_down_bot   = r53
+    def r_keys_addr     = r54
+    def r_key_next_addr = r55
+    def r_turned_addr   = r56
+    def r_quit_addr     = r57
+    def r_hit_addr      = r58
+    def r_die_addr      = r59
+    def r_ate_addr      = r60
+    def r_first_addr    = r79
+
+    # TABLES:
+    def r_table_of_heads = r61
+    def r_keymap_addr = r62
+    def r_grow_cell   = r63
+    def r_grid_base   = r64
+
+    # COLD PATH SCRATCH:
+    def r_pressed    = r65
+    def r_apple_x    = r66
+    def r_apple_y    = r67
+    def r_try_addr   = r68
+    def r_draw_ptr   = r69
+    def r_draw_other = r70
+    def r_hit_val    = r71
+    def r_paint      = r72
+    def r_left       = r73
+    def r_loop       = r74
+    def r_walked     = r75
+    def r_wall_ptr   = r76
+    def r_wall_right = r77
+    def r_bind_value = r78
+
+# ==================================================================================
+# MACROS
+# ==================================================================================
+
+    # PIXEL COLORS: each sets both halves of the character under the cursor
+        def paint_upper  = { stb $r_snake_color , $r_fidx_addr ; ldb $r_rd_bidx_addr , $r_tmp ; stb $r_tmp , $r_bidx_addr }
+        def paint_lower  = { stb $r_snake_color , $r_bidx_addr ; ldb $r_rd_fidx_addr , $r_tmp ; stb $r_tmp , $r_fidx_addr }
+        def paint_whole  = { stb $r_snake_color , $r_fidx_addr ; stb $r_snake_color , $r_bidx_addr }
+        def erase_upper  = { stb $r_bg_color , $r_fidx_addr ; ldb $r_rd_bidx_addr , $r_tmp ; stb $r_tmp , $r_bidx_addr }
+        def erase_lower  = { stb $r_bg_color , $r_bidx_addr ; ldb $r_rd_fidx_addr , $r_tmp ; stb $r_tmp , $r_fidx_addr }
+        def vacate_upper = { stb $r_bg_color , $r_fidx_addr ; stb $r_snake_color , $r_bidx_addr }
+        def vacate_lower = { stb $r_snake_color , $r_fidx_addr ; stb $r_bg_color , $r_bidx_addr }
+
+    # head_step[code= , move= , paint= ] - one whole step, entered through r_state
+    #   code:  the tail routine that will erase the cell being left
+    #   move:  moves r_head, and updates r_state if the half changes
+    #   paint: colors the character the head arrives in
+    # The blit and key poll are 9 bytes (r_poll_skip) so that the key handler can re-enter after them.
+        def head_step = {
+            stb $r_zero , $r_blit_addr
+            ldb $r_kb_status_addr , $r_kb_ready
+            bnz $r_kb_ready , $r_keys_addr
+            stb @code , $r_head
+            @move
+            ldb $r_head , $r_under
+            stq $r_head , $r_cx_addr
+            @paint
+            stb $r_zero , $r_cell_addr
+            bnz $r_under , $r_hit_addr
+            ldb $r_tail , $r_under
+            jmp $r_under
+        }
+
+    # tail_step[erase= , move= ] - erases the tail cell and moves r_tail along the body
+        def tail_step = {
+            stq $r_tail , $r_cx_addr
+            @erase
+            stb $r_zero , $r_cell_addr
+            stb $r_zero , $r_tail
+            @move
+            jmp $r_state
+        }
+
+    # draw_cell[cell= , color= ] - draws one pixel from any board address, without branching
+        def draw_cell = {
+            stq @cell , $r_cx_addr
+            lsr @cell , $r_half_shift , $r_tmp
+            and $r_tmp , $r_four , $r_tmp               # 0 for the top half, 4 for the bottom
+            add $r_fidx_addr , $r_tmp , $r_draw_ptr
+            stb @color , $r_draw_ptr
+            sub $r_rd_bidx_addr , $r_tmp , $r_draw_ptr
+            ldb $r_draw_ptr , $r_draw_other
+            sub $r_bidx_addr , $r_tmp , $r_draw_ptr
+            stb $r_draw_other , $r_draw_ptr
+            stb $r_zero , $r_cell_addr
+        }
+
+    # spawn_apple - places an apple on a random free cell
+        def spawn_apple = {
+            liw $r_try_addr , :.try
+            try:
+                rnd $r_apple_x
+                lsr $r_apple_x , $r_one , $r_apple_x
+                rem $r_apple_x , $r_width , $r_apple_x
+                inc $r_apple_x
+
+                rnd $r_apple_y
+                lsr $r_apple_y , $r_one , $r_apple_y
+                rem $r_apple_y , $r_p_height , $r_apple_y
+                add $r_apple_y , $r_two , $r_apple_y
+
+                and $r_apple_y , $r_one , $r_tmp
+                shl $r_tmp , $r_plane_shift , $r_tmp
+                lsr $r_apple_y , $r_one , $r_apple_y
+                shl $r_apple_y , $r_row_shift , $r_apple_y
+                add $r_apple_x , $r_apple_y , $r_apple_x
+                add $r_apple_x , $r_tmp , $r_apple_x
+                add $r_apple_x , $r_grid_base , $r_apple_x
+
+                ldb $r_apple_x , $r_tmp
+                bnz $r_tmp , $r_try_addr
+            stb $r_mark_apple , $r_apple_x
+            mov $r_apple_x , $r_apple_cell
+            $draw_cell[cell=$r_apple_x , color=$r_apple_color]
+        }
+
+    # wall_row[cell= , top= , bottom= ] - draws and marks a full width wall
+        def wall_row = {
+            stb @top , $r_fidx_addr
+            stb @bottom , $r_bidx_addr
+            liw $r_wall_ptr , @cell
+            lib $r_left , ( $width + 2 )
+            liw $r_loop , :.next
+            next:
+                stq $r_wall_ptr , $r_cx_addr
+                stb $r_zero , $r_cell_addr
+                stb $r_mark_wall , $r_wall_ptr
+                inc $r_wall_ptr
+                dec $r_left
+                bnz $r_left , $r_loop
+        }
+
+    # bind[key= , action= ] - adds a key to the key map
+        def bind = {
+            lib $r_bind_value , @action
+            liw $r_tmp , ( $KEYMAP + @key )
+            stb $r_bind_value , $r_tmp
+        }
+
+    # addr16[label= ] - a two byte little-endian code address
+        def addr16 = db ( @label ) , ( ( @label ) >> 8 )
+
+# ==================================================================================
+# TAIL ROUTINES
+# ==================================================================================
+
+    # Execution starts here. The tail routines come first because their addresses are stored
+    # in single board bytes, so they all have to sit below address 256.
+        liw $r_tmp , :boot
+        jmp $r_tmp
+
+    tail_up_top:
+        $tail_step[erase=$erase_upper , move={add $r_tail , $r_step_up_top , $r_tail}]
+    tail_up_bot:
+        $tail_step[erase=$vacate_lower , move={add $r_tail , $r_step_up_bot , $r_tail}]
+    tail_left_top:
+        $tail_step[erase=$erase_upper , move={dec $r_tail}]
+    tail_left_bot:
+        $tail_step[erase=$erase_lower , move={dec $r_tail}]
+    tail_down_top:
+        $tail_step[erase=$vacate_upper , move={add $r_tail , $r_step_down_top , $r_tail}]
+    tail_down_bot:
+        $tail_step[erase=$erase_lower , move={add $r_tail , $r_step_down_bot , $r_tail}]
+    tail_right_top:
+        $tail_step[erase=$erase_upper , move={inc $r_tail}]
+    tail_right_bot:
+        $tail_step[erase=$erase_lower , move={inc $r_tail}]
+
+    # The "tail routine" of GROW_CELL: the tail stays put until the growth runs out
+    tail_grow:
+        dec $r_growth
+        bnz $r_growth , $r_state
+        mov $r_saved_tail , $r_tail
+        jmp $r_state
+
+    # The "tail routine" of FIRST_CELL: see first_step
+    tail_first:
+        jmp $r_first_addr
+    tails_end:
+
+# ==================================================================================
+# HEAD ROUTINES
+# ==================================================================================
+
+    head_up_top:
+        $head_step[code=$r_code_up_top , move={add $r_head , $r_step_up_top , $r_head ; mov $r_go_up_bot , $r_state} , paint=$paint_lower]
+    head_up_bot:
+        $head_step[code=$r_code_up_bot , move={add $r_head , $r_step_up_bot , $r_head ; mov $r_go_up_top , $r_state} , paint=$paint_whole]
+    head_left_top:
+        $head_step[code=$r_code_left_top , move={dec $r_head} , paint=$paint_upper]
+    head_left_bot:
+        $head_step[code=$r_code_left_bot , move={dec $r_head} , paint=$paint_lower]
+    head_down_top:
+        $head_step[code=$r_code_down_top , move={add $r_head , $r_step_down_top , $r_head ; mov $r_go_down_bot , $r_state} , paint=$paint_whole]
+    head_down_bot:
+        $head_step[code=$r_code_down_bot , move={add $r_head , $r_step_down_bot , $r_head ; mov $r_go_down_top , $r_state} , paint=$paint_upper]
+    head_right_top:
+        $head_step[code=$r_code_right_top , move={inc $r_head} , paint=$paint_upper]
+    head_right_bot:
+        $head_step[code=$r_code_right_bot , move={inc $r_head} , paint=$paint_lower]
+
+# ==================================================================================
+# KEY HANDLING
+# ==================================================================================
+
+    # Handles at most one direction key per step, like Snake.bassm. Other keys are discarded.
+    !scope keys
+        ldb $r_kb_data_addr , $r_pressed
+        add $r_pressed , $r_keymap_addr , $r_tmp
+        ldb $r_tmp , $r_pressed
+        bz $r_pressed , $r_key_next_addr
+
+        eq $r_pressed , $r_five , $r_tmp
+        bnz $r_tmp , $r_quit_addr
+
+        dec $r_pressed                                  # Now holds the direction
+        xor $r_pressed , $r_dir , $r_tmp
+        eq $r_tmp , $r_two , $r_tmp
+        bnz $r_tmp , $r_turned_addr                     # Opposite directions differ by 0b10
+
+        mov $r_pressed , $r_dir
+        lsr $r_head , $r_plane_shift , $r_tmp
+        and $r_tmp , $r_one , $r_tmp
+        shl $r_pressed , $r_one , $r_pressed
+        add $r_pressed , $r_tmp , $r_pressed            # direction * 2 + half
+        shl $r_pressed , $r_one , $r_pressed
+        add $r_pressed , $r_table_of_heads , $r_pressed
+        ldq $r_pressed , $r_state
+
+        turned:
+            add $r_state , $r_poll_skip , $r_tmp
+            jmp $r_tmp
+
+        key_next:
+            ldb $r_kb_status_addr , $r_kb_ready
+            bnz $r_kb_ready , $r_keys_addr
+            add $r_state , $r_poll_skip , $r_tmp
+            jmp $r_tmp
+
+        quit:
+            liw $r_tmp , $KB_CLEAR
+            ldb $r_tmp , $r_tmp
+            hlt
+    !endscope
+
+# ==================================================================================
+# COLLISIONS
+# ==================================================================================
+
+    # The head is already drawn on the cell it hit, which is fine because nothing is blitted
+    # until the next step, and dying redraws that cell.
+    !scope hit
+        eq $r_under , $r_mark_apple , $r_tmp
+        bz $r_tmp , $r_die_addr
+
+        add $r_total , $r_len_per_apple , $r_total
+        bnz $r_growth , $r_ate_addr
+        mov $r_tail , $r_saved_tail
+        mov $r_grow_cell , $r_tail
+        ate:
+            add $r_growth , $r_len_per_apple , $r_growth
+            $spawn_apple
+            ldb $r_tail , $r_under
+            jmp $r_under
+    !endscope
+
+    # Runs the tail routines over the whole body, which clears it from both the board and
+    # the screen. They return through r_state, so r_state points at this loop for now.
+    # Falls through into new_game.
+    !scope die
+        mov $r_under , $r_hit_val
+        sub $r_total , $r_growth , $r_left              # Cells from the tail to the old head
+        liw $r_walked , :.walked
+        liw $r_state , :.walk
+        bz $r_growth , $r_state
+        mov $r_saved_tail , $r_tail
+
+        walk:
+            bz $r_left , $r_walked
+            dec $r_left
+            ldb $r_tail , $r_under
+            jmp $r_under
+
+        walked:
+            # The cell that was hit goes back to being a wall or empty
+            eq $r_hit_val , $r_mark_wall , $r_tmp
+            sub $r_wall_color , $r_bg_color , $r_paint
+            mul $r_tmp , $r_paint , $r_paint
+            add $r_paint , $r_bg_color , $r_paint
+            $draw_cell[cell=$r_head , color=$r_paint]
+
+            stb $r_zero , $r_apple_cell
+            $draw_cell[cell=$r_apple_cell , color=$r_bg_color]
+    !endscope
+
+# ==================================================================================
+# NEW GAME
+# ==================================================================================
+
+    !scope new_game
+        ent $r_tmp
+        seed $r_tmp
+
+        lib $r_growth , 0
+        lib $r_total , $init_len
+        lib $r_dir , $dir_right
+        liw $r_state , :head_right_bot
+
+        liw $r_saved_tail , $cell_at[x=$start_x , y=$start_y]
+        mov $r_saved_tail , $r_head
+        liw $r_tail , $FIRST_CELL
+        stb $r_bg_color , $r_fidx_addr
+        stb $r_snake_color , $r_bidx_addr
+        lib $r_left , $init_len
+        liw $r_loop , :.lay
+        lay:
+            stb $r_code_right_bot , $r_head
+            stq $r_head , $r_cx_addr
+            stb $r_zero , $r_cell_addr
+            inc $r_head
+            dec $r_left
+            bnz $r_left , $r_loop
+        dec $r_head
+
+        lib $r_tmp , 3                                  # Skips the blit: nothing is ready to show yet
+        add $r_state , $r_tmp , $r_tmp
+        jmp $r_tmp
+    !endscope
+
+    # A game's first step finishes here, so that the first apple is placed after the snake
+    # has moved, exactly when Snake.bassm places it.
+    first_step:
+        mov $r_saved_tail , $r_tail
+        $draw_cell[cell=$r_tail , color=$r_bg_color]
+        stb $r_zero , $r_tail
+        inc $r_tail
+        $spawn_apple
+        jmp $r_state
+
+# ==================================================================================
+# BOOT
+# ==================================================================================
+
+    boot:
+    # HOT DEVICE ADDRESSES:
+        liw $r_cx_addr , $CX
+        liw $r_fidx_addr , $FIDX
+        liw $r_bidx_addr , $BIDX
+        liw $r_rd_fidx_addr , $RD_FIDX
+        liw $r_rd_bidx_addr , $RD_BIDX
+        liw $r_cell_addr , $DRAW
+        liw $r_blit_addr , $BLIT
+        liw $r_kb_status_addr , $KB_STATUS
+        liw $r_kb_data_addr , $KB_DATA
+
+    # CONSTANTS:
+        lib $r_one , 1
+        lib $r_two , 2
+        lib $r_five , 5
+        lib $r_four , 4
+        lib $r_half_shift , 14
+        lib $r_plane_shift , 16
+        lib $r_row_shift , 8
+        lib $r_poll_skip , 9
+        lib $r_len_per_apple , $len_per_apple
+        lib $r_width , $width
+        lib $r_p_height , $p_height
+        lib $r_bg_color , $background
+        lib $r_snake_color , $snake
+        lib $r_apple_color , $apples
+        lib $r_wall_color , $walls
+        lib $r_mark_apple , $mark_apple
+        lib $r_mark_wall , $mark_wall
+
+        liw $r_step_up_top , 0xFF00
+        liw $r_step_up_bot , -0x10000
+        liw $r_step_down_top , 0x10000
+        liw $r_step_down_bot , -0xFF00
+
+    # TAIL ROUTINES:
+        lib $r_code_up_top , :tail_up_top
+        lib $r_code_up_bot , :tail_up_bot
+        lib $r_code_left_top , :tail_left_top
+        lib $r_code_left_bot , :tail_left_bot
+        lib $r_code_down_top , :tail_down_top
+        lib $r_code_down_bot , :tail_down_bot
+        lib $r_code_right_top , :tail_right_top
+        lib $r_code_right_bot , :tail_right_bot
+
+    # BRANCH TARGETS:
+        liw $r_go_up_top , :head_up_top
+        liw $r_go_up_bot , :head_up_bot
+        liw $r_go_down_top , :head_down_top
+        liw $r_go_down_bot , :head_down_bot
+        liw $r_keys_addr , :keys
+        liw $r_key_next_addr , :keys.key_next
+        liw $r_turned_addr , :keys.turned
+        liw $r_quit_addr , :keys.quit
+        liw $r_hit_addr , :hit
+        liw $r_die_addr , :die
+        liw $r_ate_addr , :hit.ate
+        liw $r_first_addr , :first_step
+
+    # TABLES:
+        liw $r_table_of_heads , :heads_table
+        liw $r_keymap_addr , $KEYMAP
+        liw $r_grid_base , $GRID
+        liw $r_grow_cell , $GROW_CELL
+
+        lib $r_tmp , :tail_grow
+        stb $r_tmp , $r_grow_cell
+        lib $r_tmp , :tail_first
+        liw $r_loop , $FIRST_CELL
+        stb $r_tmp , $r_loop
+
+        $bind[key=$key_w , action=1]
+        $bind[key=$key_a , action=2]
+        $bind[key=$key_s , action=3]
+        $bind[key=$key_d , action=4]
+        $bind[key=$key_q , action=5]
+
+    # SCREEN:
+        liw $r_tmp , $CMODE
+        stb $r_zero , $r_tmp
+        stb $r_bg_color , $r_bidx_addr
+        liw $r_tmp , $FILL
+        stb $r_zero , $r_tmp
+        liw $r_tmp , $MODE
+        stb $r_one , $r_tmp
+
+    # WALLS:
+        $wall_row[cell=$cell_at[x=0 , y=1] , top=$r_bg_color , bottom=$r_wall_color]
+        $wall_row[cell=$cell_at[x=0 , y=( $p_height + 2 )] , top=$r_wall_color , bottom=$r_bg_color]
+
+        stb $r_wall_color , $r_fidx_addr
+        stb $r_wall_color , $r_bidx_addr
+        liw $r_wall_ptr , $cell_at[x=0 , y=2]
+        liw $r_wall_right , $cell_at[x=( $width + 1 ) , y=2]
+        liw $r_paint , 0x10000
+        liw $r_draw_ptr , 0x100
+        lib $r_left , $height
+        liw $r_loop , :sides
+        sides:
+            stq $r_wall_ptr , $r_cx_addr
+            stb $r_zero , $r_cell_addr
+            stq $r_wall_right , $r_cx_addr
+            stb $r_zero , $r_cell_addr
+            stb $r_mark_wall , $r_wall_ptr
+            stb $r_mark_wall , $r_wall_right
+            add $r_wall_ptr , $r_paint , $r_tmp
+            stb $r_mark_wall , $r_tmp
+            add $r_wall_right , $r_paint , $r_tmp
+            stb $r_mark_wall , $r_tmp
+            add $r_wall_ptr , $r_draw_ptr , $r_wall_ptr
+            add $r_wall_right , $r_draw_ptr , $r_wall_right
+            dec $r_left
+            bnz $r_left , $r_loop
+
+        liw $r_tmp , :new_game
+        jmp $r_tmp
+
+# ==================================================================================
+# TABLES
+# ==================================================================================
+
+    # Head routines indexed by direction * 2 + half
+    heads_table:
+        $addr16[label=:head_up_top]
+        $addr16[label=:head_up_bot]
+        $addr16[label=:head_left_top]
+        $addr16[label=:head_left_bot]
+        $addr16[label=:head_down_top]
+        $addr16[label=:head_down_bot]
+        $addr16[label=:head_right_top]
+        $addr16[label=:head_right_bot]
+
+    # Assembly fails with a division by zero if the tail routines stop fitting in a byte
+    db ( :tails_end <= 256 ? 0 : 1 / 0 )
