@@ -1,45 +1,44 @@
 # Maze.bassm - an endless rainbow maze for the Bashputer, tuned for very slow machines
 # Author: Claude Opus 5.5
 #
-# Each round:
-#   1. The screen is cleared and a grey frame races around the maze area, with a gap
-#      on the left marked START and a gap on the right marked END.
-#   2. A depth-first search carves a perfect maze outward from START. The white square
-#      is the search head: it pushes into unvisited cells and retreats along its own
-#      trail when it gets stuck. Each cell is coloured by its distance from START, so
-#      rainbow bands ripple out through the maze, and END's colour shows how far away it is.
-#   3. The finished maze stays up for a moment, then the next round starts.
+# Each round a depth-first search carves a perfect maze outward from START (green,
+# left) toward END (pink, right). The white square is the search head: it pushes into
+# unvisited cells and retreats along its own trail when it gets stuck. Each cell is
+# coloured by its distance from START, so rainbow bands ripple out through the maze,
+# and END's colour shows how far away it is. When every cell is carved the maze stays
+# up for a moment and the next round starts.
 #
-# Speed notes. One bus cycle = one fetched instruction byte or one load/store, so:
-#   * there are no immediate jumps, branches or calls (jmpi/bzi/bnzi/cali cost 10 cycles,
-#     the register forms 2-3) and no subroutines (a cal/ret pair costs 19 cycles);
-#     every branch target is loaded into a register once
+# Speed notes. One bus cycle = one fetched instruction byte or one load/store, so
+# instruction bytes are the main cost:
+#   * no immediate jumps, branches or calls (jmpi/bzi/bnzi/cali cost 10 cycles, the
+#     register forms 2-3) and no subroutines (a cal/ret pair costs 19 cycles); every
+#     branch target lives in a register, and the "pick a direction" dispatch is
+#     inlined at the end of every step instead of being jumped to
 #   * the screen keeps CX/CY between writes, so each carve direction has its own
 #     straight-line drawing code that skips stores the screen already has
-#   * the visited map flips meaning every maze (see "Polarity"), so testing a
-#     neighbour is just ldb + bz and the map never has to be cleared
+#   * the visited map flips meaning every maze (see "Polarity"), so it never has to be
+#     cleared, and its border is written once at boot
 #   * colours come from walking a pointer through a precomputed rainbow table
-# A step forward costs about 100 bus cycles and shows two frames; a step back about 75
-# and shows one. The frame updates every ~65 cycles while it is being drawn.
+# A step forward shows two frames (the wall opens, then the head moves) for about
+# 120 cycles; a step back shows one for about 125, most of it spent re-checking the
+# four neighbours.
 #
 # Tunables: MAZE_W x MAZE_H cells (MAZE_W * MAZE_H must be at most 270, the length of
 # the colour table). The layout is centred for a COLS wide terminal and uses
-# 2 * MAZE_H + 3 rows.
+# 2 * MAZE_H + 2 rows.
 
 def MAZE_W   = 12
 def MAZE_H   = 7
 def COLS     = 80
-def X0       = ( ( $COLS - ( 2 * $MAZE_W + 1 ) * 2 ) / 2 )   # left edge of the frame
-def Y0       = 2                                       # top edge of the frame
+def X0       = ( ( $COLS - ( 2 * $MAZE_W + 1 ) * 2 ) / 2 )   # left edge of the maze
+def Y0       = 1                                       # top edge of the maze (needs >= 1)
 def PAUSE_MS = 2500                                    # how long a finished maze stays up
 
 # Colours (xterm 256-colour palette indices)
-def C_BG     = 16                                      # background and inner walls
-def C_FRAME  = 244
+def C_BG     = 16                                      # background and walls
 def C_HEAD   = 231
-def C_TITLE  = 250
-def C_START  = 82
-def C_END    = 213
+def C_START  = 46
+def C_END    = 201
 
 # Memory map, from src/Components/bus_interconnect/config.sh
 def SCR      = ( 1 * 64 * 1000 )
@@ -68,127 +67,101 @@ def R_BLIT      = r6
 def R_FILL      = r7
 def R_EIGHT     = r8                                   # constants
 def R_ONE       = r9
-def R_TWO       = r10
-def R_WHITE     = r11
-def R_BG        = r12
-def R_FRAMEC    = r13
-def R_PLUS256   = r14
-def R_MINUS256  = r15
-def R_TEN       = r16
-def R_ASCII0    = r17
-def R_MASK      = r18                                  # picks one of 8 chains, 64 bytes apart
-def R_PALETTE   = r19
-def R_Q         = r20                                  # search head: map address of the current cell
-def R_NEXT      = r21                                  # map address of the neighbour being tried
-def R_SEEN      = r22
-def R_TMP       = r23
-def R_CP        = r24                                  # colour pointer: palette + distance from START
-def R_COL       = r25                                  # colour of the head's cell
-def R_VIS       = r26                                  # value meaning "visited" in this maze
-def R_RAND      = r27
-def R_CHAIN_CUR = r28                                  # chain table for this maze's polarity
-def R_CHAIN_ALT = r29                                  # chain table for the other polarity
-def R_OFF_E     = r30                                  # map offsets to the neighbouring cells
-def R_OFF_S     = r31
-def R_OFF_W     = r32
-def R_OFF_N     = r33
-def R_GO_E      = r34                                  # branch targets
-def R_GO_S      = r35
-def R_GO_W      = r36
-def R_GO_N      = r37
-def R_TO_STEP   = r38
-def R_TO_DEAD   = r39
-def R_TO_DONE   = r40
-def R_TO_MAZE   = r41
-def R_MAZE_NO   = r42
-def R_LOOP_A    = r43                                  # scratch for the per-maze loops
-def R_LOOP_B    = r44
-def R_CNT       = r45
-def R_STR       = r46
-def R_CHAR      = r47
-def R_TX        = r48
-def R_ROW_A     = r49
-def R_ROW_B     = r50
-def R_MARK_A    = r51
-def R_MARK_B    = r52
-def R_XA        = r53
-def R_XB        = r54
-def R_XC        = r55
-def R_XD        = r56
-def R_NUM       = r57
-def R_WAIT      = r58
+def R_WHITE     = r10
+def R_BG        = r11
+def R_MASK      = r12                                  # picks one of 8 chains, 64 bytes apart
+def R_PALETTE   = r13
+def R_Q         = r14                                  # search head: map address of the current cell
+def R_NEXT      = r15                                  # map address of the neighbour being tried
+def R_SEEN      = r16
+def R_TMP       = r17
+def R_CP        = r18                                  # colour pointer: palette + distance from START
+def R_COL       = r19                                  # colour of the head's cell
+def R_VIS       = r20                                  # value meaning "visited" in this maze
+def R_RAND      = r21
+def R_CHAIN_CUR = r22                                  # chain table for this maze's polarity
+def R_CHAIN_ALT = r23                                  # chain table for the other polarity
+def R_OFF_E     = r24                                  # map offsets to the neighbouring cells
+def R_OFF_S     = r25
+def R_OFF_W     = r26
+def R_OFF_N     = r27
+def R_GO_E      = r28                                  # branch targets
+def R_GO_S      = r29
+def R_GO_W      = r30
+def R_GO_N      = r31
+def R_TO_DEAD   = r32
+def R_TO_DONE   = r33
+def R_TO_MAZE   = r34
+def R_TO_SETUP  = r35                                  # border marking the first time, then the carve
+def R_LOOP_A    = r36                                  # scratch for the once-per-maze code
+def R_CNT       = r37
+def R_TX        = r38
+def R_CHAR      = r39
+def R_MARK_A    = r40
+def R_MARK_B    = r41
+def R_STEP_A    = r42
+def R_STEP_B    = r43
+def R_WAIT      = r44
 
 # ----------------------------------------------------------------------
-# Small drawing pieces
+# Small pieces
 # ----------------------------------------------------------------------
 def DRAW  = stb $R_ZERO , $R_CELL                      # one space in the current colours
 def AT    = { stb @x , $R_CX ; stb $R_ZERO , $R_CELL } # one space at column @x (low byte)
 def BLIT  = stb $R_ZERO , $R_BLIT
+def PUTC  = { lib $R_CHAR , @c ; stb $R_TX , $R_CX ; stb $R_CHAR , $R_CELL ; inc $R_TX }
 
-# Type a 0-terminated string at (@x, @y) in colour @fg, one blit per character.
-def TYPE = {
-    liw $R_STR , @str ; lib $R_TX , @x ; lib $R_TMP , @y ; stb $R_TMP , $R_CY
-    lib $R_TMP , @fg ; stb $R_TMP , $R_FIDX ; stb $R_BG , $R_BIDX
-    liw $R_LOOP_A , :.next ; liw $R_LOOP_B , :.done
-    next:
-        ldb $R_STR , $R_CHAR
-        bz $R_CHAR , $R_LOOP_B
-        stb $R_TX , $R_CX
-        stb $R_CHAR , $R_CELL
-        $BLIT
-        inc $R_TX ; inc $R_STR
-        jmp $R_LOOP_A
-    done:
-}
+# Pick one of the 8 chains at random and jump into it. Inlined at the end of every
+# step. Each chain tries the 4 directions in a different order (4 rotations clockwise,
+# 4 anticlockwise) and carves into the first unvisited one, or backtracks.
+def STEP  = { rnd $R_RAND ; and $R_RAND , $R_MASK , $R_TMP ; add $R_TMP , $R_CHAIN_CUR , $R_TMP ; jmp $R_TMP }
 
 # ----------------------------------------------------------------------
-# Carving
+# Polarity. RAM starts as zeros, so the first maze treats 0 as unvisited and marks
+# cells with 1 (test: bz). When it finishes every cell holds 1, so the next maze treats
+# 1 as unvisited and marks cells with 0 (test: dec, then bz), and so on. The ring of
+# map cells just outside the maze is set to 2 once at boot, which reads as visited
+# under both tests.
 # ----------------------------------------------------------------------
-# Polarity: RAM starts as all zeros, so the first maze treats 0 as unvisited and marks
-# cells with 1. When it finishes, every cell holds 1, so the next maze treats 1 as
-# unvisited and marks cells with 0, and so on. The frame loop rewrites the ring of
-# cells just outside the maze with the current "visited" value, so the border always
-# reads as visited. Each polarity has its own copy of the chains: bz vs bnz.
 def TRY_E_A = { add $R_Q , $R_OFF_E , $R_NEXT ; ldb $R_NEXT , $R_SEEN ; bz $R_SEEN , $R_GO_E }
 def TRY_S_A = { add $R_Q , $R_OFF_S , $R_NEXT ; ldb $R_NEXT , $R_SEEN ; bz $R_SEEN , $R_GO_S }
 def TRY_W_A = { add $R_Q , $R_OFF_W , $R_NEXT ; ldb $R_NEXT , $R_SEEN ; bz $R_SEEN , $R_GO_W }
 def TRY_N_A = { add $R_Q , $R_OFF_N , $R_NEXT ; ldb $R_NEXT , $R_SEEN ; bz $R_SEEN , $R_GO_N }
-def TRY_E_B = { add $R_Q , $R_OFF_E , $R_NEXT ; ldb $R_NEXT , $R_SEEN ; bnz $R_SEEN , $R_GO_E }
-def TRY_S_B = { add $R_Q , $R_OFF_S , $R_NEXT ; ldb $R_NEXT , $R_SEEN ; bnz $R_SEEN , $R_GO_S }
-def TRY_W_B = { add $R_Q , $R_OFF_W , $R_NEXT ; ldb $R_NEXT , $R_SEEN ; bnz $R_SEEN , $R_GO_W }
-def TRY_N_B = { add $R_Q , $R_OFF_N , $R_NEXT ; ldb $R_NEXT , $R_SEEN ; bnz $R_SEEN , $R_GO_N }
+def TRY_E_B = { add $R_Q , $R_OFF_E , $R_NEXT ; ldb $R_NEXT , $R_SEEN ; dec $R_SEEN ; bz $R_SEEN , $R_GO_E }
+def TRY_S_B = { add $R_Q , $R_OFF_S , $R_NEXT ; ldb $R_NEXT , $R_SEEN ; dec $R_SEEN ; bz $R_SEEN , $R_GO_S }
+def TRY_W_B = { add $R_Q , $R_OFF_W , $R_NEXT ; ldb $R_NEXT , $R_SEEN ; dec $R_SEEN ; bz $R_SEEN , $R_GO_W }
+def TRY_N_B = { add $R_Q , $R_OFF_N , $R_NEXT ; ldb $R_NEXT , $R_SEEN ; dec $R_SEEN ; bz $R_SEEN , $R_GO_N }
 
-# A chain is 4 tries (10 bytes each) and a 2-byte jump, padded to 64 bytes so a random
-# chain is picked with one AND. The layout is checked at the end of the file.
-def PAD = db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+# Chains are padded to 64 bytes: 4 tries of 10 (A) or 12 (B) bytes plus a 2-byte jump.
+# The layout is checked at the end of the file.
+def PAD_A = db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+def PAD_B = db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
-# A forward step is shown in two frames: first the new head and the opened wall appear
-# (the head stretches forward), then the old head takes its colour (the tail catches up).
-# Throughout, R_NEXT doubles as the drawing cursor once the neighbour has been marked.
-# Invariant at the start of every step: the screen's CY is the head's row.
+# ----------------------------------------------------------------------
+# Forward steps. Each shows two frames: first the wall toward the new cell opens in
+# the head's colour (the head stays put), then the head moves: the old cell takes
+# its colour and the new cell turns white. R_NEXT doubles as a drawing cursor once the
+# neighbour has been marked. Invariant at the start of every step: CY is the head's row.
+# ----------------------------------------------------------------------
+def LEAVE  = { stb $R_VIS , $R_NEXT ; pshh $R_Q ; stb $R_COL , $R_BIDX }
+def ARRIVE = { inc $R_CP ; ldb $R_CP , $R_COL ; $BLIT ; $STEP }
 
-# Shared start: mark the neighbour visited and remember where we came from.
-def LEAVE = { stb $R_VIS , $R_NEXT ; pshh $R_Q }
-
-# Shared end: move the head, look up its cell's colour, show the frame.
-def ARRIVE = { add $R_Q , @off , $R_Q ; inc $R_CP ; ldb $R_CP , $R_COL ; $BLIT ; jmp $R_TO_STEP }
-
-# Vertical step. @back steps the row from the new head toward the old one (dec going
-# south, inc going north) and @fwd undoes it. The three pixels share two columns, so
-# CX is only stored when it changes.
+# Vertical step. @to_wall moves a row number from the new cell toward the old one (dec
+# going south, inc going north); @from_wall moves it back. The three pixels share two
+# columns, so CX is only stored when it changes.
 def VERTICAL = {
     $LEAVE
-    lsr $R_NEXT , $R_EIGHT , $R_TMP ; stb $R_TMP , $R_CY
-    stb $R_WHITE , $R_BIDX
-    $AT[x=$R_NEXT] ; inc $R_NEXT ; $AT[x=$R_NEXT]      # new head, left then right
-    stb $R_COL , $R_BIDX
-    @back $R_TMP ; stb $R_TMP , $R_CY ; $DRAW          # wall, right (CX is already there)
-    dec $R_NEXT ; $AT[x=$R_NEXT]                       # wall, left
+    lsr $R_NEXT , $R_EIGHT , $R_TMP
+    @to_wall $R_TMP ; stb $R_TMP , $R_CY
+    $AT[x=$R_Q] ; inc $R_Q ; $AT[x=$R_Q]               # wall, left then right
     $BLIT
-    @back $R_TMP ; stb $R_TMP , $R_CY ; $DRAW          # old head, left
-    inc $R_NEXT ; $AT[x=$R_NEXT]                       # old head, right
-    @fwd $R_TMP ; @fwd $R_TMP ; stb $R_TMP , $R_CY     # CY back to the new head's row
-    $ARRIVE[off=@off]
+    @to_wall $R_TMP ; stb $R_TMP , $R_CY
+    $DRAW ; dec $R_Q ; $AT[x=$R_Q]                     # old head, right then left
+    stb $R_WHITE , $R_BIDX
+    @from_wall $R_TMP ; @from_wall $R_TMP ; stb $R_TMP , $R_CY
+    $DRAW ; inc $R_Q ; $AT[x=$R_Q]                     # new head, left then right
+    mov $R_NEXT , $R_Q
+    $ARRIVE
 }
 
 # ======================================================================
@@ -199,105 +172,79 @@ def VERTICAL = {
     liw $R_CX , ( $SCR + 2 ) ; liw $R_CY , ( $SCR + 3 )
     liw $R_FIDX , ( $SCR + 4 ) ; liw $R_BIDX , ( $SCR + 8 )
     liw $R_CELL , ( $SCR + 14 ) ; liw $R_BLIT , ( $SCR + 15 ) ; liw $R_FILL , ( $SCR + 16 )
-    lib $R_EIGHT , 8 ; lib $R_ONE , 1 ; lib $R_TWO , 2 ; lib $R_TEN , 10 ; lib $R_ASCII0 , 0x30
-    lib $R_WHITE , $C_HEAD ; lib $R_BG , $C_BG ; lib $R_FRAMEC , $C_FRAME
-    liq $R_PLUS256 , 256 ; neg $R_PLUS256 , $R_MINUS256
+    lib $R_EIGHT , 8 ; lib $R_ONE , 1
+    lib $R_WHITE , $C_HEAD ; lib $R_BG , $C_BG
     liq $R_MASK , ( 7 * 64 )
     liw $R_PALETTE , :palette
 
-    lib $R_OFF_E , 4 ; liq $R_OFF_S , 512              # directions: cells are 4 columns / 2 rows apart
+    lib $R_OFF_E , 4 ; liq $R_OFF_S , 512              # cells are 4 columns / 2 rows apart
     neg $R_OFF_E , $R_OFF_W ; neg $R_OFF_S , $R_OFF_N
 
     liw $R_GO_E , :go_e ; liw $R_GO_S , :go_s ; liw $R_GO_W , :go_w ; liw $R_GO_N , :go_n
-    liw $R_TO_STEP , :step ; liw $R_TO_DEAD , :dead ; liw $R_TO_DONE , :done
-    liw $R_TO_MAZE , :maze
+    liw $R_TO_DEAD , :dead ; liw $R_TO_DONE , :done ; liw $R_TO_MAZE , :maze
+    liw $R_TO_SETUP , :border                          # first round only
 
     # Polarity: start "one maze before" the first, so the flip below lands on A.
     lib $R_VIS , 0
     liw $R_CHAIN_CUR , :chains_b ; liw $R_CHAIN_ALT , :chains_a
-    lib $R_MAZE_NO , 0
 
     ent $R_TMP ; seed $R_TMP                           # a different maze every run
 !endscope
 
 # ----------------------------------------------------------------------
-# A new round
+# A new round: flip polarity, clear the screen, mark START and END.
 # ----------------------------------------------------------------------
 !scope maze
-    xor $R_VIS , $R_ONE , $R_VIS                       # flip polarity
+    xor $R_VIS , $R_ONE , $R_VIS
     mov $R_CHAIN_CUR , $R_TMP ; mov $R_CHAIN_ALT , $R_CHAIN_CUR ; mov $R_TMP , $R_CHAIN_ALT
-    inc $R_MAZE_NO
 
-    stb $R_BG , $R_BIDX ; stb $R_ZERO , $R_FILL        # clear the screen
+    stb $R_BG , $R_BIDX ; stb $R_ZERO , $R_FILL
 
-    $TYPE[str=:text.title, x=$X0, y=0, fg=$C_TITLE]
-    !scope                                             # maze number, in decimal
-        mov $R_MAZE_NO , $R_NUM ; lib $R_CNT , 0
-        liw $R_LOOP_A , :.split ; liw $R_LOOP_B , :.emit
-        split:
-            rem $R_NUM , $R_TEN , $R_CHAR ; pshb $R_CHAR ; inc $R_CNT
-            div $R_NUM , $R_TEN , $R_NUM
-            bnz $R_NUM , $R_LOOP_A
-        emit:
-            popb $R_CHAR ; add $R_CHAR , $R_ASCII0 , $R_CHAR
-            stb $R_TX , $R_CX ; stb $R_CHAR , $R_CELL ; $BLIT
-            inc $R_TX ; dec $R_CNT
-            bnz $R_CNT , $R_LOOP_B
-    !endscope
-
-    # Frame, top and bottom edges together, left to right. MARK_A/MARK_B walk the map
-    # rows just outside the frame (their low byte doubles as the screen column) and
-    # mark them visited.
-    stb $R_FRAMEC , $R_BIDX
-    !scope
-        liw $R_MARK_A , ( $MAP_BASE + ( $Y0 - 1 ) * 256 + $X0 )
-        liw $R_MARK_B , ( $MAP_BASE + ( $Y0 + 2 * $MAZE_H + 1 ) * 256 + $X0 )
-        lib $R_ROW_A , $Y0 ; lib $R_ROW_B , ( $Y0 + 2 * $MAZE_H )
-        lib $R_CNT , ( 2 * $MAZE_W + 1 )
-        liw $R_LOOP_A , :.loop
-        loop:
-            stb $R_ROW_A , $R_CY
-            $AT[x=$R_MARK_A] ; inc $R_MARK_A ; $AT[x=$R_MARK_A]
-            stb $R_ROW_B , $R_CY
-            $DRAW ; dec $R_MARK_A ; $AT[x=$R_MARK_A]
-            stb $R_VIS , $R_MARK_A ; stb $R_VIS , $R_MARK_B
-            add $R_MARK_A , $R_TWO , $R_MARK_A ; add $R_MARK_B , $R_TWO , $R_MARK_B
-            $BLIT
-            dec $R_CNT
-            bnz $R_CNT , $R_LOOP_A
-    !endscope
-
-    # Frame, left and right edges together, top to bottom.
-    !scope
-        liw $R_MARK_A , ( $MAP_BASE + ( $Y0 + 1 ) * 256 + $X0 - 2 )
-        liw $R_MARK_B , ( $MAP_BASE + ( $Y0 + 1 ) * 256 + $X0 + 4 * $MAZE_W + 2 )
-        lib $R_XA , $X0 ; lib $R_XB , ( $X0 + 1 )
-        lib $R_XC , ( $X0 + 4 * $MAZE_W ) ; lib $R_XD , ( $X0 + 4 * $MAZE_W + 1 )
-        lib $R_ROW_A , ( $Y0 + 1 )
-        lib $R_CNT , ( 2 * $MAZE_H - 1 )
-        liw $R_LOOP_A , :.loop
-        loop:
-            stb $R_ROW_A , $R_CY
-            $AT[x=$R_XA] ; $AT[x=$R_XB] ; $AT[x=$R_XC] ; $AT[x=$R_XD]
-            stb $R_VIS , $R_MARK_A ; stb $R_VIS , $R_MARK_B
-            add $R_MARK_A , $R_PLUS256 , $R_MARK_A ; add $R_MARK_B , $R_PLUS256 , $R_MARK_B
-            inc $R_ROW_A
-            $BLIT
-            dec $R_CNT
-            bnz $R_CNT , $R_LOOP_A
-    !endscope
-
-    # Open the START and END gaps and label them.
-    stb $R_BG , $R_BIDX
+    # START: a green block in the outer wall beside the first cell, labelled.
     lib $R_TMP , ( $Y0 + 1 ) ; stb $R_TMP , $R_CY
-    $AT[x=$R_XA] ; $AT[x=$R_XB]
-    lib $R_TMP , ( $Y0 + 2 * $MAZE_H - 1 ) ; stb $R_TMP , $R_CY
-    $AT[x=$R_XC] ; $AT[x=$R_XD]
-    $BLIT
-    $TYPE[str=:text.start, x=( $X0 - 8 ), y=( $Y0 + 1 ), fg=$C_START]
-    $TYPE[str=:text.end, x=( $X0 + 4 * $MAZE_W + 3 ), y=( $Y0 + 2 * $MAZE_H - 1 ), fg=$C_END]
+    lib $R_TMP , $C_START ; stb $R_TMP , $R_BIDX
+    lib $R_TX , $X0 ; $AT[x=$R_TX] ; inc $R_TX ; $AT[x=$R_TX]
+    stb $R_TMP , $R_FIDX ; stb $R_BG , $R_BIDX
+    lib $R_TX , ( $X0 - 6 )
+    $PUTC[c=0x53] ; $PUTC[c=0x54] ; $PUTC[c=0x41] ; $PUTC[c=0x52] ; $PUTC[c=0x54]   # "START"
 
-    # The search starts at START. A 0 pushed underneath it tells `dead` when to stop.
+    # END: a pink block in the outer wall beside the last cell, labelled.
+    lib $R_TMP , ( $Y0 + 2 * $MAZE_H - 1 ) ; stb $R_TMP , $R_CY
+    lib $R_TMP , $C_END ; stb $R_TMP , $R_BIDX
+    lib $R_TX , ( $X0 + 4 * $MAZE_W ) ; $AT[x=$R_TX] ; inc $R_TX ; $AT[x=$R_TX]
+    stb $R_TMP , $R_FIDX ; stb $R_BG , $R_BIDX
+    lib $R_TX , ( $X0 + 4 * $MAZE_W + 3 )
+    $PUTC[c=0x45] ; $PUTC[c=0x4E] ; $PUTC[c=0x44]     # "END"
+    $BLIT
+
+    jmp $R_TO_SETUP
+!endscope
+
+# First round only: set the ring of map cells around the maze to 2 (visited under both
+# polarities), then point R_TO_SETUP straight at the carve for every later round.
+!scope border
+    lib $R_SEEN , 2
+    liw $R_MARK_A , $CELL_AT[i=0, j=-1] ; liw $R_MARK_B , $CELL_AT[i=0, j=$MAZE_H]
+    lib $R_CNT , $MAZE_W
+    liw $R_LOOP_A , :.rows
+    rows:                                              # above and below
+        stb $R_SEEN , $R_MARK_A ; stb $R_SEEN , $R_MARK_B
+        add $R_MARK_A , $R_OFF_E , $R_MARK_A ; add $R_MARK_B , $R_OFF_E , $R_MARK_B
+        dec $R_CNT
+        bnz $R_CNT , $R_LOOP_A
+    liw $R_MARK_A , $CELL_AT[i=-1, j=0] ; liw $R_MARK_B , $CELL_AT[i=$MAZE_W, j=0]
+    lib $R_CNT , $MAZE_H
+    liw $R_LOOP_A , :.cols
+    cols:                                              # left and right
+        stb $R_SEEN , $R_MARK_A ; stb $R_SEEN , $R_MARK_B
+        add $R_MARK_A , $R_OFF_S , $R_MARK_A ; add $R_MARK_B , $R_OFF_S , $R_MARK_B
+        dec $R_CNT
+        bnz $R_CNT , $R_LOOP_A
+    liw $R_TO_SETUP , :carve
+!endscope
+
+# The search starts at START. A 0 pushed underneath it tells `dead` when to stop.
+!scope carve
     liw $R_Q , $CELL_AT[i=0, j=0]
     stb $R_VIS , $R_Q
     pshh $R_ZERO
@@ -306,71 +253,60 @@ def VERTICAL = {
     stb $R_WHITE , $R_BIDX
     $AT[x=$R_Q] ; inc $R_Q ; $AT[x=$R_Q] ; dec $R_Q
     $BLIT
+    $STEP
 !endscope
 
-# Pick one of the 8 chains at random. Each tries the 4 directions in a different order
-# (4 rotations clockwise, 4 anticlockwise) and carves into the first unvisited one.
-step:
-    rnd $R_RAND
-    and $R_RAND , $R_MASK , $R_TMP
-    add $R_TMP , $R_CHAIN_CUR , $R_TMP
-    jmp $R_TMP
-
 chains_a:
-    $TRY_E_A ; $TRY_S_A ; $TRY_W_A ; $TRY_N_A ; jmp $R_TO_DEAD ; $PAD
-    $TRY_S_A ; $TRY_W_A ; $TRY_N_A ; $TRY_E_A ; jmp $R_TO_DEAD ; $PAD
-    $TRY_W_A ; $TRY_N_A ; $TRY_E_A ; $TRY_S_A ; jmp $R_TO_DEAD ; $PAD
-    $TRY_N_A ; $TRY_E_A ; $TRY_S_A ; $TRY_W_A ; jmp $R_TO_DEAD ; $PAD
-    $TRY_E_A ; $TRY_N_A ; $TRY_W_A ; $TRY_S_A ; jmp $R_TO_DEAD ; $PAD
-    $TRY_S_A ; $TRY_E_A ; $TRY_N_A ; $TRY_W_A ; jmp $R_TO_DEAD ; $PAD
-    $TRY_W_A ; $TRY_S_A ; $TRY_E_A ; $TRY_N_A ; jmp $R_TO_DEAD ; $PAD
-    $TRY_N_A ; $TRY_W_A ; $TRY_S_A ; $TRY_E_A ; jmp $R_TO_DEAD ; $PAD
+    $TRY_E_A ; $TRY_S_A ; $TRY_W_A ; $TRY_N_A ; jmp $R_TO_DEAD ; $PAD_A
+    $TRY_S_A ; $TRY_W_A ; $TRY_N_A ; $TRY_E_A ; jmp $R_TO_DEAD ; $PAD_A
+    $TRY_W_A ; $TRY_N_A ; $TRY_E_A ; $TRY_S_A ; jmp $R_TO_DEAD ; $PAD_A
+    $TRY_N_A ; $TRY_E_A ; $TRY_S_A ; $TRY_W_A ; jmp $R_TO_DEAD ; $PAD_A
+    $TRY_E_A ; $TRY_N_A ; $TRY_W_A ; $TRY_S_A ; jmp $R_TO_DEAD ; $PAD_A
+    $TRY_S_A ; $TRY_E_A ; $TRY_N_A ; $TRY_W_A ; jmp $R_TO_DEAD ; $PAD_A
+    $TRY_W_A ; $TRY_S_A ; $TRY_E_A ; $TRY_N_A ; jmp $R_TO_DEAD ; $PAD_A
+    $TRY_N_A ; $TRY_W_A ; $TRY_S_A ; $TRY_E_A ; jmp $R_TO_DEAD ; $PAD_A
 chains_b:
-    $TRY_E_B ; $TRY_S_B ; $TRY_W_B ; $TRY_N_B ; jmp $R_TO_DEAD ; $PAD
-    $TRY_S_B ; $TRY_W_B ; $TRY_N_B ; $TRY_E_B ; jmp $R_TO_DEAD ; $PAD
-    $TRY_W_B ; $TRY_N_B ; $TRY_E_B ; $TRY_S_B ; jmp $R_TO_DEAD ; $PAD
-    $TRY_N_B ; $TRY_E_B ; $TRY_S_B ; $TRY_W_B ; jmp $R_TO_DEAD ; $PAD
-    $TRY_E_B ; $TRY_N_B ; $TRY_W_B ; $TRY_S_B ; jmp $R_TO_DEAD ; $PAD
-    $TRY_S_B ; $TRY_E_B ; $TRY_N_B ; $TRY_W_B ; jmp $R_TO_DEAD ; $PAD
-    $TRY_W_B ; $TRY_S_B ; $TRY_E_B ; $TRY_N_B ; jmp $R_TO_DEAD ; $PAD
-    $TRY_N_B ; $TRY_W_B ; $TRY_S_B ; $TRY_E_B ; jmp $R_TO_DEAD ; $PAD
+    $TRY_E_B ; $TRY_S_B ; $TRY_W_B ; $TRY_N_B ; jmp $R_TO_DEAD ; $PAD_B
+    $TRY_S_B ; $TRY_W_B ; $TRY_N_B ; $TRY_E_B ; jmp $R_TO_DEAD ; $PAD_B
+    $TRY_W_B ; $TRY_N_B ; $TRY_E_B ; $TRY_S_B ; jmp $R_TO_DEAD ; $PAD_B
+    $TRY_N_B ; $TRY_E_B ; $TRY_S_B ; $TRY_W_B ; jmp $R_TO_DEAD ; $PAD_B
+    $TRY_E_B ; $TRY_N_B ; $TRY_W_B ; $TRY_S_B ; jmp $R_TO_DEAD ; $PAD_B
+    $TRY_S_B ; $TRY_E_B ; $TRY_N_B ; $TRY_W_B ; jmp $R_TO_DEAD ; $PAD_B
+    $TRY_W_B ; $TRY_S_B ; $TRY_E_B ; $TRY_N_B ; jmp $R_TO_DEAD ; $PAD_B
+    $TRY_N_B ; $TRY_W_B ; $TRY_S_B ; $TRY_E_B ; jmp $R_TO_DEAD ; $PAD_B
 chains_end:
 
-# East: new head, wall and old head are six characters in a row, so CY never changes.
-# Drawn right to left from the far edge of the new head.
+# East: old head, wall and new head are six characters in one row, so CY never changes.
+# Columns: old head c, c+1 / wall c+2, c+3 / new head c+4, c+5 (R_NEXT starts at c+4).
 go_e:
     $LEAVE
-    stb $R_WHITE , $R_BIDX
-    inc $R_NEXT ; $AT[x=$R_NEXT]                       # new head
-    dec $R_NEXT ; $AT[x=$R_NEXT]
-    stb $R_COL , $R_BIDX
-    dec $R_NEXT ; $AT[x=$R_NEXT]                       # wall
-    dec $R_NEXT ; $AT[x=$R_NEXT]
+    dec $R_NEXT ; dec $R_NEXT ; $AT[x=$R_NEXT]         # wall
+    inc $R_NEXT ; $AT[x=$R_NEXT]
     $BLIT
-    dec $R_NEXT ; $AT[x=$R_NEXT]                       # old head
-    dec $R_NEXT ; $AT[x=$R_NEXT]
-    $ARRIVE[off=$R_OFF_E]
+    $AT[x=$R_Q] ; inc $R_Q ; $AT[x=$R_Q]               # old head
+    stb $R_WHITE , $R_BIDX
+    inc $R_NEXT ; $AT[x=$R_NEXT] ; mov $R_NEXT , $R_Q  # new head
+    inc $R_NEXT ; $AT[x=$R_NEXT]
+    $ARRIVE
 
-# West: the mirror image, drawn left to right.
+# West: new head c-4, c-3 / wall c-2, c-1 / old head c, c+1 (R_NEXT starts at c-4).
 go_w:
     $LEAVE
-    stb $R_WHITE , $R_BIDX
-    $AT[x=$R_NEXT]                                     # new head
-    inc $R_NEXT ; $AT[x=$R_NEXT]
-    stb $R_COL , $R_BIDX
-    inc $R_NEXT ; $AT[x=$R_NEXT]                       # wall
+    inc $R_NEXT ; inc $R_NEXT ; $AT[x=$R_NEXT]         # wall
     inc $R_NEXT ; $AT[x=$R_NEXT]
     $BLIT
-    inc $R_NEXT ; $AT[x=$R_NEXT]                       # old head
-    inc $R_NEXT ; $AT[x=$R_NEXT]
-    $ARRIVE[off=$R_OFF_W]
+    $AT[x=$R_Q] ; inc $R_Q ; $AT[x=$R_Q]               # old head
+    stb $R_WHITE , $R_BIDX
+    dec $R_NEXT ; dec $R_NEXT ; $AT[x=$R_NEXT]         # new head
+    dec $R_NEXT ; $AT[x=$R_NEXT] ; mov $R_NEXT , $R_Q
+    $ARRIVE
 
 go_s:
-    $VERTICAL[off=$R_OFF_S, back=dec, fwd=inc]
+    $VERTICAL[to_wall=dec, from_wall=inc]
 go_n:
-    $VERTICAL[off=$R_OFF_N, back=inc, fwd=dec]
+    $VERTICAL[to_wall=inc, from_wall=dec]
 
-# Stuck: give the head its colour back and retreat to the previous cell.
+# Stuck: give the head its colour back and retreat to the previous cell, in one frame.
 dead:
     stb $R_COL , $R_BIDX
     $AT[x=$R_Q] ; inc $R_Q ; $AT[x=$R_Q]
@@ -381,18 +317,18 @@ dead:
     stb $R_WHITE , $R_BIDX
     $AT[x=$R_Q] ; inc $R_Q ; $AT[x=$R_Q] ; dec $R_Q
     $BLIT
-    jmp $R_TO_STEP
+    $STEP
 
 # Every cell is carved. Leave the maze up for a moment, then start the next one.
 !scope done
     $BLIT
     liw $R_TMP , ( $TMR + 0 ) ; stb $R_ZERO , $R_TMP   # restart the timer
-    liw $R_MARK_A , ( $TMR + 1 ) ; liw $R_MARK_B , ( $TMR + 2 )
+    liw $R_STEP_A , ( $TMR + 1 ) ; liw $R_STEP_B , ( $TMR + 2 )
     liq $R_WAIT , $PAUSE_MS
     liw $R_LOOP_A , :.wait
     wait:
-        stb $R_ZERO , $R_MARK_A                        # latch the count
-        ldh $R_MARK_B , $R_TMP                         # milliseconds, little-endian
+        stb $R_ZERO , $R_STEP_A                        # latch the count
+        ldh $R_STEP_B , $R_TMP                         # milliseconds, little-endian
         lt $R_TMP , $R_WAIT , $R_SEEN
         bnz $R_SEEN , $R_LOOP_A
     jmp $R_TO_MAZE
@@ -415,17 +351,8 @@ palette:
     db 196, 202, 208, 214, 220, 226, 190, 154, 118, 82, 46, 47, 48, 49, 50, 51, 45, 39, 33, 27, 21, 57, 93, 129, 165, 201, 200, 199, 198, 197
     db 196, 202, 208, 214, 220, 226, 190, 154, 118, 82, 46, 47, 48, 49, 50, 51, 45, 39, 33, 27, 21, 57, 93, 129, 165, 201, 200, 199, 198, 197
 
-!scope text
-    title:                                             # "BASHPUTER // MAZE #"
-        db 0x42, 0x41, 0x53, 0x48, 0x50, 0x55, 0x54, 0x45, 0x52, 0x20, 0x2F, 0x2F, 0x20, 0x4D, 0x41, 0x5A, 0x45, 0x20, 0x23, 0
-    start:                                             # "START >"
-        db 0x53, 0x54, 0x41, 0x52, 0x54, 0x20, 0x3E, 0
-    end:                                               # "> END"
-        db 0x3E, 0x20, 0x45, 0x4E, 0x44, 0
-!endscope
-
 # Layout checks: assembly fails with a division by zero if the chains are not exactly
-# 64 bytes apart (e.g. after editing TRY or PAD), or if the maze has more cells than
+# 64 bytes apart (e.g. after editing a TRY or PAD), or if the maze has more cells than
 # the colour table has entries.
 db ( ( :chains_b - :chains_a == 8 * 64 ) && ( :chains_end - :chains_b == 8 * 64 ) ? 0 : 1 / 0 )
 db ( $MAZE_W * $MAZE_H <= 270 ? 0 : 1 / 0 )
