@@ -172,5 +172,11 @@ The numbers are assigned in `src/Components/loader/cartridges.sh`:
 | --- | --- |
 | `0x00` | `Fibonacci` |
 | `0x01` | `selftest` (this cartridge is not included in the repository) |
+| `0x02` | `FastSnake` |
+| `0x03` | `Hanoi` |
+| `0x04` | `Maze` |
+| `0x05` | `Pong` |
+| `0x06` | `Showcase` |
+| `0x07` | `Snake` |
 
-To make another cartridge available to the loader, add it to that file. Any cartridge can still be started directly with `run.sh`.
+To make another cartridge available to the loader, add it to that file. Any cartridge in `src/Cartridges/` can be started directly with `run.sh`, whether or not it has a number.

@@ -51,12 +51,12 @@ Fields are separated by spaces. The assembler writes up to 16 bytes per line. Ad
 
 ## Included cartridges
 
-| Cartridge | Source | Author | Ends when |
-| --- | --- | --- | --- |
-| `Fibonacci` | [`Fibonacci.bassm`](../Assembler/Examples/Fibonacci.bassm) | Andrew Masker | It finishes printing |
-| `Hanoi` | [`Hanoi.bassm`](../Assembler/Examples/Hanoi.bassm) | Claude Opus 5.5 | It finishes printing |
-| `Showcase` | [`Showcase.bassm`](../Assembler/Examples/Showcase.bassm) | Claude Opus 5.5 | You press `q` |
-| `Snake` | [`Snake.bassm`](../Assembler/Examples/Snake.bassm) | Andrew Masker | You press `q` |
-| `FastSnake` | [`FastSnake.bassm`](../Assembler/Examples/FastSnake.bassm) | Andrew Masker and Claude Opus 5.5 | You press `q` |
-| `Pong` | [`Pong.bassm`](../Assembler/Examples/Pong.bassm) | Claude Opus 5.5 | You press `q` |
-| `Maze` | [`Maze.bassm`](../Assembler/Examples/Maze.bassm) | Claude Opus 5.5 | You press `Ctrl-C` |
+| Cartridge | Loader number | Source | Author | Ends when |
+| --- | --- | --- | --- | --- |
+| `Fibonacci` | `0x00` | [`Fibonacci.bassm`](../Assembler/Examples/Fibonacci.bassm) | Andrew Masker | It finishes printing |
+| `FastSnake` | `0x02` | [`FastSnake.bassm`](../Assembler/Examples/FastSnake.bassm) | Andrew Masker and Claude Opus 5.5 | You press `q` |
+| `Hanoi` | `0x03` | [`Hanoi.bassm`](../Assembler/Examples/Hanoi.bassm) | Claude Opus 5.5 | It finishes printing |
+| `Maze` | `0x04` | [`Maze.bassm`](../Assembler/Examples/Maze.bassm) | Claude Opus 5.5 | You press `Ctrl-C` |
+| `Pong` | `0x05` | [`Pong.bassm`](../Assembler/Examples/Pong.bassm) | Claude Opus 5.5 | You press `q` |
+| `Showcase` | `0x06` | [`Showcase.bassm`](../Assembler/Examples/Showcase.bassm) | Claude Opus 5.5 | You press `q` |
+| `Snake` | `0x07` | [`Snake.bassm`](../Assembler/Examples/Snake.bassm) | Andrew Masker | You press `q` |
