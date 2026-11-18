@@ -106,19 +106,22 @@ The [architecture guide](docs/architecture.md) follows a memory access through t
 
 ## Project layout
 
-| Path | Contents |
-| --- | --- |
-| `Assembler/assembler.sh` | Assembler entry point |
-| `Assembler/opcodes.sh` | Instruction table |
-| `Assembler/stages/` | Preprocessor, processor, and hexer |
-| `Assembler/Examples/` | Example programs |
-| `Assembler/Assembly Extension/` | VS Code syntax highlighting |
-| `docs/` | Project documentation |
-| `src/run.sh` | Starts the computer in a sandbox |
-| `src/message_protocol.md` | Component message reference |
-| `src/Computer/` | Component startup and message routing |
-| `src/Components/` | CPU, bus, clock, RAM, screen, keyboard, timer, and loader |
-| `src/Cartridges/` | Assembled programs |
+```text
+.
+├── Assembler/
+│   ├── assembler.sh            Assembler entry point
+│   ├── opcodes.sh              Instruction table
+│   ├── stages/                 Preprocessor, processor, and hexer
+│   ├── Examples/               Example programs
+│   └── Assembly Extension/     VS Code syntax highlighting
+├── docs/                       Project documentation
+└── src/
+    ├── run.sh                  Starts the computer in a sandbox
+    ├── message_protocol.md     Component message reference
+    ├── Computer/               Component startup and message routing
+    ├── Components/             CPU, bus, clock, RAM, screen, keyboard, timer, and loader
+    └── Cartridges/             Assembled programs
+```
 
 ## Troubleshooting
 
