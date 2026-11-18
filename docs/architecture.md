@@ -41,33 +41,15 @@ The sandbox has no network access. The host filesystem is read-only except for t
 
 ROM, RAM, and the stack are three instances of the same script. Each stores bytes in a sparse associative array, so unused memory takes no space and reads as `0x00`. ROM is only read-only from the bus's point of view: `computer.sh` writes the cartridge directly into it at startup.
 
-`computer.sh` is the hub. Components never talk to each other directly, so every message passes through it.
+`computer.sh` is the hub. Each component has a single connection to it, and components never talk to each other directly, so every message passes through `computer.sh`.
 
-```mermaid
-flowchart TB
-    computer["computer.sh"]
-    subgraph masters["Clocked bus masters"]
-        cpu[CPU]
-        loader[Loader]
-    end
-    subgraph support["Support"]
-        clock[Clock]
-        bus[Bus interconnect]
-    end
-    subgraph devices["Memory-mapped devices"]
-        rom[ROM]
-        ram[RAM]
-        stack[Stack]
-        screen[Screen]
-        keyboard[Keyboard]
-        timer[Timer]
-    end
-    computer <--> masters
-    computer <--> support
-    computer <--> devices
-```
+The components fall into three groups:
 
-The loader appears twice in practice: it is a clocked bus master, and its registers are also mapped into the address space.
+- **Clocked bus masters:** the CPU and the loader receive clock pulses and can start memory requests.
+- **Support components:** the clock paces the computer, and the bus interconnect decides where each memory request goes.
+- **Memory-mapped devices:** ROM, RAM, the stack, the screen, the keyboard, and the timer respond to memory requests.
+
+The loader belongs to two of these groups. It is a clocked bus master, and its registers are also mapped into the address space.
 
 Messages are single lines of space-separated words, and the first word is the message type. [`src/message_protocol.md`](../src/message_protocol.md) lists the message formats.
 
@@ -85,23 +67,16 @@ The clock's period is set by `PERIOD_US` in `Components/clock/config.sh`. The de
 
 A clocked component reads or writes memory by printing a `load` or `store` message. `computer.sh` asks the bus interconnect where the request should go, forwards it, and returns any data.
 
-This is a load from RAM at global address `0x5DC10`:
+A load of the value `0x2A` from RAM at global address `0x5DC10` takes these steps:
 
-```mermaid
-sequenceDiagram
-    participant CPU
-    participant Computer as computer.sh
-    participant Bus as Bus interconnect
-    participant RAM
-    CPU->>Computer: load 0x000000000005DC10
-    Computer->>Bus: load 0x000000000005DC10
-    Bus->>Computer: ram load 0x0000000000000010
-    Computer->>RAM: load 0x0000000000000010
-    RAM->>Computer: data 0x2A
-    Computer->>CPU: data 0x2A
-```
+1. The CPU sends `load 0x000000000005DC10` to `computer.sh`.
+2. `computer.sh` forwards the same message to the bus interconnect.
+3. The bus sees that the address belongs to RAM and replies `ram load 0x0000000000000010`.
+4. `computer.sh` sends `load 0x0000000000000010` to RAM.
+5. RAM replies `data 0x2A`.
+6. `computer.sh` sends `data 0x2A` to the CPU.
 
-The bus subtracts the start of the device's address range, so each device only sees addresses relative to itself.
+In step 3, the bus subtracts the start of the device's address range, so each device only sees addresses relative to itself.
 
 A store follows the same path. The device replies `done`, and the bus sends its own `done` once it has forwarded the request. The CPU does not wait for a reply to a store.
 

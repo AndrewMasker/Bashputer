@@ -1,26 +1,33 @@
 # Bashputer
 
-## AI Usage
-
-All code in this repository was written by Andrew Masker unless otherwise stated. The exceptions are marked in each file's header:
-
-| File | Author |
-| --- | --- |
-| [`Assembler/Examples/FastSnake.bassm`](Assembler/Examples/FastSnake.bassm) | Andrew Masker and Claude Opus 5.5 |
-| [`Assembler/Examples/Hanoi.bassm`](Assembler/Examples/Hanoi.bassm) | Claude Opus 5.5 |
-| [`Assembler/Examples/Maze.bassm`](Assembler/Examples/Maze.bassm) | Claude Opus 5.5 |
-| [`Assembler/Examples/Pong.bassm`](Assembler/Examples/Pong.bassm) | Claude Opus 5.5, modelled on Andrew Masker's `Snake.bassm` |
-| [`Assembler/Examples/Showcase.bassm`](Assembler/Examples/Showcase.bassm) | Claude Opus 5.5 |
-
-The cartridges with the same names in `src/Cartridges/` are assembled from these files.
-
-AI was also used for:
-
-- **Research:** exploring design options and how Bash and terminals behave.
-- **Debugging and code review:** tracing bugs, reviewing changes, and suggesting fixes.
-- **Testing and profiling:** running programs in throwaway test harnesses and measuring bus cycles.
-- **Learning:** explaining concepts, including a walkthrough of the TextMate grammars used by the VS Code extension.
-- **Documentation:** this README and the [`docs/`](docs/) folder were written by Claude Opus 5.5.
+> [!WARNING]
+> ## AI Usage
+>
+> All code in this repository was written by Andrew Masker, **except for the files listed in the table below, which were written entirely or partly with AI.**
+>
+> ### Files written with AI
+>
+> | File written with AI | How AI contributed |
+> | --- | --- |
+> | [`Assembler/Examples/Hanoi.bassm`](Assembler/Examples/Hanoi.bassm) | Written by Claude Opus 5.5 |
+> | [`Assembler/Examples/Maze.bassm`](Assembler/Examples/Maze.bassm) | Written by Claude Opus 5.5 |
+> | [`Assembler/Examples/Pong.bassm`](Assembler/Examples/Pong.bassm) | Written by Claude Opus 5.5, modelled on Andrew Masker's `Snake.bassm` |
+> | [`Assembler/Examples/Showcase.bassm`](Assembler/Examples/Showcase.bassm) | Written by Claude Opus 5.5 |
+> | [`Assembler/Examples/FastSnake.bassm`](Assembler/Examples/FastSnake.bassm) | Co-written by Andrew Masker and Claude Opus 5.5 |
+> | `hex` files in `src/Cartridges/` for `FastSnake`, `Hanoi`, `Maze`, `Pong`, and `Showcase` | Assembled from the AI-written programs above |
+> | [`Assembler/Assembly Extension/`](Assembler/Assembly%20Extension/) | Developed by Andrew Masker from drafts and a walkthrough by Claude |
+> | [`src/Components/loader/cartridges.sh`](src/Components/loader/cartridges.sh) | Written by Andrew Masker, with cartridges `0x02` to `0x07` added by Claude Opus 5.5 |
+> | [`src/message_protocol.md`](src/message_protocol.md) | Written by Andrew Masker and updated by Claude Opus 5.5 |
+> | `README.md` and everything in [`docs/`](docs/) | Written by Claude Opus 5.5 |
+>
+> ### Other AI use
+>
+> AI was also used for:
+>
+> - **Research:** exploring design options and how Bash and terminals behave.
+> - **Debugging and code review:** tracing bugs, reviewing changes, and suggesting fixes.
+> - **Testing and profiling:** running programs in throwaway test harnesses and measuring bus cycles.
+> - **Learning:** explaining concepts and answering questions during development.
 
 ## What is Bashputer?
 
@@ -82,22 +89,7 @@ The [assembly language guide](docs/assembly-language.md) starts with a complete 
 
 ## How it works
 
-`computer.sh` starts every component as a separate process and connects to each one with a pair of named pipes. On every clock cycle it ticks the CPU and the loader, then routes their memory requests through the bus interconnect to the right device.
-
-```mermaid
-flowchart LR
-    computer["computer.sh<br/>(message router)"]
-    computer <--> clock[Clock]
-    computer <--> cpu[CPU]
-    computer <--> loader[Loader]
-    computer <--> bus[Bus interconnect]
-    computer <--> rom[ROM]
-    computer <--> ram[RAM]
-    computer <--> stack[Stack]
-    computer <--> screen[Screen]
-    computer <--> keyboard[Keyboard]
-    computer <--> timer[Timer]
-```
+`computer.sh` starts every component as a separate process and connects to each one with a pair of named pipes. Components never talk to each other directly, so `computer.sh` acts as the message router for the whole machine. On every clock cycle it ticks the CPU and the loader, asks the bus interconnect which device each memory request belongs to, and passes the request to that device.
 
 The [architecture guide](docs/architecture.md) follows a memory access through the system step by step.
 
@@ -114,22 +106,19 @@ The [architecture guide](docs/architecture.md) follows a memory access through t
 
 ## Project layout
 
-```text
-.
-├── Assembler/
-│   ├── assembler.sh            Assembler entry point
-│   ├── opcodes.sh              Instruction table
-│   ├── stages/                 Preprocessor, processor, and hexer
-│   ├── Examples/               Example programs
-│   └── Assembly Extension/     VS Code syntax highlighting
-├── docs/                       Project documentation
-└── src/
-    ├── run.sh                  Starts the computer in a sandbox
-    ├── message_protocol.md     Component message reference
-    ├── Computer/               Component startup and message routing
-    ├── Components/             CPU, bus, clock, RAM, screen, keyboard, timer, and loader
-    └── Cartridges/             Assembled programs
-```
+| Path | Contents |
+| --- | --- |
+| `Assembler/assembler.sh` | Assembler entry point |
+| `Assembler/opcodes.sh` | Instruction table |
+| `Assembler/stages/` | Preprocessor, processor, and hexer |
+| `Assembler/Examples/` | Example programs |
+| `Assembler/Assembly Extension/` | VS Code syntax highlighting |
+| `docs/` | Project documentation |
+| `src/run.sh` | Starts the computer in a sandbox |
+| `src/message_protocol.md` | Component message reference |
+| `src/Computer/` | Component startup and message routing |
+| `src/Components/` | CPU, bus, clock, RAM, screen, keyboard, timer, and loader |
+| `src/Cartridges/` | Assembled programs |
 
 ## Troubleshooting
 
