@@ -171,7 +171,6 @@ The numbers are assigned in `src/Components/loader/cartridges.sh`:
 | Number | Cartridge |
 | --- | --- |
 | `0x00` | `Fibonacci` |
-| `0x01` | `selftest` (this cartridge is not included in the repository) |
 | `0x02` | `FastSnake` |
 | `0x03` | `Hanoi` |
 | `0x04` | `Maze` |
