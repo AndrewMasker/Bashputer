@@ -9,3 +9,4 @@ cartridges[0x04]=Maze
 cartridges[0x05]=Pong
 cartridges[0x06]=Showcase
 cartridges[0x07]=Snake
+cartridges[0x08]=FastPong

@@ -177,5 +177,6 @@ The numbers are assigned in `src/Components/loader/cartridges.sh`:
 | `0x05` | `Pong` |
 | `0x06` | `Showcase` |
 | `0x07` | `Snake` |
+| `0x08` | `FastPong` |
 
 To make another cartridge available to the loader, add it to that file. Any cartridge in `src/Cartridges/` can be started directly with `run.sh`, whether or not it has a number.

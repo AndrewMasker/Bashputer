@@ -14,9 +14,10 @@
 > | [`Assembler/Examples/Pong.bassm`](Assembler/Examples/Pong.bassm) | Written by Claude Opus 5.5, modelled on Andrew Masker's `Snake.bassm` |
 > | [`Assembler/Examples/Showcase.bassm`](Assembler/Examples/Showcase.bassm) | Written by Claude Opus 5.5 |
 > | [`Assembler/Examples/FastSnake.bassm`](Assembler/Examples/FastSnake.bassm) | Co-written by Andrew Masker and Claude Opus 5.5 |
-> | `hex` files in `src/Cartridges/` for `FastSnake`, `Hanoi`, `Maze`, `Pong`, and `Showcase` | Assembled from the AI-written programs above |
+> | [`Assembler/Examples/FastPong.bassm`](Assembler/Examples/FastPong.bassm) | Written by Claude Opus 5.5, a faster rebuild of `Pong.bassm` using the approach of `FastSnake.bassm` |
+> | `hex` files in `src/Cartridges/` for `FastPong`, `FastSnake`, `Hanoi`, `Maze`, `Pong`, and `Showcase` | Assembled from the AI-written programs above |
 > | [`Assembler/Assembly Extension/`](Assembler/Assembly%20Extension/) | Developed by Andrew Masker from drafts and a walkthrough by Claude |
-> | [`src/Components/loader/cartridges.sh`](src/Components/loader/cartridges.sh) | Written by Andrew Masker, with cartridges `0x02` to `0x07` added by Claude Opus 5.5 |
+> | [`src/Components/loader/cartridges.sh`](src/Components/loader/cartridges.sh) | Written by Andrew Masker, with cartridges `0x02` to `0x08` added by Claude Opus 5.5 |
 > | [`src/message_protocol.md`](src/message_protocol.md) | Written by Andrew Masker and updated by Claude Opus 5.5 |
 > | `README.md` and everything in [`docs/`](docs/) | Written by Claude Opus 5.5 |
 >
@@ -74,6 +75,7 @@ Each program is ready to run with `src/run.sh <Cartridge>`. The source is in [`A
 | `Snake` | The classic game | `w` `a` `s` `d` to steer, `q` to quit |
 | `FastSnake` | Snake rebuilt to use as few bus cycles as possible | `w` `a` `s` `d` to steer, `q` to quit |
 | `Pong` | Two-player Pong, first to 7 points | `w` `s` for the left paddle, `i` `k` for the right, `space` to play again, `q` to quit |
+| `FastPong` | Pong rebuilt to use as few bus cycles as possible | Same as `Pong` |
 | `Maze` | Generates endless rainbow mazes | `Ctrl-C` to quit |
 
 ## Writing a program
