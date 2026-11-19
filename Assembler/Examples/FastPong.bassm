@@ -1,0 +1,1076 @@
+# FastPong.bassm - Pong.bassm rebuilt so that a ball step costs as few bus cycles as possible
+# Author: Claude Opus 5.5 (using the approach of FastSnake.bassm by Andrew Masker and Claude Opus 5.5)
+#
+# ==================================================================================
+# PREAMBLE
+# ==================================================================================
+#
+# CONTROLS:
+#       w / s:  move the left paddle up / down
+#       i / k:  move the right paddle up / down
+#       q:      quit the game
+#       space:  play again (on the win screen)
+#
+# RULES:
+#       The same game as Pong.bassm. The ball bounces off the top and bottom walls. Where it
+#       hits a paddle steers it: the top third sends it up, the bottom third sends it down,
+#       the middle keeps its angle. Every paddle hit speeds the ball up a little. Miss and
+#       your opponent scores. First to $win_score wins.
+#
+# HOW IT GOES FAST:
+#   One bus cycle is one fetched instruction byte or one load/store, so the program avoids
+#   fetching bytes. A ball step is about 75 cycles, including the game loop around it.
+#
+#   * No immediate jumps, branches or calls, no subroutines, and no stack. Every branch
+#     target lives in a register.
+#   * The ball's direction and the half of the character it is in are encoded in WHERE THE
+#     CODE IS. There is one ball routine per (direction , half), so nothing is tested or
+#     computed per step, and r_state simply holds the routine to run next.
+#   * The ball always changes half (dy is never 0), so the position lives in r_top while
+#     the ball is in a top half and in r_bot while it is in a bottom half. A step adds one
+#     constant to one of them and writes the other, with no register copy.
+#   * A ball position is a board address, GRID + (half << 16) + (char row << 8) + column,
+#     so a single `stq` of it writes both CX and CY.
+#   * Everything the ball can run into (the walls, the net and the paddle columns) is
+#     marked on a board in RAM, so the check is one ldb and one bnz. The rare cases have
+#     their own code next to each routine.
+#   * The screen is never read while the ball moves. Moving from a top half to a bottom
+#     half (or back) needs only one color write to erase and one to draw, because the
+#     other color register already holds the background. The paddles are drawn background
+#     last so that this stays true.
+#   * Crossing the net uses separate "leaving the net" routines so the normal ones never
+#     have to think about it.
+#   * The key map is a table of code addresses, so a key is handled with one jump, and
+#     a paddle that is not moving costs one jump.
+#
+# TIMING:
+#   Like Pong.bassm, the ball moves on the timer (60 ms per step, down to 20 ms), so a host
+#   fast enough to keep up plays exactly the same game. On a slower host the ball moves as
+#   fast as the CPU allows, which is about 3.4 times as fast as Pong.bassm.
+
+# ==================================================================================
+# MEMORY MAPPED IO
+# ==================================================================================
+
+    # MEMORY MAP:
+    def SCREEN   = ( 1 * 64 * 1000 )
+    def KEYBOARD = ( 3 * 64 * 1000 )
+    def TIMERS   = ( 4 * 64 * 1000 )
+
+    # SCREEN REGISTERS:
+    def MODE    = ( $SCREEN + 0 )               # 0 = characters, 1 = half-block pixels
+    def CMODE   = ( $SCREEN + 1 )               # 0 = palette index, 1 = 24-bit RGB
+    def CX      = ( $SCREEN + 2 )               # CY is the next byte, see `stq` above
+    def FIDX    = ( $SCREEN + 4 )
+    def BIDX    = ( $SCREEN + 8 )
+    def DRAW    = ( $SCREEN + 14 )
+    def BLIT    = ( $SCREEN + 15 )
+    def FILL    = ( $SCREEN + 16 )
+    def RD_FIDX = ( $SCREEN + 18 )
+    def RD_BIDX = ( $SCREEN + 22 )
+
+    # KEYBOARD REGISTERS:
+    def KB_STATUS = ( $KEYBOARD + 0 )           # 1 while a key is waiting
+    def KB_DATA   = ( $KEYBOARD + 1 )           # reading pops one byte
+    def KB_CLEAR  = ( $KEYBOARD + 2 )           # reading flushes the buffer
+
+    # TIMER REGISTERS:
+    def T_RESET   = ( $TIMERS + 0 )             # any write restarts the count
+    def T_TRIGGER = ( $TIMERS + 1 )             # any write captures the count
+    def T_TICKS   = ( $TIMERS + 2 )             # 8 bytes, 1 tick = 1 ms
+
+# ==================================================================================
+# CONSTANTS
+# ==================================================================================
+
+    # COLORS:
+    def c_bg    = 0x10
+    def c_wall  = 0x0F
+    def c_net   = 0x08
+    def c_ball  = 0x0B                          # must differ from every other color
+    def c_left  = 0x0E
+    def c_right = 0x0D
+    def c_text  = 0x0F
+
+    # PLAY AREA (the same as Pong.bassm):
+    def width        = 32                       # Cell width of the whole field
+    def height       = 12                       # Cell rows the ball can travel in
+    def ymin         = 4                        # First playable pixel row (cell row 2)
+    def play_ph      = ( $height * 2 )          # Playable pixel rows
+    def p1x          = 1                        # Left paddle column
+    def p2x          = ( $width - 2 )           # Right paddle column
+    def net_x        = ( $width / 2 )
+
+    # PADDLES:
+    def paddle_cells = 3
+    def paddle_ph    = ( $paddle_cells * 2 )
+    def edge         = 2                        # Pixels at each end of a paddle that steer the ball
+    def pad_min      = 2
+    def pad_max      = ( $height + 2 - $paddle_cells )
+    def pad_start    = ( 2 + ( $height - $paddle_cells ) / 2 )
+
+    # SERVING:
+    def serve_top    = ( $ymin + 4 )
+    def serve_span   = ( $play_ph - 8 )
+
+    # TEXT POSITIONS:
+    def score1_x     = ( $net_x - 3 )
+    def score2_x     = ( $net_x + 3 )
+    def msg_row      = ( 1 + $height / 2 )
+
+    # RULES:
+    def win_score    = 7
+
+    # TIMING (ms):
+    def start_ms     = 60
+    def min_ms       = 20
+    def speedup      = 4
+    def serve_ms     = 1000
+
+    # KEYS:
+    def key_w     = 0x77
+    def key_s     = 0x73
+    def key_i     = 0x69
+    def key_k     = 0x6B
+    def key_q     = 0x71
+    def spacebar = 0x20
+    def max_keys  = 3                           # Keys read per frame before the rest are dropped
+
+    # RAM LAYOUT:
+    def GRID   = 0x60000                        # 64K aligned so bit 16 of a cell is its half
+    def KEYMAP = 0x80000                        # 256 bytes: key -> address of its key routine
+
+    # BOARD MARKS:
+    def mark_wall   = 1
+    def mark_net    = 2
+    def mark_paddle = 3                         # dx says which paddle's column it is
+
+    # cell_at[x= , y= ] - the board address of pixel (x , y)
+    def cell_at = ( $GRID + ( ( ( @y ) % 2 ) << 16 ) + ( ( ( @y ) / 2 ) << 8 ) + ( @x ) )
+
+    # cursor_at[x= , row= ] - the value that `stq` writes to CX and CY for a cell
+    def cursor_at = ( ( @x ) + ( ( @row ) << 8 ) )
+
+# ==================================================================================
+# REGISTERS
+# ==================================================================================
+
+    # HOT DEVICE ADDRESSES:
+    def r_cx_addr        = r0
+    def r_fidx_addr      = r1
+    def r_bidx_addr      = r2
+    def r_draw_addr      = r3
+    def r_blit_addr      = r4
+    def r_kb_status_addr = r5
+    def r_kb_data_addr   = r6
+    def r_latch_addr     = r7
+    def r_ticks_addr     = r8
+    def r_treset_addr    = r9
+
+    # COLD DEVICE ADDRESSES:
+    def r_kb_clear_addr  = r10
+    def r_rd_fidx_addr   = r11
+    def r_rd_bidx_addr   = r12
+    def r_mode_addr      = r13
+
+    # BALL AND TIMING:
+    def r_top       = r14                       # Board address of the ball while it is in a top half
+    def r_bot       = r15                       # Board address of the ball while it is in a bottom half
+    def r_state     = r16                       # The ball routine that runs next
+    def r_after     = r17                       # The ball routine that runs after the prelude
+    def r_exit      = r18                       # Where a ball routine goes when it is done
+    def r_wait      = r19                       # ms to wait before the next ball step
+    def r_speed     = r20                       # ms between ball steps (shrinks on paddle hits)
+    def r_seen      = r21                       # What the ball is about to run into
+    def r_ballpos   = r22                       # Board address of a ball that got past a paddle
+    def r_serve_tab = r23                       # Table of the routines a serve can start
+    def r_half      = r24
+
+    # PADDLES AND KEYS:
+    def r_pad1      = r25                       # Cursor of the top cell of the left paddle
+    def r_pad2      = r26                       # Cursor of the top cell of the right paddle
+    def r_move1     = r27                       # Paddle routine for the left paddle this frame
+    def r_move2     = r28                       # Paddle routine for the right paddle this frame
+    def r_budget    = r29                       # Keys that can still be read this frame
+    def r_byte       = r30
+    def r_score1    = r31
+    def r_score2    = r32
+
+    # SCRATCH:
+    def r_tmp       = r33
+    def r_flag      = r34
+    def r_alt       = r35
+    def r_target    = r36
+    def r_which4     = r37                       # draw_cell: 0 for a top half, 4 for a bottom half
+    def r_dptr      = r38
+    def r_other     = r39
+    def r_paint     = r40
+    def r_str       = r41
+    def r_curs      = r42
+    def r_char      = r43
+    def r_count     = r44
+    def r_ptr       = r45
+
+    # CONSTANTS:
+    def r_zero       = r50                      # Never written
+    def r_one        = r51
+    def r_two        = r52
+    def r_four       = r53
+    def r_six        = r54
+    def r_eight      = r55
+    def r_shift14   = r56
+    def r_shift16    = r57
+    def r_low_byte   = r58
+    def r_bg_color   = r59
+    def r_ball_color = r60
+    def r_net_color  = r61
+    def r_color1     = r62                      # Left paddle and player 1
+    def r_color2     = r63                      # Right paddle and player 2
+    def r_text_color = r64
+    def r_wall_color = r65
+    def r_wall_mark  = r66
+    def r_net_mark   = r67
+    def r_min_ms     = r68
+    def r_step_ms    = r69
+    def r_win        = r70
+    def r_ascii_zero = r71
+    def r_netx    = r72
+    def r_spacebar  = r73
+    def r_key_q      = r74
+    def r_row        = r75                      # One cell row, as a cursor or board offset
+    def r_three_rows = r76
+    def r_min1       = r77                      # Paddle cursors at the top and bottom of their travel
+    def r_max1       = r78
+    def r_min2       = r79
+    def r_max2       = r80
+    def r_keymap     = r81
+
+    # BRANCH TARGETS:
+    def r_loop      = r90
+    def r_keys      = r91
+    def r_read      = r92
+    def r_next_key  = r93
+    def r_check     = r94
+    def r_stay1     = r95
+    def r_stay2     = r96
+    def r_up1       = r97
+    def r_down1     = r98
+    def r_up2       = r99
+    def r_down2     = r100
+    def r_post_hit  = r101
+    def r_prelude   = r102
+    def r_goal1     = r103                      # Player 1 scores next step
+    def r_goal2     = r104                      # Player 2 scores next step
+
+    # BALL ROUTINES (u/d = up/down, l/r = left/right, t/b = the half the ball starts in,
+    #                n = the ball is leaving the net column):
+    def r_go_ul_t  = r110
+    def r_go_ul_b  = r111
+    def r_go_ur_t  = r112
+    def r_go_ur_b  = r113
+    def r_go_dl_t  = r114
+    def r_go_dl_b  = r115
+    def r_go_dr_t  = r116
+    def r_go_dr_b  = r117
+    def r_go_nul_t = r118
+    def r_go_nul_b = r119
+    def r_go_nur_t = r120
+    def r_go_nur_b = r121
+    def r_go_ndl_t = r122
+    def r_go_ndl_b = r123
+    def r_go_ndr_t = r124
+    def r_go_ndr_b = r125
+
+    # WHERE EACH NORMAL BALL ROUTINE HANDLES WHAT IT RAN INTO:
+    def r_sp_ul_t = r130
+    def r_sp_ul_b = r131
+    def r_sp_ur_t = r132
+    def r_sp_ur_b = r133
+    def r_sp_dl_t = r134
+    def r_sp_dl_b = r135
+    def r_sp_dr_t = r136
+    def r_sp_dr_b = r137
+
+    # BOARD STEPS (what one ball step adds to its board address):
+    def r_by_ul_t = r140
+    def r_by_ul_b = r141
+    def r_by_ur_t = r142
+    def r_by_ur_b = r143
+    def r_by_dl_t = r144
+    def r_by_dl_b = r145
+    def r_by_dr_t = r146
+    def r_by_dr_b = r147
+
+# ==================================================================================
+# MACROS
+# ==================================================================================
+
+    # BALL STEPS:
+        # check[from= , to= , by= , special= ] - finds the ball's next cell, and leaves
+        #       the step if something is there
+        def check = {
+            add @from , @by , @to
+            ldb @to , $r_seen
+            bnz $r_seen , @special
+        }
+
+        # move[from= , to= , erase= , draw= , cursor= , next= ] - erases the ball at @from,
+        #       draws it at @to and ends the step. @erase and @draw set the one color register
+        #       that differs, and @cursor is stb when the row does not change.
+        def move = {
+            @erase
+            stq @from , $r_cx_addr
+            stb $r_zero , $r_draw_addr
+            @draw
+            @cursor @to , $r_cx_addr
+            stb $r_zero , $r_draw_addr
+            mov @next , $r_state
+            stb $r_zero , $r_blit_addr
+            jmp $r_exit
+        }
+
+        # specials[...] - what a normal ball routine does when the board is marked:
+        #   wall:   bounces, by running the routine with dy flipped instead (@bounce)
+        #   net:    moves into the net column (@netdraw), then leaves it with @netnext
+        #   paddle: Pong.bassm's paddle_hit. A hit runs a routine with the new direction
+        #           (@hitup , @hitdown or @hitsame) and a miss scores next step (@goal).
+        #           @pad is the paddle's cursor.
+        def specials = {
+            eq $r_seen , $r_wall_mark , $r_flag
+            bnz $r_flag , @bounce
+            eq $r_seen , $r_net_mark , $r_flag
+            liq $r_target , :.paddle
+            bz $r_flag , $r_target
+            $move[from=@from , to=@to , erase=@erase , draw=@netdraw , cursor=@cursor , next=@netnext]
+
+            paddle:
+                lsr @to , $r_eight , $r_tmp             # pixel row the ball would land on
+                and $r_tmp , $r_low_byte , $r_tmp
+                shl $r_tmp , $r_one , $r_tmp
+                lsr @to , $r_shift16 , $r_alt
+                and $r_alt , $r_one , $r_alt
+                add $r_tmp , $r_alt , $r_tmp
+                lsr @pad , $r_eight , $r_alt            # pixel row of the paddle's top
+                shl $r_alt , $r_one , $r_alt
+                sub $r_tmp , $r_alt , $r_tmp            # where along the paddle the ball lands
+                lt $r_tmp , $r_six , $r_flag
+                liq $r_target , :.hit
+                bnz $r_flag , $r_target
+
+                mov @to , $r_ballpos
+                $move[from=@from , to=@to , erase=@erase , draw=@draw , cursor=@cursor , next=@goal]
+
+            hit:
+                gt $r_speed , $r_min_ms , $r_flag
+                liq $r_target , :.steered
+                bz $r_flag , $r_target
+                sub $r_speed , $r_step_ms , $r_speed
+            steered:
+                mov $r_post_hit , $r_exit               # the new speed starts with the next step
+                lt $r_tmp , $r_two , $r_flag
+                bnz $r_flag , @hitup
+                lt $r_tmp , $r_four , $r_flag
+                bz $r_flag , @hitdown
+                jmp @hitsame
+        }
+
+    # PADDLES:
+        # pad_up[pos= , color= , min= , next= ] / pad_down[pos= , color= , max= , next= ]
+        #       move a paddle one cell. The background cell is drawn last, so both color
+        #       registers end up holding the background, which the ball routines rely on.
+        def pad_up = {
+            gt @pos , @min , $r_flag
+            bz $r_flag , @next
+            sub @pos , $r_row , @pos
+            stb @color , $r_fidx_addr
+            stb @color , $r_bidx_addr
+            stq @pos , $r_cx_addr
+            stb $r_zero , $r_draw_addr
+            add @pos , $r_three_rows , $r_flag
+            stb $r_bg_color , $r_fidx_addr
+            stb $r_bg_color , $r_bidx_addr
+            stq $r_flag , $r_cx_addr
+            stb $r_zero , $r_draw_addr
+            stb $r_zero , $r_blit_addr
+            jmp @next
+        }
+
+        def pad_down = {
+            lt @pos , @max , $r_flag
+            bz $r_flag , @next
+            add @pos , $r_three_rows , $r_flag
+            stb @color , $r_fidx_addr
+            stb @color , $r_bidx_addr
+            stq $r_flag , $r_cx_addr
+            stb $r_zero , $r_draw_addr
+            stb $r_bg_color , $r_fidx_addr
+            stb $r_bg_color , $r_bidx_addr
+            stq @pos , $r_cx_addr
+            stb $r_zero , $r_draw_addr
+            add @pos , $r_row , @pos
+            stb $r_zero , $r_blit_addr
+            jmp @next
+        }
+
+    # DRAWING (cold paths only):
+        # draw_cell[cell= , color= ] - draws one pixel from any board address, keeping the
+        #       other half of the character, without branching
+        def draw_cell = {
+            stq @cell , $r_cx_addr
+            lsr @cell , $r_shift14 , $r_which4
+            and $r_which4 , $r_four , $r_which4           # 0 for the top half, 4 for the bottom
+            add $r_fidx_addr , $r_which4 , $r_dptr
+            stb @color , $r_dptr
+            sub $r_rd_bidx_addr , $r_which4 , $r_dptr
+            ldb $r_dptr , $r_other
+            sub $r_bidx_addr , $r_which4 , $r_dptr
+            stb $r_other , $r_dptr
+            stb $r_zero , $r_draw_addr
+        }
+
+        # erase_ball - Pong.bassm's erase_ball for the ball at r_ballpos: puts back the
+        #       background (or the net), unless a paddle has already painted over it
+        def erase_ball = {
+            stq $r_ballpos , $r_cx_addr
+            lsr $r_ballpos , $r_shift14 , $r_which4
+            and $r_which4 , $r_four , $r_which4
+            add $r_rd_fidx_addr , $r_which4 , $r_dptr
+            ldb $r_dptr , $r_paint
+            eq $r_paint , $r_ball_color , $r_flag
+            liq $r_target , :.done
+            bz $r_flag , $r_target
+            and $r_ballpos , $r_low_byte , $r_flag      # the net is drawn in the top half of its cells
+            eq $r_flag , $r_netx , $r_flag
+            eq $r_which4 , $r_zero , $r_alt
+            and $r_flag , $r_alt , $r_flag
+            sub $r_net_color , $r_bg_color , $r_paint
+            mul $r_flag , $r_paint , $r_paint
+            add $r_paint , $r_bg_color , $r_paint
+            $draw_cell[cell=$r_ballpos , color=$r_paint]
+            done:
+        }
+
+        # puts[x= , y= ] - writes the zero terminated string at r_str in r_paint
+        def puts = {
+            stb $r_zero , $r_mode_addr                  # character mode
+            stb $r_paint , $r_fidx_addr
+            stb $r_bg_color , $r_bidx_addr
+            liq $r_curs , $cursor_at[x=@x , row=@y]
+            liq $r_target , :.loop
+            liq $r_alt , :.end
+            loop:
+                ldb $r_str , $r_char
+                bz $r_char , $r_alt
+                stq $r_curs , $r_cx_addr
+                stb $r_char , $r_draw_addr
+                inc $r_curs
+                inc $r_str
+                jmp $r_target
+            end:
+            stb $r_one , $r_mode_addr                   # back to pixel mode
+        }
+
+        # draw_scores - writes both score digits into the top row
+        def draw_scores = {
+            stb $r_zero , $r_mode_addr
+            stb $r_bg_color , $r_bidx_addr
+
+            stb $r_color1 , $r_fidx_addr
+            liq $r_curs , $cursor_at[x=$score1_x , row=0]
+            stq $r_curs , $r_cx_addr
+            add $r_score1 , $r_ascii_zero , $r_char
+            stb $r_char , $r_draw_addr
+
+            stb $r_color2 , $r_fidx_addr
+            liq $r_curs , $cursor_at[x=$score2_x , row=0]
+            stq $r_curs , $r_cx_addr
+            add $r_score2 , $r_ascii_zero , $r_char
+            stb $r_char , $r_draw_addr
+
+            stb $r_one , $r_mode_addr
+        }
+
+        # hline[x= , row= , count= ] / vline[x= , row= , count= ] - draw @count cells from (@x , @row)
+        def hline = {
+            liq $r_curs , $cursor_at[x=@x , row=@row]
+            stq $r_curs , $r_cx_addr
+            lib $r_count , @count
+            liq $r_target , :.next
+            next:
+                stb $r_curs , $r_cx_addr
+                stb $r_zero , $r_draw_addr
+                inc $r_curs
+                dec $r_count
+                bnz $r_count , $r_target
+        }
+
+        def vline = {
+            liq $r_curs , $cursor_at[x=@x , row=@row]
+            stq $r_curs , $r_cx_addr
+            lib $r_curs , @row
+            lib $r_count , @count
+            inc $r_cx_addr                              # CY
+            liq $r_target , :.next
+            next:
+                stb $r_curs , $r_cx_addr
+                stb $r_zero , $r_draw_addr
+                inc $r_curs
+                dec $r_count
+                bnz $r_count , $r_target
+            dec $r_cx_addr
+        }
+
+    # BOARD SETUP:
+        # wall_marks[from= ] - marks a wall row, 8 cells per store
+        def wall_marks = {
+            lih $r_ptr , @from
+            stw $r_flag , $r_ptr
+            add $r_ptr , $r_eight , $r_ptr
+            stw $r_flag , $r_ptr
+            add $r_ptr , $r_eight , $r_ptr
+            stw $r_flag , $r_ptr
+            add $r_ptr , $r_eight , $r_ptr
+            stw $r_flag , $r_ptr
+        }
+
+        # column_mark[offset= , mark= ] - marks one column cell in the row at r_ptr
+        def column_mark = {
+            add $r_ptr , @offset , $r_alt
+            stb @mark , $r_alt
+        }
+
+        # bind[key= , routine= ] - points a key at its key routine
+        def bind = {
+            lib $r_flag , @routine
+            lih $r_ptr , ( $KEYMAP + @key )
+            stb $r_flag , $r_ptr
+        }
+
+    # addr16[label= ] - a two byte little-endian code address
+        def addr16 = db ( @label ) , ( ( @label ) >> 8 )
+
+# ==================================================================================
+# KEY ROUTINES
+# ==================================================================================
+
+    # Execution starts here. The key routines come first because their addresses are stored
+    # in single key map bytes, so they all have to sit below address 256. key_none is at
+    # address 0 so that the empty key map needs no filling: at power on every register is 0,
+    # so its branch falls through to boot instead.
+    key_none:
+        bnz $r_next_key , $r_next_key
+        liq $r_tmp , :boot
+        jmp $r_tmp
+    key_w:
+        mov $r_up1 , $r_move1
+        jmp $r_next_key
+    key_s:
+        mov $r_down1 , $r_move1
+        jmp $r_next_key
+    key_i:
+        mov $r_up2 , $r_move2
+        jmp $r_next_key
+    key_k:
+        mov $r_down2 , $r_move2
+        jmp $r_next_key
+    key_q:
+        ldb $r_kb_clear_addr , $r_tmp
+        hlt
+    keys_end:
+
+# ==================================================================================
+# GAME LOOP
+# ==================================================================================
+
+    # Pong.bassm's GAME_LOOP: handle keys, then step the ball if it is due
+    loop:
+        ldb $r_kb_status_addr , $r_byte
+        bnz $r_byte , $r_keys
+    check:
+        stb $r_zero , $r_latch_addr
+        ldq $r_ticks_addr , $r_tmp
+        lt $r_tmp , $r_wait , $r_tmp
+        bnz $r_tmp , $r_loop
+        stb $r_zero , $r_treset_addr
+        jmp $r_state
+
+    # Pong.bassm's handle_input: reads up to max_keys keys, drops any backlog, then moves the
+    # paddles. The last key for each paddle wins.
+    !scope keys
+        mov $r_stay1 , $r_move1
+        mov $r_stay2 , $r_move2
+        lib $r_budget , $max_keys
+        read:
+            dec $r_budget
+            ldb $r_kb_data_addr , $r_byte
+            add $r_byte , $r_keymap , $r_byte
+            ldb $r_byte , $r_byte
+            jmp $r_byte
+        next_key:
+            ldb $r_kb_status_addr , $r_byte
+            bz $r_byte , $r_move1
+            bnz $r_budget , $r_read
+            ldb $r_kb_clear_addr , $r_byte               # a held key floods the buffer, so drop the backlog
+            jmp $r_move1
+    !endscope
+
+    # Paddle routines: the left paddle's routine goes on to the right paddle's, which goes on
+    # to the timer check.
+    stay1:
+        jmp $r_move2
+    up1:
+        $pad_up[pos=$r_pad1 , color=$r_color1 , min=$r_min1 , next=$r_move2]
+    down1:
+        $pad_down[pos=$r_pad1 , color=$r_color1 , max=$r_max1 , next=$r_move2]
+    stay2:
+        jmp $r_check
+    up2:
+        $pad_up[pos=$r_pad2 , color=$r_color2 , min=$r_min2 , next=$r_check]
+    down2:
+        $pad_down[pos=$r_pad2 , color=$r_color2 , max=$r_max2 , next=$r_check]
+
+# ==================================================================================
+# BALL ROUTINES
+# ==================================================================================
+
+    # Ball colors: in a top half routine the ball is erased with FIDX and drawn with BIDX,
+    # and the other way round in a bottom half routine.
+    def wipe_t = { stb $r_bg_color , $r_fidx_addr }
+    def wipe_b = { stb $r_bg_color , $r_bidx_addr }
+    def show_t  = { stb $r_ball_color , $r_bidx_addr }
+    def show_b  = { stb $r_ball_color , $r_fidx_addr }
+
+    # Into the net column: its top halves are net colored
+    def netshow_t = { stb $r_ball_color , $r_bidx_addr ; stb $r_net_color , $r_fidx_addr }
+
+    # Out of the net column
+    def nwipe_t = { stb $r_net_color , $r_fidx_addr }
+    def nshow_t  = { stb $r_ball_color , $r_bidx_addr ; stb $r_bg_color , $r_fidx_addr }
+    def nwipe_b = { stb $r_bg_color , $r_bidx_addr ; stb $r_net_color , $r_fidx_addr }
+
+    # UP AND LEFT:
+    !scope ul_t
+        $check[from=$r_top , to=$r_bot , by=$r_by_ul_t , special=$r_sp_ul_t]
+        $move[from=$r_top , to=$r_bot , erase=$wipe_t , draw=$show_t , cursor=stq , next=$r_go_ul_b]
+        special:
+        $specials[from=$r_top , to=$r_bot , erase=$wipe_t , draw=$show_t , cursor=stq , bounce=$r_go_dl_t , netdraw=$netshow_t , netnext=$r_go_nul_b , pad=$r_pad1 , goal=$r_goal2 , hitup=$r_go_ur_t , hitdown=$r_go_dr_t , hitsame=$r_go_ur_t]
+    !endscope
+
+    !scope ul_b
+        $check[from=$r_bot , to=$r_top , by=$r_by_ul_b , special=$r_sp_ul_b]
+        $move[from=$r_bot , to=$r_top , erase=$wipe_b , draw=$show_b , cursor=stb , next=$r_go_ul_t]
+        special:
+        $specials[from=$r_bot , to=$r_top , erase=$wipe_b , draw=$show_b , cursor=stb , bounce=$r_go_dl_b , netdraw=$show_b , netnext=$r_go_nul_t , pad=$r_pad1 , goal=$r_goal2 , hitup=$r_go_ur_b , hitdown=$r_go_dr_b , hitsame=$r_go_ur_b]
+    !endscope
+
+    # UP AND RIGHT:
+    !scope ur_t
+        $check[from=$r_top , to=$r_bot , by=$r_by_ur_t , special=$r_sp_ur_t]
+        $move[from=$r_top , to=$r_bot , erase=$wipe_t , draw=$show_t , cursor=stq , next=$r_go_ur_b]
+        special:
+        $specials[from=$r_top , to=$r_bot , erase=$wipe_t , draw=$show_t , cursor=stq , bounce=$r_go_dr_t , netdraw=$netshow_t , netnext=$r_go_nur_b , pad=$r_pad2 , goal=$r_goal1 , hitup=$r_go_ul_t , hitdown=$r_go_dl_t , hitsame=$r_go_ul_t]
+    !endscope
+
+    !scope ur_b
+        $check[from=$r_bot , to=$r_top , by=$r_by_ur_b , special=$r_sp_ur_b]
+        $move[from=$r_bot , to=$r_top , erase=$wipe_b , draw=$show_b , cursor=stb , next=$r_go_ur_t]
+        special:
+        $specials[from=$r_bot , to=$r_top , erase=$wipe_b , draw=$show_b , cursor=stb , bounce=$r_go_dr_b , netdraw=$show_b , netnext=$r_go_nur_t , pad=$r_pad2 , goal=$r_goal1 , hitup=$r_go_ul_b , hitdown=$r_go_dl_b , hitsame=$r_go_ul_b]
+    !endscope
+
+    # DOWN AND LEFT:
+    !scope dl_t
+        $check[from=$r_top , to=$r_bot , by=$r_by_dl_t , special=$r_sp_dl_t]
+        $move[from=$r_top , to=$r_bot , erase=$wipe_t , draw=$show_t , cursor=stb , next=$r_go_dl_b]
+        special:
+        $specials[from=$r_top , to=$r_bot , erase=$wipe_t , draw=$show_t , cursor=stb , bounce=$r_go_ul_t , netdraw=$netshow_t , netnext=$r_go_ndl_b , pad=$r_pad1 , goal=$r_goal2 , hitup=$r_go_ur_t , hitdown=$r_go_dr_t , hitsame=$r_go_dr_t]
+    !endscope
+
+    !scope dl_b
+        $check[from=$r_bot , to=$r_top , by=$r_by_dl_b , special=$r_sp_dl_b]
+        $move[from=$r_bot , to=$r_top , erase=$wipe_b , draw=$show_b , cursor=stq , next=$r_go_dl_t]
+        special:
+        $specials[from=$r_bot , to=$r_top , erase=$wipe_b , draw=$show_b , cursor=stq , bounce=$r_go_ul_b , netdraw=$show_b , netnext=$r_go_ndl_t , pad=$r_pad1 , goal=$r_goal2 , hitup=$r_go_ur_b , hitdown=$r_go_dr_b , hitsame=$r_go_dr_b]
+    !endscope
+
+    # DOWN AND RIGHT:
+    !scope dr_t
+        $check[from=$r_top , to=$r_bot , by=$r_by_dr_t , special=$r_sp_dr_t]
+        $move[from=$r_top , to=$r_bot , erase=$wipe_t , draw=$show_t , cursor=stb , next=$r_go_dr_b]
+        special:
+        $specials[from=$r_top , to=$r_bot , erase=$wipe_t , draw=$show_t , cursor=stb , bounce=$r_go_ur_t , netdraw=$netshow_t , netnext=$r_go_ndr_b , pad=$r_pad2 , goal=$r_goal1 , hitup=$r_go_ul_t , hitdown=$r_go_dl_t , hitsame=$r_go_dl_t]
+    !endscope
+
+    !scope dr_b
+        $check[from=$r_bot , to=$r_top , by=$r_by_dr_b , special=$r_sp_dr_b]
+        $move[from=$r_bot , to=$r_top , erase=$wipe_b , draw=$show_b , cursor=stq , next=$r_go_dr_t]
+        special:
+        $specials[from=$r_bot , to=$r_top , erase=$wipe_b , draw=$show_b , cursor=stq , bounce=$r_go_ur_b , netdraw=$show_b , netnext=$r_go_ndr_t , pad=$r_pad2 , goal=$r_goal1 , hitup=$r_go_ul_b , hitdown=$r_go_dl_b , hitsame=$r_go_dl_b]
+    !endscope
+
+    # LEAVING THE NET (only a wall can be in the way, so anything marked is a bounce):
+    nul_t:
+        $check[from=$r_top , to=$r_bot , by=$r_by_ul_t , special=$r_go_ndl_t]
+        $move[from=$r_top , to=$r_bot , erase=$nwipe_t , draw=$nshow_t , cursor=stq , next=$r_go_ul_b]
+    nul_b:
+        $check[from=$r_bot , to=$r_top , by=$r_by_ul_b , special=$r_go_ndl_b]
+        $move[from=$r_bot , to=$r_top , erase=$nwipe_b , draw=$show_b , cursor=stb , next=$r_go_ul_t]
+    nur_t:
+        $check[from=$r_top , to=$r_bot , by=$r_by_ur_t , special=$r_go_ndr_t]
+        $move[from=$r_top , to=$r_bot , erase=$nwipe_t , draw=$nshow_t , cursor=stq , next=$r_go_ur_b]
+    nur_b:
+        $check[from=$r_bot , to=$r_top , by=$r_by_ur_b , special=$r_go_ndr_b]
+        $move[from=$r_bot , to=$r_top , erase=$nwipe_b , draw=$show_b , cursor=stb , next=$r_go_ur_t]
+    ndl_t:
+        $check[from=$r_top , to=$r_bot , by=$r_by_dl_t , special=$r_go_nul_t]
+        $move[from=$r_top , to=$r_bot , erase=$nwipe_t , draw=$nshow_t , cursor=stb , next=$r_go_dl_b]
+    ndl_b:
+        $check[from=$r_bot , to=$r_top , by=$r_by_dl_b , special=$r_go_nul_b]
+        $move[from=$r_bot , to=$r_top , erase=$nwipe_b , draw=$show_b , cursor=stq , next=$r_go_dl_t]
+    ndr_t:
+        $check[from=$r_top , to=$r_bot , by=$r_by_dr_t , special=$r_go_nur_t]
+        $move[from=$r_top , to=$r_bot , erase=$nwipe_t , draw=$nshow_t , cursor=stb , next=$r_go_dr_b]
+    ndr_b:
+        $check[from=$r_bot , to=$r_top , by=$r_by_dr_b , special=$r_go_nur_b]
+        $move[from=$r_bot , to=$r_top , erase=$nwipe_b , draw=$show_b , cursor=stq , next=$r_go_dr_t]
+
+    # After a paddle hit: the step that comes next goes through the prelude
+    post_hit:
+        mov $r_state , $r_after
+        mov $r_prelude , $r_state
+        mov $r_loop , $r_exit
+        jmp $r_exit
+
+    # Pong.bassm sets the wait from the speed when a step is due. Only a serve or a paddle hit
+    # changes it, so only the step after one of those runs this.
+    prelude:
+        mov $r_speed , $r_wait
+        mov $r_after , $r_state
+        jmp $r_state
+
+# ==================================================================================
+# SCORING
+# ==================================================================================
+
+    # point[score= , text= , color= , serve= ] - Pong.bassm's point: the ball is erased, the
+    #       score goes up, then the game ends or the loser of the point receives the serve
+    def point = {
+        $erase_ball
+        inc @score
+        $draw_scores
+        stb $r_zero , $r_blit_addr
+        eq @score , $r_win , $r_flag
+        liq $r_str , @text
+        mov @color , $r_paint
+        liq $r_target , :game_over
+        bnz $r_flag , $r_target
+        liq $r_serve_tab , @serve
+        liq $r_target , :serve
+        jmp $r_target
+    }
+
+    goal1:
+        $point[score=$r_score1 , text=:P1_WINS , color=$r_color1 , serve=:SERVE_RIGHT]
+    goal2:
+        $point[score=$r_score2 , text=:P2_WINS , color=$r_color2 , serve=:SERVE_LEFT]
+
+    # Pong.bassm's serve: puts the ball on the net at a random height heading the way
+    # r_serve_tab says, then pauses
+    !scope serve
+        rnd $r_tmp
+        lsr $r_tmp , $r_one , $r_tmp
+        lib $r_alt , $serve_span
+        rem $r_tmp , $r_alt , $r_tmp
+        lib $r_alt , $serve_top
+        add $r_tmp , $r_alt , $r_tmp                    # pixel row
+
+        and $r_tmp , $r_one , $r_half
+        lsr $r_tmp , $r_one , $r_tmp
+        shl $r_tmp , $r_eight , $r_tmp
+        shl $r_half , $r_shift16 , $r_alt
+        add $r_tmp , $r_alt , $r_tmp
+        lih $r_alt , $cell_at[x=$net_x , y=0]
+        add $r_tmp , $r_alt , $r_top
+        mov $r_top , $r_bot
+
+        rnd $r_tmp
+        and $r_tmp , $r_one , $r_tmp                    # 0 = up, 1 = down
+
+        $draw_cell[cell=$r_top , color=$r_ball_color]
+        stb $r_zero , $r_blit_addr
+
+        liq $r_wait , $serve_ms
+        liq $r_speed , $start_ms
+        stb $r_zero , $r_treset_addr
+
+        shl $r_tmp , $r_one , $r_tmp                    # the table is indexed by (down * 2 + half) * 2
+        add $r_tmp , $r_half , $r_tmp
+        shl $r_tmp , $r_one , $r_tmp
+        add $r_tmp , $r_serve_tab , $r_tmp
+        ldq $r_tmp , $r_after
+        mov $r_prelude , $r_state
+        jmp $r_exit
+    !endscope
+
+    # Pong.bassm's game_over: shows the winner (r_str, r_paint) and waits for space or q
+    !scope game_over
+        $puts[x=( $net_x - 7 ) , y=$msg_row]
+        liq $r_str , :AGAIN_TEXT
+        mov $r_text_color , $r_paint
+        $puts[x=( $net_x - 10 ) , y=( $msg_row + 2 )]
+
+        stb $r_zero , $r_blit_addr
+        ldb $r_kb_clear_addr , $r_byte
+        liq $r_target , :.wait
+        liq $r_ptr , :new_game
+        wait:
+            ldb $r_kb_status_addr , $r_byte
+            bz $r_byte , $r_target
+            ldb $r_kb_data_addr , $r_byte
+            eq $r_byte , $r_spacebar , $r_flag
+            bnz $r_flag , $r_ptr
+            eq $r_byte , $r_key_q , $r_flag
+            bz $r_flag , $r_target
+            hlt
+    !endscope
+
+# ==================================================================================
+# NEW GAME
+# ==================================================================================
+
+    # Pong.bassm's RESET and reset_screen
+    new_game:
+        lib $r_score1 , 0
+        lib $r_score2 , 0
+        liq $r_pad1 , $cursor_at[x=$p1x , row=$pad_start]
+        liq $r_pad2 , $cursor_at[x=$p2x , row=$pad_start]
+
+        lih $r_tmp , $CMODE
+        stb $r_zero , $r_tmp                            # palette index colors
+        stb $r_bg_color , $r_bidx_addr
+        lih $r_tmp , $FILL
+        stb $r_zero , $r_tmp
+        stb $r_one , $r_mode_addr                       # pixel mode
+
+        stb $r_bg_color , $r_fidx_addr
+        stb $r_wall_color , $r_bidx_addr
+        $hline[x=0 , row=1 , count=$width]
+
+        stb $r_wall_color , $r_fidx_addr
+        stb $r_bg_color , $r_bidx_addr
+        $hline[x=0 , row=( $height + 2 ) , count=$width]
+
+        stb $r_net_color , $r_fidx_addr
+        $vline[x=$net_x , row=2 , count=$height]
+
+        liq $r_str , :P1_LABEL
+        mov $r_color1 , $r_paint
+        $puts[x=$p1x , y=0]
+
+        liq $r_str , :P2_LABEL
+        mov $r_color2 , $r_paint
+        $puts[x=( $p2x - 5 ) , y=0]
+
+        $draw_scores
+
+        stb $r_color1 , $r_fidx_addr
+        stb $r_color1 , $r_bidx_addr
+        $vline[x=$p1x , row=$pad_start , count=$paddle_cells]
+        stb $r_color2 , $r_fidx_addr
+        stb $r_color2 , $r_bidx_addr
+        $vline[x=$p2x , row=$pad_start , count=$paddle_cells]
+
+        stb $r_zero , $r_blit_addr
+
+        rnd $r_tmp                                      # first serve goes a random way
+        and $r_tmp , $r_one , $r_tmp
+        liq $r_serve_tab , :SERVE_LEFT
+        liq $r_target , :serve
+        bz $r_tmp , $r_target
+        liq $r_serve_tab , :SERVE_RIGHT
+        jmp $r_target
+
+# ==================================================================================
+# BOOT
+# ==================================================================================
+
+    boot:
+    # DEVICE ADDRESSES:
+        lih $r_cx_addr , $CX
+        lih $r_fidx_addr , $FIDX
+        lih $r_bidx_addr , $BIDX
+        lih $r_draw_addr , $DRAW
+        lih $r_blit_addr , $BLIT
+        lih $r_kb_status_addr , $KB_STATUS
+        lih $r_kb_data_addr , $KB_DATA
+        lih $r_latch_addr , $T_TRIGGER
+        lih $r_ticks_addr , $T_TICKS
+        lih $r_treset_addr , $T_RESET
+        lih $r_kb_clear_addr , $KB_CLEAR
+        lih $r_rd_fidx_addr , $RD_FIDX
+        lih $r_rd_bidx_addr , $RD_BIDX
+        lih $r_mode_addr , $MODE
+
+    # CONSTANTS:
+        lib $r_one , 1
+        lib $r_two , 2
+        lib $r_four , 4
+        lib $r_six , $paddle_ph
+        lib $r_eight , 8
+        lib $r_shift14 , 14
+        lib $r_shift16 , 16
+        lib $r_low_byte , 0xFF
+        lib $r_bg_color , $c_bg
+        lib $r_ball_color , $c_ball
+        lib $r_net_color , $c_net
+        lib $r_color1 , $c_left
+        lib $r_color2 , $c_right
+        lib $r_text_color , $c_text
+        lib $r_wall_color , $c_wall
+        lib $r_wall_mark , $mark_wall
+        lib $r_net_mark , $mark_net
+        lib $r_min_ms , $min_ms
+        lib $r_step_ms , $speedup
+        lib $r_win , $win_score
+        lib $r_ascii_zero , 0x30
+        lib $r_netx , $net_x
+        lib $r_spacebar , $spacebar
+        lib $r_key_q , $key_q
+        liq $r_row , 0x100
+        liq $r_three_rows , ( 3 * 0x100 )
+        liq $r_min1 , $cursor_at[x=$p1x , row=$pad_min]
+        liq $r_max1 , $cursor_at[x=$p1x , row=$pad_max]
+        liq $r_min2 , $cursor_at[x=$p2x , row=$pad_min]
+        liq $r_max2 , $cursor_at[x=$p2x , row=$pad_max]
+        lih $r_keymap , $KEYMAP
+
+    # BRANCH TARGETS:
+        liq $r_loop , :loop
+        liq $r_keys , :keys
+        liq $r_read , :keys.read
+        liq $r_next_key , :keys.next_key
+        liq $r_check , :check
+        liq $r_stay1 , :stay1
+        liq $r_stay2 , :stay2
+        liq $r_up1 , :up1
+        liq $r_down1 , :down1
+        liq $r_up2 , :up2
+        liq $r_down2 , :down2
+        liq $r_post_hit , :post_hit
+        liq $r_prelude , :prelude
+        liq $r_goal1 , :goal1
+        liq $r_goal2 , :goal2
+        mov $r_loop , $r_exit
+
+    # BALL ROUTINES:
+        liq $r_go_ul_t , :ul_t
+        liq $r_go_ul_b , :ul_b
+        liq $r_go_ur_t , :ur_t
+        liq $r_go_ur_b , :ur_b
+        liq $r_go_dl_t , :dl_t
+        liq $r_go_dl_b , :dl_b
+        liq $r_go_dr_t , :dr_t
+        liq $r_go_dr_b , :dr_b
+        liq $r_go_nul_t , :nul_t
+        liq $r_go_nul_b , :nul_b
+        liq $r_go_nur_t , :nur_t
+        liq $r_go_nur_b , :nur_b
+        liq $r_go_ndl_t , :ndl_t
+        liq $r_go_ndl_b , :ndl_b
+        liq $r_go_ndr_t , :ndr_t
+        liq $r_go_ndr_b , :ndr_b
+
+        liq $r_sp_ul_t , :ul_t.special
+        liq $r_sp_ul_b , :ul_b.special
+        liq $r_sp_ur_t , :ur_t.special
+        liq $r_sp_ur_b , :ur_b.special
+        liq $r_sp_dl_t , :dl_t.special
+        liq $r_sp_dl_b , :dl_b.special
+        liq $r_sp_dr_t , :dr_t.special
+        liq $r_sp_dr_b , :dr_b.special
+
+    # BOARD STEPS: a step changes the half, and the row when it crosses a character edge
+        lih $r_by_ul_t , ( 0x10000 - 0x100 - 1 )
+        lih $r_by_ur_t , ( 0x10000 - 0x100 + 1 )
+        lih $r_by_dl_t , ( 0x10000 - 1 )
+        lih $r_by_dr_t , ( 0x10000 + 1 )
+        liw $r_by_ul_b , ( -0x10000 - 1 )
+        liw $r_by_ur_b , ( -0x10000 + 1 )
+        liw $r_by_dl_b , ( -0x10000 + 0x100 - 1 )
+        liw $r_by_dr_b , ( -0x10000 + 0x100 + 1 )
+
+    # KEY MAP (every other key is 0, which is key_none):
+        $bind[key=$key_w , routine=:key_w]
+        $bind[key=$key_s , routine=:key_s]
+        $bind[key=$key_i , routine=:key_i]
+        $bind[key=$key_k , routine=:key_k]
+        $bind[key=$key_q , routine=:key_q]
+
+    # BOARD:
+        liw $r_flag , ( 0x0101010101010101 * $mark_wall )
+        $wall_marks[from=$cell_at[x=0 , y=( $ymin - 1 )]]
+        $wall_marks[from=$cell_at[x=0 , y=( $ymin + $play_ph )]]
+
+        lib $r_paint , $mark_paddle
+        lib $r_curs , $net_x
+        lih $r_char , ( 0x10000 + $net_x )
+        lib $r_dptr , $p1x
+        lih $r_other , ( 0x10000 + $p1x )
+        lib $r_which4 , $p2x
+        lih $r_str , ( 0x10000 + $p2x )
+        lih $r_ptr , $cell_at[x=0 , y=$ymin]
+        lib $r_count , $height
+        liq $r_target , :columns
+        columns:
+            $column_mark[offset=$r_curs , mark=$r_net_mark]
+            $column_mark[offset=$r_char , mark=$r_net_mark]
+            $column_mark[offset=$r_dptr , mark=$r_paint]
+            $column_mark[offset=$r_other , mark=$r_paint]
+            $column_mark[offset=$r_which4 , mark=$r_paint]
+            $column_mark[offset=$r_str , mark=$r_paint]
+            add $r_ptr , $r_row , $r_ptr
+            dec $r_count
+            bnz $r_count , $r_target
+
+    # SEED THE RANDOM NUMBER GENERATOR:
+        ent $r_tmp
+        seed $r_tmp
+
+        liq $r_tmp , :new_game
+        jmp $r_tmp
+
+# ==================================================================================
+# TABLES
+# ==================================================================================
+
+    # The routine a serve starts, indexed by down * 2 + half. The ball starts in the net column.
+    SERVE_LEFT:
+        $addr16[label=:nul_t]
+        $addr16[label=:nul_b]
+        $addr16[label=:ndl_t]
+        $addr16[label=:ndl_b]
+    SERVE_RIGHT:
+        $addr16[label=:nur_t]
+        $addr16[label=:nur_b]
+        $addr16[label=:ndr_t]
+        $addr16[label=:ndr_b]
+
+    P1_LABEL:   # "P1 W/S"
+        db 0x50 , 0x31 , 0x20 , 0x57 , 0x2F , 0x53 , 0
+    P2_LABEL:   # "I/K P2"
+        db 0x49 , 0x2F , 0x4B , 0x20 , 0x50 , 0x32 , 0
+    P1_WINS:    # "PLAYER 1 WINS!"
+        db 0x50 , 0x4C , 0x41 , 0x59 , 0x45 , 0x52 , 0x20 , 0x31 , 0x20 , 0x57 , 0x49 , 0x4E , 0x53 , 0x21 , 0
+    P2_WINS:    # "PLAYER 2 WINS!"
+        db 0x50 , 0x4C , 0x41 , 0x59 , 0x45 , 0x52 , 0x20 , 0x32 , 0x20 , 0x57 , 0x49 , 0x4E , 0x53 , 0x21 , 0
+    AGAIN_TEXT: # "SPACE: AGAIN  Q: QUIT"
+        db 0x53 , 0x50 , 0x41 , 0x43 , 0x45 , 0x3A , 0x20 , 0x41 , 0x47 , 0x41 , 0x49 , 0x4E , 0x20 , 0x20 , 0x51 , 0x3A , 0x20 , 0x51 , 0x55 , 0x49 , 0x54 , 0
+
+    # Assembly fails with a division by zero if the key routines stop fitting in a byte
+    db ( :keys_end <= 256 ? 0 : 1 / 0 )
+
+    # The paddle code hard-codes Pong.bassm's edge rule (thirds of a 6 pixel paddle)
+    db ( $paddle_ph == 6 && $edge == 2 ? 0 : 1 / 0 )
+
+    # wall_marks marks 32 cells
+    db ( $width == 32 ? 0 : 1 / 0 )

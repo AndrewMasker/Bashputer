@@ -60,3 +60,4 @@ Fields are separated by spaces. The assembler writes up to 16 bytes per line. Ad
 | `Pong` | `0x05` | [`Pong.bassm`](../Assembler/Examples/Pong.bassm) | Claude Opus 5.5 | You press `q` |
 | `Showcase` | `0x06` | [`Showcase.bassm`](../Assembler/Examples/Showcase.bassm) | Claude Opus 5.5 | You press `q` |
 | `Snake` | `0x07` | [`Snake.bassm`](../Assembler/Examples/Snake.bassm) | Andrew Masker | You press `q` |
+| `FastPong` | `0x08` | [`FastPong.bassm`](../Assembler/Examples/FastPong.bassm) | Claude Opus 5.5 | You press `q` |
